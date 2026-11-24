@@ -1,0 +1,27 @@
+{
+  "name": "hellovalley",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/shared", "packages/client"],
+  "packageManager": "npm@11.16.0",
+  "engines": { "node": ">=26.13.0", "npm": ">=11.16.0 <12" },
+  "devEngines": {
+    "packageManager": { "name": "npm", "version": ">=11.16.0 <12", "onFail": "error" }
+  },
+  "allowScripts": {},
+  "scripts": {
+    "dev": "npm run dev -w @hellovalley/client",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "deps:check": "node scripts/check-dependencies.mjs",
+    "deps:audit": "npm audit"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}
