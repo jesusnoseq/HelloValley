@@ -36,9 +36,13 @@ blender --background --factory-startup --python-exit-code 1 \
 # The style-neutral kit (terrain, river, vegetation, props) into kits/common/:
 npm run assets:build -- --style common
 
+# The interior and furniture kit (room panels, furniture, shop interiors) into kits/interior/:
+npm run assets:build -- --style interior
+
 # Render the contact sheet (every module and variant, labelled) instead of exporting:
 npm run assets:contact-sheet                       # docs/art/european-kit-contact-sheet.png
 npm run assets:contact-sheet -- --style common     # docs/art/common-kit-contact-sheet.png
+npm run assets:contact-sheet -- --style interior   # docs/art/interior-kit-contact-sheet.png
 #   = npm run assets:build -- --no-optimize --contact-sheet auto [--style ...]
 
 # Print the plan without Blender:
@@ -46,7 +50,7 @@ python tools/blender/build.py -- --style europe --include-tests --dry-run
 ```
 
 `build.py` options: `--style` (`european`, or the alias `europe`; `common` for the
-style-neutral kit), `--out` (kits root; the kit goes to `<out>/<style>/`), `--modules`, `--include-tests`, `--seed`, `--strict` (fail on
+style-neutral kit; `interior` for the interior and furniture kit), `--out` (kits root; the kit goes to `<out>/<style>/`), `--modules`, `--include-tests`, `--seed`, `--strict` (fail on
 budget or bounds problems), `--no-atlas`, `--dry-run`, `--contact-sheet PNG` (render the
 selected modules to a PNG with EEVEE instead of exporting; `hvkit/blender/contact.py`). The npm wrapper adds `--no-optimize`.
 
@@ -83,7 +87,7 @@ the manifest is updated. `assets:build` runs it on the kits it just wrote.
   a positional noise that never moves vertices on the footprint box, so modules still meet.
 - **Manifest** (`kit-manifest.json`): `{version, generator, style, grid, atlas, modules[]}`,
   each module `{id, file, footprint {w, d, h}, variants, bounds {min, max}, sockets[], tris[],
-  tags[]}`. `tris` has one count per variant. The client validates it with
+  tags[], placement?}`. Furniture (M08) adds `placement {cell: 0.5, w, d, mount, againstWall}`. `tris` has one count per variant. The client validates it with
   `KitManifestSchema` from `@hellovalley/shared`.
 
 ## Europe kit (M05)
@@ -160,6 +164,54 @@ Conventions (details in `hvmodules/common/base.py`):
 The contact sheet is `docs/art/common-kit-contact-sheet.png`; `tools/blender/tests/test_common.py`
 checks the definitions and that the committed manifest is up to date.
 
+## Interior kit (M08)
+
+Interiors live in their own kit, `kits/interior/` (kit id `interior`, `INTERIOR_KIT_ID` in
+`packages/shared/src/assets/kit.ts`), with a warm indoor palette and atlas (floorboards, tiles,
+brick, fabric, straw...). Interiors are style-neutral: every town style uses this kit. Modules
+declare `styles = ("interior",)`. `hvmodules/interior/` generates 28 modules, 3 variants each
+(about 1.5 MB optimized, committed):
+
+| Group | Modules | Size | Budget (tris/variant) |
+|---|---|---|---|
+| Room floors | `floor.wood`, `floor.tile`, `floor.stone` | 1 x 1 cell | <= 400 |
+| Room walls | `iwall.plain`, `iwall.window`, `iwall.door` | 1 x 1 cell, 3 m | 150-600 |
+| Apartment | `bed` (1 x 2 m), `table` (1 x 1), `chair` (0.5 x 0.5), `sofa` (1.5 x 1), `wardrobe` (1 x 0.5), `mirror` (wall, 0.5), `kitchen.nook` (1.5 x 0.5, sink and stove), `shelf` (1 x 0.5), `plant.potted` (0.5 x 0.5), `rug` (1.5 x 1.5), `lamp.floor` (0.5 x 0.5), `lamp.table` (surface, 0.5 x 0.5), `painting` (wall, 1 m) | placement grid | <= 2000 |
+| Shops | `bakery.counter` (2 x 1), `bakery.oven` (1.5 x 1), `store.shelf` (2 x 0.5), `cafe.bar` (2 x 1), `clinic.desk` (1.5 x 1), `library.shelf` (1 x 0.5), `townhall.desk` (2 x 1), `barn.stall` (1.5 x 1.5), `barn.hay` (1 x 0.5) | placement grid | <= 2000 |
+
+Conventions (details in `hvmodules/interior/base.py`):
+
+- **Floor level** is the pivot plane. Floor panels are slabs from -0.06 m (`Module.sink_m`) to 0.
+- **Room walls** stand at the *back* of their cell: the panel fills `y in [0.9, 1]` (0.1 m thick)
+  and its room face (`y = 0.9`, socket `face`) looks towards -Y, the camera side. Line a room by
+  placing panels along its back and side edges, rotated in 90-degree steps; the cut-away
+  hides the walls facing the camera (TODO(M13)). Opening sizes are fixed per module (window
+  `x 0.2-0.8, z 1.0-2.2`, door `x 0.2-0.8, z 0-2.2`).
+- **Furniture** sets `Module.placement` (`hvkit.grid.Placement`): `w x d` cells of
+  `PLACEMENT_CELL_M = 0.5` m (GDD §4.2), a `mount` and `against_wall`. The 1 m footprint is
+  derived from it, the bounds check uses the placement box, and the manifest gets
+  `placement {cell, w, d, mount, againstWall}` (zod: `KitPlacementSchema`). Mounts: `floor`
+  (blocks its cells), `rug` (walkable, floor pieces may stand on it), `wall` (hangs on a wall;
+  its back plane `y = depth` is the wall face) and `surface` (stands on another piece's `top`
+  socket). The front of a piece is `y = 0`; `againstWall` pieces put their back edge on a
+  wall. Rotation turns the footprint (`rotatedPlacementCells`); the placement mode itself is
+  TODO(M17).
+- **Sockets**: every floor and wall piece has `use` (front edge, floor level, facing -Y), seats
+  `sit`/`sit_l`/`sit_r` at seat height (0.45 m, facing the way the sitter looks), the bed
+  `sleep`, tables and shelves `top`, lamps `light`, the kitchen `cook` and `sink`, and shop
+  counters `vendor` (behind the counter, where the NPC stands) and `counter` (front edge at
+  counter height, where the player trades).
+- **Furniture items** (`wooden_chair`, `small_table`, `floor_lamp`, `round_rug`, `potted_plant`,
+  `bookshelf`) map to a module and variant in `FURNITURE_ITEM_LOOKS`
+  (`packages/shared/src/assets/interior.ts`).
+- Materials: `atlas`, `glass` (mirrors, windows, display glass) and `glow` (lamp bulbs, the oven
+  fire, stove rings).
+
+Checks: `tools/blender/tests/test_interior.py` (placement maths and JSON, definitions, sockets,
+the TS mirrors, the committed manifest) and `packages/client/src/assets/interiorKit.test.ts`
+(manifest, budgets, placement on every furniture piece, bounds and sockets inside the placement
+box, every GLB). The contact sheet is `docs/art/interior-kit-contact-sheet.png`.
+
 ## Characters (M07)
 
 `--characters` builds the player/NPC character set (GDD §3) instead of a kit, into
@@ -219,6 +271,7 @@ hvchars/              M07 characters: body.py, animals.py, outfits.py, animation
   (framework side: hvkit/character.py, hvkit/charshapes.py, hvkit/blender/{charmesh,rig,characters}.py)
   europe/             M05 kit: common.py, walls.py, roofs.py, attachments.py, props.py
   common/             M06 style-neutral kit: base.py, ground.py, water.py, vegetation.py, props.py
+  interior/           M08 interior kit: base.py, parts.py, room.py, furniture.py, shops.py
 tests/                unittest suite for the pure-Python parts
 ```
 

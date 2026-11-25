@@ -18,8 +18,14 @@ export const KIT_MANIFEST_FILE = "kit-manifest.json";
  * Mirrors COMMON_KIT_ID in tools/blender/hvkit/styles.py.
  */
 export const COMMON_KIT_ID = "common";
-/** Every kit folder: one per town style plus the common kit. */
-export const KIT_IDS = [...STYLE_IDS, COMMON_KIT_ID] as const;
+/**
+ * The interior and furniture kit (M08: room floor and wall panels, apartment furniture and
+ * shop interiors) in `kits/interior/`. Loaded by interior scenes (TODO(M13)) and the apartment
+ * (TODO(M17)). Mirrors INTERIOR_KIT_ID in tools/blender/hvkit/styles.py.
+ */
+export const INTERIOR_KIT_ID = "interior";
+/** Every kit folder: one per town style plus the common and interior kits. */
+export const KIT_IDS = [...STYLE_IDS, COMMON_KIT_ID, INTERIOR_KIT_ID] as const;
 export type KitId = (typeof KIT_IDS)[number];
 export const KitIdSchema = z.enum(KIT_IDS);
 
@@ -42,6 +48,35 @@ const Vec3Schema = z.tuple([z.number(), z.number(), z.number()]);
 const UvRectSchema = z
   .tuple([z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1)])
   .refine(([u0, v0, u1, v1]) => u0 < u1 && v0 < v1, "an atlas rect needs u0 < u1 and v0 < v1");
+
+/**
+ * Furniture placement grid (GDD §4.2): furniture snaps to 0.5 m cells and turns in quarter
+ * turns. Keep in sync with PLACEMENT_CELL_M in tools/blender/hvkit/grid.py.
+ */
+export const PLACEMENT_CELL_M = 0.5;
+
+/**
+ * How a furniture piece is placed. `floor`: stands on the floor and blocks its cells. `rug`:
+ * lies flat on the floor; players walk over it and floor pieces may stand on it. `wall`: hangs
+ * on a wall (its back edge is the wall) and leaves the floor free. `surface`: stands on another
+ * piece's `top` socket (a lamp on a table).
+ */
+export const PLACEMENT_MOUNTS = ["floor", "rug", "wall", "surface"] as const;
+export type PlacementMount = (typeof PLACEMENT_MOUNTS)[number];
+
+/**
+ * The placement footprint of a furniture piece, in `cell`-metre cells (`w` along x, `d` along the
+ * depth) in the module frame: the piece covers x in [0, w * cell] and z in [-d * cell, 0], with
+ * its front at z = 0 and its back edge at z = -d * cell. `againstWall` pieces (wardrobes, beds,
+ * shelves, stoves) must have that back edge on a wall.
+ */
+export const KitPlacementSchema = z.object({
+  cell: z.literal(PLACEMENT_CELL_M),
+  w: z.number().int().min(1),
+  d: z.number().int().min(1),
+  mount: z.enum(PLACEMENT_MOUNTS),
+  againstWall: z.boolean(),
+});
 
 export const SOCKET_KINDS = ["stack", "attach", "edge", "prop"] as const;
 
@@ -69,6 +104,8 @@ export const KitModuleSchema = z
     /** Triangles per variant. */
     tris: z.array(z.number().int().min(0)),
     tags: z.array(z.string()).default([]),
+    /** Furniture only (the interior kit): the footprint on the 0.5 m placement grid. */
+    placement: KitPlacementSchema.optional(),
   })
   .refine((m) => m.tris.length === m.variants, { message: "tris needs one count per variant", path: ["tris"] })
   .refine((m) => m.bounds.min.every((lo, i) => lo <= (m.bounds.max[i] ?? lo)), {
@@ -78,7 +115,11 @@ export const KitModuleSchema = z
   .refine((m) => new Set(m.sockets.map((s) => s.name)).size === m.sockets.length, {
     message: "socket names must be unique",
     path: ["sockets"],
-  });
+  })
+  .refine(
+    (m) => !m.placement || (m.placement.w * m.placement.cell <= m.footprint.w * CELL_M && m.placement.d * m.placement.cell <= m.footprint.d * CELL_M),
+    { message: "the placement footprint must fit inside the module footprint", path: ["placement"] },
+  );
 
 export const KitAtlasSchema = z.object({
   /** Shared texture for every module of the kit: png from Blender, ktx2/webp after optimizing. */
@@ -103,6 +144,7 @@ export const KitManifestSchema = z
     path: ["modules"],
   });
 
+export type KitPlacement = z.infer<typeof KitPlacementSchema>;
 export type KitSocket = z.infer<typeof KitSocketSchema>;
 export type KitModule = z.infer<typeof KitModuleSchema>;
 export type KitAtlas = z.infer<typeof KitAtlasSchema>;
@@ -132,4 +174,23 @@ export function isKitVariantExtras(value: unknown): value is KitVariantExtras {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return typeof v.hv_module === "string" && typeof v.hv_variant === "number" && Number.isInteger(v.hv_variant);
+}
+
+/** Quarter-turn rotations of placed furniture (degrees, as in `users/{uid}/apartment/layout`). */
+export type PlacementRotation = 0 | 90 | 180 | 270;
+
+/** The size in metres of a placement footprint. */
+export function placementSizeM(placement: { w: number; d: number; cell: number }): { w: number; d: number } {
+  return { w: placement.w * placement.cell, d: placement.d * placement.cell };
+}
+
+/** Grid cells a placement footprint covers after a quarter-turn rotation (`w` and `d` swap at
+ * 90 and 270 degrees). TODO(M17): occupancy and overlap checks for the placement mode. */
+export function rotatedPlacementCells(placement: Pick<KitPlacement, "w" | "d">, rot: PlacementRotation): { w: number; d: number } {
+  return rot === 90 || rot === 270 ? { w: placement.d, d: placement.w } : { w: placement.w, d: placement.d };
+}
+
+/** Whether a placed piece takes floor cells away from walking and from other floor pieces. */
+export function placementBlocksFloor(placement: Pick<KitPlacement, "mount">): boolean {
+  return placement.mount === "floor";
 }

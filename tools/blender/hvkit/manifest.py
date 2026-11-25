@@ -51,7 +51,7 @@ def module_entry(module: Module, results: Sequence[VariantResult], file: Optiona
         raise ValueError(f"{module.id}: expected {module.variants} variant results, got {len(results)}")
     lo, hi = grid.union_bounds((r.bounds_min, r.bounds_max) for r in results)
     glo, ghi = grid.blender_bounds_to_gltf(lo, hi)
-    return {
+    entry: Dict[str, Any] = {
         "id": module.id,
         "file": file or module.file_name,
         "footprint": module.footprint.to_json(),
@@ -61,6 +61,9 @@ def module_entry(module: Module, results: Sequence[VariantResult], file: Optiona
         "tris": [int(r.tris) for r in results],
         "tags": list(module.tags),
     }
+    if module.placement is not None:
+        entry["placement"] = module.placement.to_json()
+    return entry
 
 
 def atlas_entry(file: str, size: int, tiles_blender_uv: Dict[str, Sequence[float]]) -> Dict[str, Any]:
@@ -182,6 +185,27 @@ def validate_manifest(m: Any) -> List[str]:
                     errors.append(f"{label}: socket {s['name']} needs pos and normal vec3")
         if not isinstance(e.get("tags", []), list):
             errors.append(f"{label}: tags must be a list")
+        if "placement" in e:
+            errors += _placement_errors(label, e["placement"], fp)
+    return errors
+
+
+def _placement_errors(label: str, p: Any, fp: Any) -> List[str]:
+    if not isinstance(p, dict):
+        return [f"{label}: placement must be an object"]
+    errors: List[str] = []
+    if p.get("cell") != grid.PLACEMENT_CELL_M:
+        errors.append(f"{label}: placement.cell must be {grid.PLACEMENT_CELL_M}")
+    sizes = [p.get(k) for k in ("w", "d")]
+    if not all(isinstance(v, int) and not isinstance(v, bool) and v >= 1 for v in sizes):
+        errors.append(f"{label}: placement needs integer w, d >= 1")
+    elif isinstance(fp, dict) and all(isinstance(fp.get(k), int) for k in ("w", "d")):
+        if p["w"] * grid.PLACEMENT_CELL_M > fp["w"] * grid.CELL_M or p["d"] * grid.PLACEMENT_CELL_M > fp["d"] * grid.CELL_M:
+            errors.append(f"{label}: placement does not fit the footprint")
+    if p.get("mount") not in grid.PLACEMENT_MOUNTS:
+        errors.append(f"{label}: placement.mount must be one of {', '.join(grid.PLACEMENT_MOUNTS)}")
+    if not isinstance(p.get("againstWall"), bool):
+        errors.append(f"{label}: placement.againstWall must be a boolean")
     return errors
 
 

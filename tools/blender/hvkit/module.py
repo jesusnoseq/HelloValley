@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type
 
 from . import grid
-from .grid import EPSILON, Footprint, Vec3
+from .grid import EPSILON, Footprint, Placement, Vec3
 from .variants import DEFAULT_SEED, DEFAULT_VARIANTS, VariantRng
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -76,6 +76,9 @@ class Module:
     ``canopy`` material and no other mesh uses it (checked after every build)."""
     trunk: bool = False
     """With ``canopy``: the module also needs at least one non-canopy mesh (a tree trunk)."""
+    placement: Optional[Placement] = None
+    """Furniture (M08): the footprint on the 0.5 m placement grid, written to the manifest.
+    The geometry must then stay inside the placement box, not just the 1 m footprint."""
 
     # --- metadata ------------------------------------------------------------------------
 
@@ -90,8 +93,11 @@ class Module:
         return VariantRng.for_variant(style_id, self.id, variant, base_seed)
 
     def nominal_bounds(self) -> Tuple[Vec3, Vec3]:
-        """Blender-space footprint box (pivot at the origin), extended down by ``sink_m``."""
+        """Blender-space footprint box (pivot at the origin), extended down by ``sink_m``. For
+        furniture it is the placement box (``placement.width_m`` x ``placement.depth_m``)."""
         lo, hi = grid.footprint_bounds_blender(self.footprint)
+        if self.placement is not None:
+            hi = (self.placement.width_m, self.placement.depth_m, hi[2])
         return (lo[0], lo[1], lo[2] - self.sink_m), hi
 
     def definition_errors(self) -> List[str]:
@@ -112,6 +118,10 @@ class Module:
             errors.append(f"{label}: trunk needs canopy")
         if self.canopy and "canopy" not in self.tags:
             errors.append(f"{label}: canopy modules need the 'canopy' tag")
+        if self.placement is not None:
+            expected = self.placement.footprint(self.footprint.h)
+            if (self.footprint.w, self.footprint.d) != (expected.w, expected.d):
+                errors.append(f"{label}: footprint must be {expected.w}x{expected.d} cells to hold its placement")
         names = [s.name for s in self.sockets]
         if len(set(names)) != len(names):
             errors.append(f"{label}: socket names must be unique")

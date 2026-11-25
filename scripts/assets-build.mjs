@@ -48,7 +48,7 @@ export function findBlender() {
   return null;
 }
 
-const STYLE_ALIASES = { europe: "european", eu: "european", med: "mediterranean", arab: "arabic", japan: "japanese", jp: "japanese", shared: "common", neutral: "common" };
+const STYLE_ALIASES = { europe: "european", eu: "european", med: "mediterranean", arab: "arabic", japan: "japanese", jp: "japanese", shared: "common", neutral: "common", interiors: "interior", furniture: "interior" };
 
 function flagValue(args, flag) {
   const i = args.findIndex((a) => a === flag || a.startsWith(`${flag}=`));

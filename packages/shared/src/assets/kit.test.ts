@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { CELL_M, isKitVariantExtras, KitManifestSchema, ModuleIdSchema, parseKitManifest, STOREY_M } from "./kit";
+import {
+  CELL_M,
+  isKitVariantExtras,
+  KitManifestSchema,
+  ModuleIdSchema,
+  PLACEMENT_CELL_M,
+  parseKitManifest,
+  placementBlocksFloor,
+  placementSizeM,
+  rotatedPlacementCells,
+  STOREY_M,
+} from "./kit";
 
 const cube = {
   id: "test.cube",
@@ -13,6 +24,16 @@ const cube = {
   ],
   tris: [108, 108, 108],
   tags: ["test"],
+};
+
+const bed = {
+  ...cube,
+  id: "bed",
+  file: "bed.glb",
+  footprint: { w: 1, d: 2, h: 1.1 },
+  bounds: { min: [0, 0, -2], max: [1, 1.1, 0] },
+  tags: ["furniture"],
+  placement: { cell: 0.5, w: 2, d: 4, mount: "floor", againstWall: true },
 };
 
 const manifest = {
@@ -52,8 +73,30 @@ describe("kit manifest schema", () => {
     ["file type", { ...manifest, modules: [{ ...cube, file: "cube.fbx" }] }],
     ["footprint", { ...manifest, modules: [{ ...cube, footprint: { w: 0, d: 1, h: 1 } }] }],
     ["vec3", { ...manifest, modules: [{ ...cube, bounds: { min: [0, 0], max: [1, 1, 0] } }] }],
+    ["placement cell", { ...manifest, modules: [{ ...bed, placement: { ...bed.placement, cell: 1 } }] }],
+    ["placement mount", { ...manifest, modules: [{ ...bed, placement: { ...bed.placement, mount: "ceiling" } }] }],
+    ["placement size", { ...manifest, modules: [{ ...bed, placement: { ...bed.placement, w: 0 } }] }],
+    ["placement fit", { ...manifest, modules: [{ ...bed, placement: { ...bed.placement, d: 5 } }] }],
+    ["placement flag", { ...manifest, modules: [{ ...bed, placement: { ...bed.placement, againstWall: undefined } }] }],
   ])("rejects a bad %s", (_label, bad) => {
     expect(KitManifestSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it("accepts furniture with a placement footprint", () => {
+    const parsed = parseKitManifest({ ...manifest, style: "interior", modules: [cube, bed] });
+    expect(parsed.modules[0]?.placement).toBeUndefined();
+    expect(parsed.modules[1]?.placement).toEqual({ cell: PLACEMENT_CELL_M, w: 2, d: 4, mount: "floor", againstWall: true });
+  });
+
+  it("measures and rotates placement footprints", () => {
+    expect(PLACEMENT_CELL_M).toBe(0.5);
+    expect(placementSizeM(bed.placement)).toEqual({ w: 1, d: 2 });
+    expect(rotatedPlacementCells(bed.placement, 0)).toEqual({ w: 2, d: 4 });
+    expect(rotatedPlacementCells(bed.placement, 90)).toEqual({ w: 4, d: 2 });
+    expect(rotatedPlacementCells(bed.placement, 180)).toEqual({ w: 2, d: 4 });
+    expect(rotatedPlacementCells(bed.placement, 270)).toEqual({ w: 4, d: 2 });
+    expect(placementBlocksFloor({ mount: "floor" })).toBe(true);
+    for (const mount of ["rug", "wall", "surface"] as const) expect(placementBlocksFloor({ mount })).toBe(false);
   });
 
   it("validates module ids", () => {

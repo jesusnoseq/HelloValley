@@ -1,11 +1,12 @@
 """Triangle budgets per kit module (GDD §7.2), mirrored by ``KIT_TRI_BUDGETS`` and
 ``kitBudgetClass`` in packages/shared/src/assets/budgets.ts (a Python test keeps them equal).
 
-- ``wall``: wall and corner modules, 150-600 triangles (GDD).
-- ``tile``: ground tiles (``tile.*``, ``terrain.*``). They repeat hundreds of times, so they get
-  a tighter cap than the GDD's hero-prop limit.
+- ``wall``: wall and corner modules, and interior wall panels (``iwall.*``), 150-600 triangles
+  (GDD).
+- ``tile``: ground and floor tiles (``tile.*``, ``terrain.*``, ``floor.*``). They repeat hundreds
+  of times, so they get a tighter cap than the GDD's hero-prop limit.
 - ``plant``: trees, bushes and flowers. They are instanced many times across the town.
-- ``prop``: everything else (roofs, attachments, props, river pieces), up to 2k (GDD).
+- ``prop``: everything else (roofs, attachments, props, river pieces, furniture), up to 2k (GDD).
 """
 
 from __future__ import annotations
@@ -29,6 +30,8 @@ _FAMILY_CLASS = {
     "corner": "wall",
     "tile": "tile",
     "terrain": "tile",
+    "floor": "tile",
+    "iwall": "wall",
     "tree": "plant",
     "bush": "plant",
     "flowers": "plant",

@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  isRoomPanelModuleId,
   isTreeModuleId,
   KIT_BUILDING_MODULE_IDS,
   KIT_COMMON_MODULE_IDS,
+  KIT_INTERIOR_MODULE_IDS,
   kitBudgetClass,
   kitBudgetViolations,
   kitCompletenessProblems,
   kitTriBudget,
 } from "./budgets";
-import { COMMON_KIT_ID, KIT_IDS, KitIdSchema, ModuleIdSchema } from "./kit";
+import { COMMON_KIT_ID, INTERIOR_KIT_ID, KIT_IDS, KitIdSchema, ModuleIdSchema } from "./kit";
 
 describe("kit triangle budgets", () => {
   it("follows GDD §7.2", () => {
@@ -68,7 +70,7 @@ describe("kit completeness", () => {
 
 describe("common kit", () => {
   it("is a kit id next to the four styles", () => {
-    expect(KIT_IDS).toEqual(["european", "mediterranean", "arabic", "japanese", "common"]);
+    expect(KIT_IDS).toEqual(["european", "mediterranean", "arabic", "japanese", "common", "interior"]);
     expect(KitIdSchema.parse(COMMON_KIT_ID)).toBe("common");
     expect(KitIdSchema.safeParse("europe").success).toBe(false);
   });
@@ -93,5 +95,34 @@ describe("common kit", () => {
     expect(kitCompletenessProblems({ modules: modules.slice(1) as never }, 3, KIT_COMMON_MODULE_IDS)).toEqual([
       "terrain.grass: missing",
     ]);
+  });
+});
+
+describe("interior kit", () => {
+  it("is a kit id", () => {
+    expect(KitIdSchema.parse(INTERIOR_KIT_ID)).toBe("interior");
+  });
+
+  it("lists the M08 modules with valid, unique ids that no other kit uses", () => {
+    expect(new Set(KIT_INTERIOR_MODULE_IDS).size).toBe(KIT_INTERIOR_MODULE_IDS.length);
+    for (const id of KIT_INTERIOR_MODULE_IDS) expect(ModuleIdSchema.safeParse(id).success).toBe(true);
+    const others = new Set<string>([...KIT_BUILDING_MODULE_IDS, ...KIT_COMMON_MODULE_IDS]);
+    expect(KIT_INTERIOR_MODULE_IDS.filter((id) => others.has(id))).toEqual([]);
+    expect(KIT_INTERIOR_MODULE_IDS.filter(isRoomPanelModuleId)).toEqual([
+      "floor.wood",
+      "floor.tile",
+      "floor.stone",
+      "iwall.plain",
+      "iwall.window",
+      "iwall.door",
+    ]);
+  });
+
+  it("budgets floors as tiles, wall panels as walls and furniture as props", () => {
+    expect(kitBudgetClass("floor.wood")).toBe("tile");
+    expect(kitBudgetClass("iwall.window")).toBe("wall");
+    expect(kitTriBudget("iwall.door")).toEqual({ min: 150, max: 600 });
+    expect(kitBudgetClass("bakery.oven")).toBe("prop");
+    expect(kitBudgetClass("plant.potted")).toBe("prop");
   });
 });

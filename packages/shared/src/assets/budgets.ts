@@ -2,7 +2,8 @@ import type { KitManifest, KitModule } from "./kit";
 
 /**
  * Triangle budgets per kit module (GDD §7.2): a wall module is 150–600 triangles (corners
- * count as walls), hero props stay at or under 2k, and ground tiles (`tile.*`, `terrain.*`),
+ * count as walls, and so do interior wall panels, `iwall.*`), hero props and furniture stay at or
+ * under 2k, and ground and floor tiles (`tile.*`, `terrain.*`, `floor.*`),
  * which repeat hundreds of times, get a tighter cap, as do instanced plants (trees, bushes,
  * flowers). Mirrored by tools/blender/hvkit/budgets.py.
  */
@@ -87,6 +88,48 @@ export const KIT_COMMON_MODULE_IDS = [
   "market_stall",
 ] as const;
 
+/**
+ * Modules of the interior kit (build plan M08): room floor and wall panels on the 1 m grid,
+ * apartment furniture and shop interiors. Every module except the `floor.*` and `iwall.*`
+ * panels is furniture and declares a `placement` footprint on the 0.5 m grid.
+ */
+export const KIT_INTERIOR_MODULE_IDS = [
+  "floor.wood",
+  "floor.tile",
+  "floor.stone",
+  "iwall.plain",
+  "iwall.window",
+  "iwall.door",
+  "bed",
+  "table",
+  "chair",
+  "sofa",
+  "wardrobe",
+  "mirror",
+  "kitchen.nook",
+  "shelf",
+  "plant.potted",
+  "rug",
+  "lamp.floor",
+  "lamp.table",
+  "painting",
+  "bakery.counter",
+  "bakery.oven",
+  "store.shelf",
+  "cafe.bar",
+  "clinic.desk",
+  "library.shelf",
+  "townhall.desk",
+  "barn.stall",
+  "barn.hay",
+] as const;
+
+/** Interior room panels (floors and walls on the 1 m building grid); the rest of the interior
+ * kit is furniture. */
+export function isRoomPanelModuleId(moduleId: string): boolean {
+  return moduleId.startsWith("floor.") || moduleId.startsWith("iwall.");
+}
+
 /** Tree modules: each variant has a trunk mesh plus a separate canopy mesh and material. */
 export function isTreeModuleId(moduleId: string): boolean {
   return moduleId.startsWith("tree.");
@@ -97,6 +140,8 @@ const FAMILY_CLASS: Record<string, KitBudgetClass> = {
   corner: "wall",
   tile: "tile",
   terrain: "tile",
+  floor: "tile",
+  iwall: "wall",
   tree: "plant",
   bush: "plant",
   flowers: "plant",

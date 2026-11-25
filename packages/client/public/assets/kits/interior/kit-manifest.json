@@ -1,0 +1,2034 @@
+{
+  "version": 1,
+  "generator": "hellovalley-blender/1",
+  "style": "interior",
+  "grid": {
+    "cell": 1,
+    "storey": 3
+  },
+  "atlas": {
+    "file": "atlas.webp",
+    "size": 512,
+    "tiles": {
+      "brick": [
+        0.507812,
+        0.257812,
+        0.742188,
+        0.492188
+      ],
+      "fabric": [
+        0.757812,
+        0.257812,
+        0.992188,
+        0.492188
+      ],
+      "floorboards": [
+        0.007812,
+        0.257812,
+        0.242188,
+        0.492188
+      ],
+      "leaves": [
+        0.007812,
+        0.507812,
+        0.242188,
+        0.742188
+      ],
+      "plain": [
+        0.007812,
+        0.007812,
+        0.242188,
+        0.242188
+      ],
+      "plaster": [
+        0.257812,
+        0.007812,
+        0.492188,
+        0.242188
+      ],
+      "stone": [
+        0.757812,
+        0.007812,
+        0.992188,
+        0.242188
+      ],
+      "straw": [
+        0.257812,
+        0.507812,
+        0.492188,
+        0.742188
+      ],
+      "tiles": [
+        0.257812,
+        0.257812,
+        0.492188,
+        0.492188
+      ],
+      "wood": [
+        0.507812,
+        0.007812,
+        0.742188,
+        0.242188
+      ]
+    }
+  },
+  "modules": [
+    {
+      "id": "bakery.counter",
+      "file": "bakery.counter.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 1.35
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.6233
+        ],
+        "max": [
+          2,
+          1.3239,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "vendor",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -0.8
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "counter",
+          "kind": "prop",
+          "pos": [
+            1,
+            0.9,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        704,
+        848,
+        1280
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "bakery",
+        "counter"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 4,
+        "d": 2,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "bakery.oven",
+      "file": "bakery.oven.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 2.4
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0169,
+          0,
+          -1
+        ],
+        "max": [
+          1.4827,
+          2.4,
+          -0.036
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "fire",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0.75,
+            -0.3
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        412,
+        252,
+        404
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "bakery",
+        "light"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 3,
+        "d": 2,
+        "mount": "floor",
+        "againstWall": true
+      }
+    },
+    {
+      "id": "barn.hay",
+      "file": "barn.hay.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.15
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0266,
+          0,
+          -0.454
+        ],
+        "max": [
+          0.9737,
+          1.1221,
+          -0.046
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        136,
+        132,
+        172
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "barn"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 2,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "barn.stall",
+      "file": "barn.stall.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 1.3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1.5
+        ],
+        "max": [
+          1.5,
+          1.3,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "animal",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0,
+            -0.8
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        720,
+        692,
+        808
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "barn"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 3,
+        "d": 3,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "bed",
+      "file": "bed.glb",
+      "footprint": {
+        "w": 1,
+        "d": 2,
+        "h": 1.15
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -2
+        ],
+        "max": [
+          1,
+          1.1216,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sleep",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0.55,
+            -1.2
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        640,
+        768,
+        596
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "bed"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 2,
+        "d": 4,
+        "mount": "floor",
+        "againstWall": true
+      }
+    },
+    {
+      "id": "cafe.bar",
+      "file": "cafe.bar.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 1.42
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.6739
+        ],
+        "max": [
+          2,
+          1.4039,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "vendor",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -0.8
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "counter",
+          "kind": "prop",
+          "pos": [
+            1,
+            1,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        952,
+        952,
+        952
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "cafe",
+        "counter"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 4,
+        "d": 2,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "chair",
+      "file": "chair.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.05
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0462,
+          0,
+          -0.4536
+        ],
+        "max": [
+          0.4533,
+          1.029,
+          -0.0483
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.25,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sit",
+          "kind": "prop",
+          "pos": [
+            0.25,
+            0.45,
+            -0.25
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        164,
+        200,
+        344
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "seat"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 1,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "clinic.desk",
+      "file": "clinic.desk.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 1.3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.8038
+        ],
+        "max": [
+          1.5,
+          1.29,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "vendor",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0,
+            -0.8
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "counter",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            1.05,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        652,
+        652,
+        580
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "clinic",
+        "counter"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 3,
+        "d": 2,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "floor.stone",
+      "file": "floor.stone.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.06,
+          -1
+        ],
+        "max": [
+          1,
+          0,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        276,
+        276,
+        188
+      ],
+      "tags": [
+        "floor",
+        "room",
+        "shop"
+      ]
+    },
+    {
+      "id": "floor.tile",
+      "file": "floor.tile.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.06,
+          -1
+        ],
+        "max": [
+          1,
+          0,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        204,
+        204,
+        60
+      ],
+      "tags": [
+        "floor",
+        "room",
+        "shop"
+      ]
+    },
+    {
+      "id": "floor.wood",
+      "file": "floor.wood.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.06,
+          -1
+        ],
+        "max": [
+          1,
+          0,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        92,
+        72,
+        52
+      ],
+      "tags": [
+        "floor",
+        "room",
+        "apartment"
+      ]
+    },
+    {
+      "id": "iwall.door",
+      "file": "iwall.door.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          3,
+          -0.8561
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.95
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.95
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.95
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "face",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.5,
+            -0.9
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "doorway",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.9
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        568,
+        504,
+        488
+      ],
+      "tags": [
+        "wall",
+        "room",
+        "door"
+      ]
+    },
+    {
+      "id": "iwall.plain",
+      "file": "iwall.plain.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          3,
+          -0.8574
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.95
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.95
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.95
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "face",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.5,
+            -0.9
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        272,
+        284,
+        236
+      ],
+      "tags": [
+        "wall",
+        "room"
+      ]
+    },
+    {
+      "id": "iwall.window",
+      "file": "iwall.window.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          3,
+          -0.7742
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.95
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.95
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.95
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "face",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.5,
+            -0.9
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sill",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            1,
+            -0.84
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        532,
+        504,
+        536
+      ],
+      "tags": [
+        "wall",
+        "room",
+        "window"
+      ]
+    },
+    {
+      "id": "kitchen.nook",
+      "file": "kitchen.nook.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 2.2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.5
+        ],
+        "max": [
+          1.5,
+          2.2,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "cook",
+          "kind": "prop",
+          "pos": [
+            1.15,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sink",
+          "kind": "prop",
+          "pos": [
+            0.35,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        1208,
+        872,
+        812
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "kitchen",
+        "interactive"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 3,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": true
+      }
+    },
+    {
+      "id": "lamp.floor",
+      "file": "lamp.floor.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.65
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0561,
+          0,
+          -0.453
+        ],
+        "max": [
+          0.4561,
+          1.6038,
+          -0.0447
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.25,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "light",
+          "kind": "prop",
+          "pos": [
+            0.25,
+            1.4,
+            -0.25
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        128,
+        120,
+        144
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "lamp",
+        "light"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 1,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "lamp.table",
+      "file": "lamp.table.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.55
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0978,
+          0,
+          -0.41
+        ],
+        "max": [
+          0.4022,
+          0.5029,
+          -0.09
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            0.25,
+            0,
+            -0.25
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "light",
+          "kind": "prop",
+          "pos": [
+            0.25,
+            0.42,
+            -0.25
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        192,
+        148,
+        216
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "lamp",
+        "light"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 1,
+        "d": 1,
+        "mount": "surface",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "library.shelf",
+      "file": "library.shelf.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 2.6
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.5
+        ],
+        "max": [
+          1,
+          2.6,
+          -0.0069
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        1552,
+        1488,
+        1580
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "library",
+        "storage"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 2,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": true
+      }
+    },
+    {
+      "id": "mirror",
+      "file": "mirror.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.85
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0194,
+          0.8478,
+          -0.5
+        ],
+        "max": [
+          0.4832,
+          1.8126,
+          -0.4008
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.25,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "glass",
+          "kind": "attach",
+          "pos": [
+            0.25,
+            1.35,
+            -0.44
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        136,
+        88,
+        96
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "wall_mounted",
+        "interactive"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 1,
+        "d": 1,
+        "mount": "wall",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "painting",
+      "file": "painting.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.95
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0467,
+          1.1466,
+          -0.5
+        ],
+        "max": [
+          0.9737,
+          1.8517,
+          -0.4563
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.5,
+            -0.5
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        132,
+        152,
+        240
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "wall_mounted",
+        "decor"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 2,
+        "d": 1,
+        "mount": "wall",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "plant.potted",
+      "file": "plant.potted.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.35
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0404,
+          0,
+          -0.4321
+        ],
+        "max": [
+          0.4387,
+          1.2969,
+          -0.0664
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.25,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        416,
+        236,
+        454
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "plant"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 1,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "rug",
+      "file": "rug.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 0.02
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.03,
+          0,
+          -1.47
+        ],
+        "max": [
+          1.47,
+          0.018,
+          -0.03
+        ]
+      },
+      "sockets": [
+        {
+          "name": "center",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0,
+            -0.75
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        368,
+        180,
+        108
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "rug"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 3,
+        "d": 3,
+        "mount": "rug",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "shelf",
+      "file": "shelf.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.8
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0165,
+          0,
+          -0.5
+        ],
+        "max": [
+          0.9838,
+          1.8,
+          -0.1561
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            1.8,
+            -0.33
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        920,
+        996,
+        700
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "storage"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 2,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": true
+      }
+    },
+    {
+      "id": "sofa",
+      "file": "sofa.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 0.88
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.9636
+        ],
+        "max": [
+          1.5,
+          0.8434,
+          -0.0465
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.75,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sit_l",
+          "kind": "prop",
+          "pos": [
+            0.48,
+            0.45,
+            -0.4
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sit_r",
+          "kind": "prop",
+          "pos": [
+            1.02,
+            0.45,
+            -0.4
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        740,
+        832,
+        732
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "seat"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 3,
+        "d": 2,
+        "mount": "floor",
+        "againstWall": true
+      }
+    },
+    {
+      "id": "store.shelf",
+      "file": "store.shelf.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.5
+        ],
+        "max": [
+          2,
+          1.9535,
+          -0.115
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        1688,
+        1388,
+        1436
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "store",
+        "storage"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 4,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": true
+      }
+    },
+    {
+      "id": "table",
+      "file": "table.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0112,
+          0,
+          -0.9885
+        ],
+        "max": [
+          0.9889,
+          1.0744,
+          -0.0134
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.78,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        104,
+        308,
+        296
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "table"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 2,
+        "d": 2,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "townhall.desk",
+      "file": "townhall.desk.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 1.5
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.8039
+        ],
+        "max": [
+          2,
+          1.453,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "vendor",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -0.8
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "counter",
+          "kind": "prop",
+          "pos": [
+            1,
+            0.85,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        572,
+        596,
+        536
+      ],
+      "tags": [
+        "furniture",
+        "shop",
+        "townhall",
+        "counter"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 4,
+        "d": 2,
+        "mount": "floor",
+        "againstWall": false
+      }
+    },
+    {
+      "id": "wardrobe",
+      "file": "wardrobe.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.5
+        ],
+        "max": [
+          1,
+          2,
+          -0.0068
+        ]
+      },
+      "sockets": [
+        {
+          "name": "use",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        276,
+        264,
+        404
+      ],
+      "tags": [
+        "furniture",
+        "apartment",
+        "storage"
+      ],
+      "placement": {
+        "cell": 0.5,
+        "w": 2,
+        "d": 1,
+        "mount": "floor",
+        "againstWall": true
+      }
+    }
+  ]
+}

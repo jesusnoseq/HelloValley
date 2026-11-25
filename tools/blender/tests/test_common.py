@@ -9,7 +9,7 @@ from hvkit import budgets, solids
 from hvkit import manifest as mf
 from hvkit.atlas import render_atlas
 from hvkit.module import CANOPY_MATERIAL, CANOPY_PART, get_module, select_modules
-from hvkit.styles import COMMON_KIT_ID, KIT_IDS, STYLE_IDS, get_style
+from hvkit.styles import COMMON_KIT_ID, INTERIOR_KIT_ID, KIT_IDS, STYLE_IDS, get_style
 from hvmodules.common import base, ground, vegetation, water
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -46,7 +46,7 @@ class CommonModulesTest(unittest.TestCase):
     def test_kit_ids_match_shared(self):
         src = read("packages", "shared", "src", "assets", "kit.ts")
         self.assertIn(f'COMMON_KIT_ID = "{COMMON_KIT_ID}"', src)
-        self.assertEqual(KIT_IDS, STYLE_IDS + (COMMON_KIT_ID,))
+        self.assertEqual(KIT_IDS, STYLE_IDS + (COMMON_KIT_ID, INTERIOR_KIT_ID))
         self.assertIn(f'KIT_CANOPY_PART = "{CANOPY_PART}"', src)
 
     def test_budgets_match_shared(self):

@@ -9,6 +9,10 @@ this). The kit folder is named after the id: ``kits/european/``. The build plan'
 bridge, dock, fountain, vegetation and generic props, M06), built into ``kits/common/`` with
 its own neutral palette and atlas. The client loads it next to whichever style kit the player
 uses (``COMMON_KIT_ID`` in ``packages/shared/src/assets/kit.ts``).
+
+``interior`` is the interior and furniture kit (M08): room floor and wall panels, apartment
+furniture and shop interiors, built into ``kits/interior/`` with a warm indoor palette
+(``INTERIOR_KIT_ID``). Interiors are style-neutral: every town style uses the same kit.
 """
 
 from __future__ import annotations
@@ -23,7 +27,9 @@ from .variants import DEFAULT_SEED
 STYLE_IDS: Tuple[str, ...] = ("european", "mediterranean", "arabic", "japanese")
 COMMON_KIT_ID = "common"
 """The style-neutral kit (M06). Not a player-selectable style."""
-KIT_IDS: Tuple[str, ...] = STYLE_IDS + (COMMON_KIT_ID,)
+INTERIOR_KIT_ID = "interior"
+"""The interior and furniture kit (M08). Not a player-selectable style."""
+KIT_IDS: Tuple[str, ...] = STYLE_IDS + (COMMON_KIT_ID, INTERIOR_KIT_ID)
 
 STYLE_ALIASES: Mapping[str, str] = {
     "europe": "european",
@@ -35,6 +41,8 @@ STYLE_ALIASES: Mapping[str, str] = {
     "jp": "japanese",
     "shared": COMMON_KIT_ID,
     "neutral": COMMON_KIT_ID,
+    "interiors": INTERIOR_KIT_ID,
+    "furniture": INTERIOR_KIT_ID,
 }
 
 # Tiles every style atlas has, in this order, so shared (style-neutral) modules can always
@@ -166,7 +174,58 @@ COMMON = StyleParams(
     colour_jitter=0.07,
 )
 
-_STYLES: Dict[str, StyleParams] = {"european": EUROPEAN, COMMON_KIT_ID: COMMON}
+INTERIOR = StyleParams(
+    id=INTERIOR_KIT_ID,
+    english_name="Interiors and furniture",
+    palette={
+        # Room surfaces: soft plaster and wallpaper pastels, wainscot and skirting.
+        "walls": ("#f4ead6", "#f3d9cf", "#d7e3c8", "#d5e2ec"),
+        "wainscot": ("#e9dcc4", "#c9d8c1", "#c8d6e3", "#ead1c4"),
+        "trim": ("#f7f2e8", "#d9c4a5"),
+        # Woods: light oak, honey, warm pine; walnut for dark accents.
+        "wood": ("#d8b48a", "#c79a6b", "#e2c39b"),
+        "darkwood": ("#7b5b45", "#5f4636", "#8c6a50"),
+        # Painted furniture (cottage pastels).
+        "paint": ("#a9cdbd", "#f2d68f", "#a9c4e0", "#eab6b0", "#f7f2e8"),
+        # Upholstery, quilts, cushions, curtains and rugs.
+        "fabric": ("#e98b7d", "#7fb6b0", "#f2c46d", "#b6a4d8", "#f7efe0", "#8fb0d8"),
+        "floor": ("#c9a27a", "#b48d66", "#d6b48c"),
+        "tiles": ("#efe6d4", "#d98e6b", "#a9c4b4", "#9fb2c7"),
+        "stone": ("#cfc7b8", "#b9b0a1", "#a59d90"),
+        "brick": ("#c26b55", "#ad5c49", "#d0876c"),
+        "ceramic": ("#f8f5ee", "#e8eef0", "#d97f5f"),
+        "metal": ("#4a4e52", "#8e9599", "#c9a45c"),
+        "glass": ("#a9c7d2", "#c4d8de"),
+        "light": ("#ffdf9e",),
+        "fire": ("#ff9a4a",),
+        "foliage": ("#86b86a", "#6ea35c", "#9fca7c", "#5d9162"),
+        "pot": ("#d27f5e", "#e8e0d2", "#7fa7b8"),
+        "books": ("#c8574d", "#4f7fa8", "#e2b04a", "#6f9a68", "#8a6fa8", "#e88b72", "#3f5d74"),
+        "paper": ("#f8f2e2", "#efe3c6", "#e6eef3"),
+        "bread": ("#d9964f", "#c27a3c", "#e8b874"),
+        "food": ("#e0584f", "#f0a73c", "#8cc063", "#f6d6e0", "#7a4a35"),
+        "hay": ("#e8c96a", "#d9b453", "#f0d98a"),
+        "frame": ("#c9a45c", "#7b5b45", "#f7f2e8"),
+        "art": ("#9cc6e0", "#a9cf8f", "#f2c46d", "#e98b7d", "#f6d6e0"),
+    },
+    tiles=(
+        AtlasTile("floorboards", "planks", 0.10),
+        AtlasTile("tiles", "tiles", 0.10),
+        AtlasTile("brick", "bricks", 0.10),
+        AtlasTile("fabric", "speckle", 0.06),
+        AtlasTile("leaves", "speckle", 0.14),
+        AtlasTile("straw", "streaks", 0.16),
+    ),
+    wall_thickness_m=0.1,
+    roof_pitch_deg=35.0,
+    eave_overhang_m=0.0,
+    bevel_width_m=0.02,
+    bevel_segments=2,
+    vertex_noise_m=0.004,
+    colour_jitter=0.05,
+)
+
+_STYLES: Dict[str, StyleParams] = {"european": EUROPEAN, COMMON_KIT_ID: COMMON, INTERIOR_KIT_ID: INTERIOR}
 
 _PENDING = {"mediterranean": "M32", "arabic": "M33", "japanese": "M34"}
 

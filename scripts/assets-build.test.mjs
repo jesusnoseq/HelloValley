@@ -39,6 +39,8 @@ describe("assets:build arguments", () => {
     expect(buildArgs(["--style=europe", "--contact-sheet=auto"]).passthrough).toContain("--contact-sheet=docs/art/european-kit-contact-sheet.png");
     expect(kitId("Europe")).toBe("european");
     expect(kitId("shared")).toBe("common");
+    expect(buildArgs(["--style", "interior", "--contact-sheet", "auto"]).contactSheet).toBe(resolve(ROOT, "docs/art/interior-kit-contact-sheet.png"));
+    expect(kitId("furniture")).toBe("interior");
   });
 
   it("builds characters into public/assets/characters with --characters", () => {
