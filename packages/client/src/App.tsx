@@ -5,12 +5,14 @@ import { AuthGate } from "./auth/AuthGate";
 import { signOutUser } from "./auth/useAuth";
 import { uiLocaleFor } from "./i18n/i18n";
 import { I18nProvider, useI18n } from "./i18n/I18nProvider";
+import { useApartmentConnection } from "./net/apartmentConnection";
 import { useTownConnection } from "./net/connection";
 import { ProfileGate } from "./profile/ProfileGate";
 import { DioramaView } from "./scene/DioramaView";
 import { SPAWN_TARGET, TOWN_SHADOW_EXTENT } from "./scene/townCamera";
 import { avatarStore, useAvatar } from "./state/avatarStore";
 import { dioramaStore } from "./state/dioramaStore";
+import { ApartmentHud } from "./ui/apartment/ApartmentHud";
 import { DebugOverlay } from "./ui/DebugOverlay";
 import { FadeOverlay } from "./ui/FadeOverlay";
 import { MirrorLayer } from "./ui/mirror/MirrorLayer";
@@ -51,6 +53,8 @@ export function App() {
 function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
   const { t } = useI18n();
   const connection = useTownConnection(user);
+  // Build plan M17: the ApartmentRoom of the apartment the player is in (theirs, or a host's).
+  useApartmentConnection(user, connection.uid);
   // The town renders in the player's style (kits that do not exist yet fall back, scene/kitLoader).
   // TODO(M37): the Settings screen changes it (and writes users/{uid}.style).
   useEffect(() => {
@@ -78,6 +82,7 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
     >
       <FadeOverlay />
       <MirrorLayer save={saveAppearance} />
+      <ApartmentHud />
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>
         <p style={{ margin: "4px 0 0" }}>

@@ -4,8 +4,8 @@ import type { KIT_INTERIOR_MODULE_IDS } from "./budgets";
 export type InteriorModuleId = (typeof KIT_INTERIOR_MODULE_IDS)[number];
 
 /** Which interior-kit module and variant shows a furniture item (GDD §5.6) when it is placed
- * in an apartment. TODO(M17): the placement mode reads the footprint from the module's
- * `placement` in kits/interior/kit-manifest.json. */
+ * in an apartment. The placement mode (M17, shared apartment/) takes the footprint from
+ * `INTERIOR_FURNITURE`, which mirrors the module's `placement` in kits/interior/kit-manifest.json. */
 export interface FurnitureLook {
   module: InteriorModuleId;
   variant: number;

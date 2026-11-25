@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Group, MeshStandardMaterial } from "three";
 import { INTERIOR_KIT_ID, INTERIOR_WALL_T, type InteriorId, interiorLayout, ROOM_SIDES, type RoomSide } from "@hellovalley/shared";
+import { useApartmentLayout } from "./apartmentLayout";
 import { worldStore } from "../state/worldStore";
 import { cameraRig } from "./cameraRig";
 import { buildInteriorMeshes, disposeInteriorMeshes, type InteriorMeshes } from "./interiorMeshes";
@@ -17,18 +18,31 @@ const BASE_DEPTH = 0.5;
  * interior kit, drawn at the origin of the interior frame while the town is hidden. Diorama
  * cut-away: the walls whose outside faces the camera shrink to a low stub (the doorway shows as a
  * gap in it) and their mirrors and paintings disappear, updated every frame from the camera
- * yaw, so Q/E rotation reveals the other side.
+ * yaw, so Q/E rotation reveals the other side. The apartment shows the furniture layout of the
+ * ApartmentRoom the player is in (build plan M17); after an edit the new meshes replace the old
+ * ones once built, so nothing flickers.
  */
 export function Interior({ id, loader = kitLoader }: { id: InteriorId; loader?: KitLoader }) {
-  const layout = interiorLayout(id);
+  const apartment = useApartmentLayout().interior;
+  const layout = id === "apartment" ? apartment : interiorLayout(id);
   const [built, setBuilt] = useState<{ kit: LoadedKit; meshes: InteriorMeshes } | null>(null);
+  const shown = useRef<InteriorMeshes | null>(null);
   const sides = useRef<Partial<Record<RoomSide, Group | null>>>({});
   const decor = useRef<Partial<Record<RoomSide, Group | null>>>({});
 
+  // A different room starts from nothing (the fade waits for it); a new layout of the same room
+  // keeps showing the old meshes until the new ones are ready.
+  useEffect(() => {
+    worldStore.getState().setReady(false);
+    return () => {
+      if (shown.current) disposeInteriorMeshes(shown.current);
+      shown.current = null;
+      setBuilt(null);
+    };
+  }, [id, loader]);
+
   useEffect(() => {
     let cancelled = false;
-    let current: InteriorMeshes | null = null;
-    worldStore.getState().setReady(false);
     void (async () => {
       try {
         const kit = await loader.load(INTERIOR_KIT_ID);
@@ -37,8 +51,11 @@ export function Interior({ id, loader = kitLoader }: { id: InteriorId; loader?: 
           disposeInteriorMeshes(meshes);
           return;
         }
-        current = meshes;
+        const old = shown.current;
+        shown.current = meshes;
         setBuilt({ kit, meshes });
+        // React renders the new meshes first; the old geometry goes after that frame.
+        if (old) requestAnimationFrame(() => disposeInteriorMeshes(old));
       } catch (error) {
         console.error(`interior ${id}:`, error);
         // Let the fade finish rather than holding a covered screen.
@@ -47,8 +64,6 @@ export function Interior({ id, loader = kitLoader }: { id: InteriorId; loader?: 
     })();
     return () => {
       cancelled = true;
-      if (current) disposeInteriorMeshes(current);
-      setBuilt(null);
     };
   }, [id, layout, loader]);
 

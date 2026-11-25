@@ -7,8 +7,8 @@ import type { InteractableKind, SpaceId } from "@hellovalley/shared";
  * Which space the diorama shows (build plan M13): the town or one interior, plus the door fade.
  * The player controller (scene/Player.tsx) switches `space` at the darkest point of the fade;
  * the interior sets `ready` once its meshes are built so the fade-in waits for them.
- * Online the TownRoom validates every space change (a rejected door snaps the player back).
- * TODO(M17): the ApartmentRoom for the player's own apartment.
+ * Online the TownRoom validates every space change (a rejected door snaps the player back), and
+ * entering the apartment space joins that apartment's ApartmentRoom (net/apartmentConnection.ts).
  */
 export interface WorldState {
   space: SpaceId;

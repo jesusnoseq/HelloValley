@@ -13,12 +13,15 @@ import {
 import { PLACEHOLDER_APPEARANCE, PLACEHOLDER_NAME } from "../characters/placeholderLook";
 import { ApiError } from "../net/api";
 import { ZOOM_LEVELS } from "../scene/cameraMath";
+import { currentApartment, startOfflineApartment } from "../scene/apartmentLayout";
 import { DioramaView } from "../scene/DioramaView";
 import { TOWN_SHADOW_EXTENT } from "../scene/townCamera";
 import { TOWN_START, World } from "../scene/World";
 import { avatarStore } from "../state/avatarStore";
+import { placementStore } from "../state/placementStore";
 import { dioramaStore, useDiorama } from "../state/dioramaStore";
 import { useWorld } from "../state/worldStore";
+import { ApartmentHud } from "../ui/apartment/ApartmentHud";
 import { FadeOverlay } from "../ui/FadeOverlay";
 import { MirrorLayer } from "../ui/mirror/MirrorLayer";
 import type { SaveAppearance } from "../ui/mirror/MirrorPanel";
@@ -74,6 +77,16 @@ avatarStore.getState().setProfile({
   style: "european",
 } satisfies PlayerProfile);
 
+// No ApartmentRoom offline: placement mode edits a local layout with the same shared rules (M17).
+startOfflineApartment();
+// `&decorate=1` opens placement mode at once (`&hold=<index>` also picks up that placed piece).
+if (query.get("decorate") === "1") {
+  placementStore.getState().setOpen(true);
+  const index = Number(query.get("hold"));
+  const piece = query.has("hold") && Number.isInteger(index) ? currentApartment().layout.furniture[index] : undefined;
+  if (piece) placementStore.getState().hold({ kind: "placed", index, itemId: piece.itemId }, piece.rot);
+}
+
 /** Stands in for `PUT /api/profile/appearance` (`?save=offline` simulates a network failure). */
 const fakeSave: SaveAppearance = async (request) => {
   await new Promise((r) => setTimeout(r, 300));
@@ -87,7 +100,8 @@ const fakeSave: SaveAppearance = async (request) => {
  * walk into its door to go inside; Q/E rotate, the wheel zooms. Query parameters:
  * `?space=bakery` (`&spot=counter`) or `?at=library` (start point), `&t=0.2&speed=0&zoom=1&step=0&fx=0`, and for
  * the M15 avatar `&name=Lia` and `&save=offline`. In the apartment, F at the mirror edits the look;
- * 1–5 play emotes.
+ * 1–5 play emotes. In the apartment, Decorate opens furniture placement mode (M17, a local layout:
+ * no server); in town, F at the intercom beside the apartment block door opens the (empty) panel.
  */
 export function PlayView() {
   const space = useWorld((st) => st.space);
@@ -96,9 +110,10 @@ export function PlayView() {
     <DioramaView shadowExtent={TOWN_SHADOW_EXTENT} world={<World start={START} />}>
       <FadeOverlay />
       <MirrorLayer save={fakeSave} />
+      <ApartmentHud />
       <PerfHud />
       <div style={panel}>
-        <strong>Play (M13, M15)</strong>
+        <strong>Play (M13, M15, M17)</strong>
         <span>
           space: {space} · zoom: {ZOOM_LEVELS[zoomLevel]!.id}
         </span>

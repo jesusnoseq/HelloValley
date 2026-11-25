@@ -19,6 +19,7 @@ import {
   type WireSpacePoint,
 } from "@hellovalley/shared";
 import { RemoteTrack, type RemoteSample } from "./interpolation";
+import { attachVisitMessages } from "./visitSession";
 
 /**
  * The client's mirror of its TownRoom (build plan M16; architecture §4: game state on the client
@@ -110,7 +111,7 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
   townLive.welcomed = false;
   townSession.setState({ room, shard: null, remotes: {} });
 
-  const offs: (() => void)[] = [];
+  const offs: (() => void)[] = [attachVisitMessages(room)];
   offs.push(
     room.onMessage(ServerMessage.Welcome, (welcome: WelcomeMessage) => {
       townLive.spawn = welcome.spawn;

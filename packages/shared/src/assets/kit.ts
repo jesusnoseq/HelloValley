@@ -21,8 +21,8 @@ export const COMMON_KIT_ID = "common";
 /**
  * The interior and furniture kit (M08: room floor and wall panels, apartment furniture and
  * shop interiors) in `kits/interior/`. Loaded by interior scenes (client scene/Interior.tsx, room
- * layouts in shared world/interiors.ts) and the apartment
- * (TODO(M17)). Mirrors INTERIOR_KIT_ID in tools/blender/hvkit/styles.py.
+ * layouts in shared world/interiors.ts), including the apartment and its furniture layout
+ * (shared apartment/layout.ts, M17). Mirrors INTERIOR_KIT_ID in tools/blender/hvkit/styles.py.
  */
 export const INTERIOR_KIT_ID = "interior";
 /** Every kit folder: one per town style plus the common and interior kits. */
@@ -186,7 +186,8 @@ export function placementSizeM(placement: { w: number; d: number; cell: number }
 }
 
 /** Grid cells a placement footprint covers after a quarter-turn rotation (`w` and `d` swap at
- * 90 and 270 degrees). TODO(M17): occupancy and overlap checks for the placement mode. */
+ * 90 and 270 degrees). The placement mode's occupancy and overlap checks are
+ * `layoutProblems` in shared apartment/layout.ts (M17). */
 export function rotatedPlacementCells(placement: Pick<KitPlacement, "w" | "d">, rot: PlacementRotation): { w: number; d: number } {
   return rot === 90 || rot === 270 ? { w: placement.d, d: placement.w } : { w: placement.w, d: placement.d };
 }

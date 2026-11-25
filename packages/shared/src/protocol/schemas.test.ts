@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { CLIENT_MESSAGE_TYPES, ClientMessage, isClientMessage, RoomName } from "./messages";
 import {
+  ApartmentJoinOptionsSchema,
   CHAT_MAX_LENGTH,
+  FurnitureEditSchema,
+  IntercomListSchema,
+  VisitAnswerSchema,
+  VisitRequestSchema,
   ChatMessageSchema,
   ClientMessageSchemas,
   ID_TOKEN_MAX_LENGTH,
@@ -171,5 +176,40 @@ describe("parseClientMessage", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/motion/);
     expect(parseClientMessage(ClientMessage.Interact, undefined).ok).toBe(false);
+  });
+});
+
+describe("apartment and visit messages (M17)", () => {
+  it("names the apartment room and needs an owner uid to join it", () => {
+    expect(RoomName.Apartment).toBe("apartment");
+    expect(ApartmentJoinOptionsSchema.safeParse({ idToken: "t", owner: "abc_123" }).success).toBe(true);
+    expect(ApartmentJoinOptionsSchema.safeParse({ idToken: "t" }).success).toBe(false);
+    expect(ApartmentJoinOptionsSchema.safeParse({ idToken: "t", owner: "../x" }).success).toBe(false);
+  });
+
+  it("validates intercom and visit payloads", () => {
+    expect(IntercomListSchema.safeParse(undefined).success).toBe(true);
+    expect(IntercomListSchema.safeParse({}).success).toBe(true);
+    expect(IntercomListSchema.safeParse({ all: true }).success).toBe(false);
+    expect(VisitRequestSchema.safeParse({ sessionId: "AbC12_x" }).success).toBe(true);
+    expect(VisitRequestSchema.safeParse({ sessionId: "" }).success).toBe(false);
+    expect(VisitAnswerSchema.safeParse({ requestId: "r1", accept: true }).success).toBe(true);
+    expect(VisitAnswerSchema.safeParse({ requestId: "r1", accept: "yes" }).success).toBe(false);
+  });
+
+  it("validates furniture edits", () => {
+    expect(FurnitureEditSchema.safeParse({ op: "move", editId: 1, index: 3, itemId: "bed", x: 2.5, z: 3, rot: 180 }).success).toBe(true);
+    expect(FurnitureEditSchema.safeParse({ op: "store", editId: 2, index: 0, itemId: "wooden_chair" }).success).toBe(true);
+    expect(FurnitureEditSchema.safeParse({ op: "place", editId: 3, itemId: "fern", x: 1, z: 1, rot: 0 }).success).toBe(true);
+    for (const bad of [
+      { op: "move", editId: 1, index: 3, itemId: "bed", x: 2.5, z: 3, rot: 45 },
+      { op: "move", editId: 1, index: -1, itemId: "bed", x: 2.5, z: 3, rot: 0 },
+      { op: "place", editId: 1, itemId: "throne", x: 1, z: 1, rot: 0 },
+      { op: "place", editId: 1, itemId: "fern", x: Number.NaN, z: 1, rot: 0 },
+      { op: "store", editId: 1, index: 0, itemId: "bed", extra: 1 },
+      { op: "swap", editId: 1 },
+    ]) {
+      expect(FurnitureEditSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
   });
 });

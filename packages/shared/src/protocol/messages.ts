@@ -1,4 +1,5 @@
 // Type-only imports: this module stays free of zod so the client's entry chunk can use it.
+import type { FurnitureEdit, FurnitureEditRejection } from "../apartment/layout";
 import type { Emote } from "../avatar/animation";
 import type { Weather } from "../data/world";
 import type { Motion, SpaceId } from "../world/player";
@@ -6,7 +7,8 @@ import type { Motion, SpaceId } from "../world/player";
 /** Colyseus room names registered by the server (architecture §7.1). */
 export const RoomName = {
   Town: "town",
-  // TODO(M17): Apartment: "apartment" (one private ApartmentRoom per owner).
+  /** One private ApartmentRoom per owner (filtered by the `owner` join option, build plan M17). */
+  Apartment: "apartment",
 } as const;
 export type RoomName = (typeof RoomName)[keyof typeof RoomName];
 
@@ -25,6 +27,14 @@ export const ClientMessage = {
   Chat: "chat:send",
   /** Talk to an NPC or use a world object (F / click). */
   Interact: "interact:request",
+  /** TownRoom, at the lobby intercom: list the players online (build plan M17). */
+  IntercomList: "intercom:list",
+  /** TownRoom, at the lobby intercom: ring a player's apartment to ask for a visit. */
+  VisitRequest: "visit:request",
+  /** TownRoom, from the owner: accept or decline a visit request. */
+  VisitAnswer: "visit:answer",
+  /** ApartmentRoom, owner only: one placement-mode edit (move, rotate, store, place). */
+  FurnitureEdit: "furniture:edit",
   // TODO(M21): "npc:reply" (the untrusted NPC turn proposal, architecture §5.3).
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
@@ -39,11 +49,24 @@ export const ServerMessage = {
   Emote: "player:emote",
   /** Answer to `ClientMessage.TimeSync`. */
   TimeSync: "time:sync",
+  /** Answer to `ClientMessage.IntercomList`. */
+  IntercomList: "intercom:list",
+  /** To an owner: someone at the intercom asks to visit. */
+  VisitIncoming: "visit:incoming",
+  /** To an owner: a request they were shown is no longer open (expired, withdrawn, visitor left). */
+  VisitClosed: "visit:closed",
+  /** To a visitor: what happened to their request. */
+  VisitStatus: "visit:status",
+  /** ApartmentRoom: the answer to one `furniture:edit`. */
+  FurnitureResult: "furniture:result",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
 /** Close code when a newer session of the same uid (another tab) replaced this one. Do not rejoin. */
 export const SESSION_REPLACED_CODE = 4801;
+
+/** ApartmentRoom close code for a visitor whose visit ended (they left through the door). */
+export const VISIT_ENDED_CODE = 4802;
 
 /** A point in one space, as sent on the wire. */
 export interface WireSpacePoint {
@@ -71,7 +94,11 @@ export interface PlayerMoveMessage extends WireSpacePoint {
   motion: Motion;
 }
 
-export type MoveRejectReason = "speed" | "blocked" | "space";
+/**
+ * Why the server moved the walker: a rejected report (`speed`, `blocked`, `space`) or a server
+ * teleport (`visit`: an accepted visit puts the visitor inside the host's apartment).
+ */
+export type MoveRejectReason = "speed" | "blocked" | "space" | "visit";
 
 /** Payload of `ServerMessage.MoveCorrection`. */
 export interface MoveCorrectionMessage extends WireSpacePoint {
@@ -125,6 +152,95 @@ export interface TownWorldView {
   previousWeather: Weather;
   /** Server wall time (ms) when the current weather slot began. */
   weatherSince: number;
+}
+
+/** One player the lobby intercom lists (build plan M17). */
+export interface IntercomEntry {
+  /** TownRoom session id: what `visit:request` names. */
+  sessionId: string;
+  name: string;
+  apartmentId: string;
+  /** In their apartment right now. */
+  home: boolean;
+}
+
+/** Payload of `ServerMessage.IntercomList`. */
+export interface IntercomListMessage {
+  players: IntercomEntry[];
+}
+
+/** Payload of `ClientMessage.VisitRequest`. */
+export interface VisitRequestMessage {
+  sessionId: string;
+}
+
+/** Payload of `ServerMessage.VisitIncoming`. */
+export interface VisitIncomingMessage {
+  requestId: string;
+  fromName: string;
+  fromApartment: string;
+}
+
+/** Payload of `ServerMessage.VisitClosed`. */
+export interface VisitClosedMessage {
+  requestId: string;
+}
+
+/** Payload of `ClientMessage.VisitAnswer`. */
+export interface VisitAnswerMessage {
+  requestId: string;
+  accept: boolean;
+}
+
+/**
+ * Where a visit request stands: `pending` (ringing), `accepted`, `declined`, `expired` (no
+ * answer in time), `unavailable` (the owner left, or the visitor is no longer at the intercom).
+ */
+export type VisitState = "pending" | "accepted" | "declined" | "expired" | "unavailable";
+
+/** Payload of `ServerMessage.VisitStatus`. */
+export interface VisitStatusMessage {
+  requestId: string;
+  state: VisitState;
+  ownerName: string;
+  apartmentId: string;
+  /** With `accepted`: the owner's uid, to join their ApartmentRoom (`owner` join option). */
+  host?: string;
+}
+
+/** Payload of `ClientMessage.FurnitureEdit`. */
+export type FurnitureEditMessage = FurnitureEdit & {
+  /** Client counter echoed in the result. */
+  editId: number;
+};
+
+/** Payload of `ServerMessage.FurnitureResult`. */
+export interface FurnitureResultMessage {
+  editId: number;
+  ok: boolean;
+  reason?: FurnitureEditRejection | "not_owner";
+  /** With `invalid`: what the placement rules objected to. */
+  problems?: string[];
+}
+
+/** One person in an apartment (the ApartmentRoom's synced `occupants`, keyed by its session id). */
+export interface ApartmentOccupantView {
+  name: string;
+  /** Their TownRoom session id: their avatar's position is in the TownRoom state. */
+  townSession: string;
+  owner: boolean;
+}
+
+/**
+ * The synced ApartmentRoom state (the server's `ApartmentState`). The layout is JSON of the
+ * shared `ApartmentLayoutData`; `revision` counts accepted edits.
+ */
+export interface ApartmentStateView {
+  owner: string;
+  ownerName: string;
+  apartmentId: string;
+  layout: string;
+  revision: number;
 }
 
 export const CLIENT_MESSAGE_TYPES: readonly ClientMessage[] = Object.values(ClientMessage);

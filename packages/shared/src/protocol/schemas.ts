@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { APARTMENT_MAX_PLACED } from "../apartment/layout";
 import { EMOTE_KEYS } from "../avatar/animation";
+import { FurnitureIdSchema, FurnitureRotationSchema } from "../firestore/schemas";
 import { NpcIdSchema } from "../data/npcs";
 import { INTERIOR_IDS } from "../world/interiors";
 import { ClientMessage } from "./messages";
@@ -72,6 +74,34 @@ export const InteractRequestSchema = z.discriminatedUnion("targetKind", [
 ]);
 export type InteractRequest = z.infer<typeof InteractRequestSchema>;
 
+/** Firebase uids are up to 128 characters of letters, digits and a few symbols. */
+export const UidSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+
+/** Options passed to `client.joinOrCreate(RoomName.Apartment, options)` (build plan M17). */
+export const ApartmentJoinOptionsSchema = JoinOptionsSchema.extend({
+  /** Whose apartment: your own uid, or the host of an accepted visit. */
+  owner: UidSchema,
+});
+export type ApartmentJoinOptions = z.infer<typeof ApartmentJoinOptionsSchema>;
+
+/** Colyseus session ids are short random strings. */
+const SessionIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+
+export const IntercomListSchema = z.strictObject({}).optional();
+export const VisitRequestSchema = z.strictObject({ sessionId: SessionIdSchema });
+export const VisitAnswerSchema = z.strictObject({ requestId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), accept: z.boolean() });
+
+const roomCoord = z.number().min(0).max(12);
+const editId = z.number().int().min(0).max(2 ** 31);
+const pieceIndex = z.number().int().min(0).max(APARTMENT_MAX_PLACED - 1);
+
+/** `furniture:edit`: one placement-mode action (the placement rules are apartment/layout.ts). */
+export const FurnitureEditSchema = z.discriminatedUnion("op", [
+  z.strictObject({ op: z.literal("move"), editId, index: pieceIndex, itemId: FurnitureIdSchema, x: roomCoord, z: roomCoord, rot: FurnitureRotationSchema }),
+  z.strictObject({ op: z.literal("store"), editId, index: pieceIndex, itemId: FurnitureIdSchema }),
+  z.strictObject({ op: z.literal("place"), editId, itemId: FurnitureIdSchema, x: roomCoord, z: roomCoord, rot: FurnitureRotationSchema }),
+]);
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -79,6 +109,10 @@ export const ClientMessageSchemas = {
   [ClientMessage.TimeSync]: TimeSyncRequestSchema,
   [ClientMessage.Chat]: ChatMessageSchema,
   [ClientMessage.Interact]: InteractRequestSchema,
+  [ClientMessage.IntercomList]: IntercomListSchema,
+  [ClientMessage.VisitRequest]: VisitRequestSchema,
+  [ClientMessage.VisitAnswer]: VisitAnswerSchema,
+  [ClientMessage.FurnitureEdit]: FurnitureEditSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {
@@ -97,9 +131,6 @@ export function parseClientMessage<K extends ClientMessage>(
     ? { ok: true, value: result.data as ClientMessagePayloads[K] }
     : { ok: false, error: z.prettifyError(result.error) };
 }
-
-/** Firebase uids are up to 128 characters of letters, digits and a few symbols. */
-export const UidSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 
 /** One TownRoom shard ("Valley #n") as `GET /api/shards` lists it. */
 export const ShardInfoSchema = z.object({

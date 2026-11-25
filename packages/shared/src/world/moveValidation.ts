@@ -1,6 +1,6 @@
 import { circleFits, moveWithCollisions, RUN_SPEED_MPS, segmentClear } from "./movement";
 import { cellOf, isWalkableCell } from "./navgrid";
-import { type DoorLink, type SpaceId, spaceDoors, spaceGrid, type SpacePoint } from "./player";
+import { type DoorLink, type SpaceGrids, type SpaceId, spaceDoors, spaceGrid, type SpacePoint } from "./player";
 import type { Area, Vec2 } from "./town";
 
 /**
@@ -85,17 +85,17 @@ function distanceToArea(p: Vec2, a: Area): number {
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 /** Whether a walker may stand at `p`, coming from `from` (moveWithCollisions' rule). */
-export function standable(space: SpaceId, from: Vec2, p: Vec2): boolean {
-  const grid = spaceGrid(space);
+export function standable(space: SpaceId, from: Vec2, p: Vec2, grids: SpaceGrids = spaceGrid): boolean {
+  const grid = grids(space);
   if (circleFits(grid, p)) return true;
   // A walker that was already overlapping a blocked cell may move anywhere walkable to get free.
   return !circleFits(grid, from) && isWalkableCell(grid, ...cellOf(grid, p));
 }
 
 /** Whether the walk from `from` to `to` in one space is plausible on the walkability grid. */
-export function reachableStep(space: SpaceId, from: Vec2, to: Vec2): boolean {
-  if (!standable(space, from, to)) return false;
-  const grid = spaceGrid(space);
+export function reachableStep(space: SpaceId, from: Vec2, to: Vec2, grids: SpaceGrids = spaceGrid): boolean {
+  if (!standable(space, from, to, grids)) return false;
+  const grid = grids(space);
   if (segmentClear(grid, from, to, MOVE_PROBE_RADIUS_M)) return true;
   const slid = moveWithCollisions(grid, from, [to[0] - from[0], to[1] - from[1]]);
   return dist(slid, to) <= MOVE_SLIDE_TOLERANCE_M;
@@ -114,16 +114,17 @@ export function doorFor(tracker: Pick<MoveTracker, "space" | "pos">, claim: Pick
 
 /**
  * Validates one position report at server time `nowMs`. Accepted reports move the tracker;
- * rejected ones leave it where it was (the budget still refills).
+ * rejected ones leave it where it was (the budget still refills). `grids` gives each space's
+ * walkability (the apartment's depends on whose apartment it is, build plan M17).
  */
-export function validateMove(tracker: MoveTracker, claim: MoveClaim, nowMs: number): MoveVerdict {
+export function validateMove(tracker: MoveTracker, claim: MoveClaim, nowMs: number, grids: SpaceGrids = spaceGrid): MoveVerdict {
   refill(tracker, nowMs);
   if (![claim.pos[0], claim.pos[1], claim.heading].every(Number.isFinite)) return { ok: false, reason: "blocked" };
 
   if (claim.space !== tracker.space) {
     const door = doorFor(tracker, claim);
     if (!door) return { ok: false, reason: "space" };
-    if (!standable(claim.space, door.to.pos, claim.pos)) return { ok: false, reason: "blocked" };
+    if (!standable(claim.space, door.to.pos, claim.pos, grids)) return { ok: false, reason: "blocked" };
     tracker.space = claim.space;
     tracker.pos = [claim.pos[0], claim.pos[1]];
     tracker.heading = claim.heading;
@@ -132,7 +133,7 @@ export function validateMove(tracker: MoveTracker, claim: MoveClaim, nowMs: numb
 
   const d = dist(tracker.pos, claim.pos);
   if (d > tracker.budget + 1e-6) return { ok: false, reason: "speed" };
-  if (d > 1e-9 && !reachableStep(claim.space, tracker.pos, claim.pos)) return { ok: false, reason: "blocked" };
+  if (d > 1e-9 && !reachableStep(claim.space, tracker.pos, claim.pos, grids)) return { ok: false, reason: "blocked" };
   tracker.budget -= d;
   tracker.pos = [claim.pos[0], claim.pos[1]];
   tracker.heading = claim.heading;

@@ -133,8 +133,9 @@ const piece = (module: FurnitureModuleId, x: number, z: number, rot: QuarterTurn
   ...(y === undefined ? {} : { y }),
 });
 
-/** Table top height (interior kit `table` `top` socket). */
-const TABLE_TOP = 0.78;
+/** Table top height (interior kit `table` `top` socket). Surface pieces stand at it. */
+export const INTERIOR_TABLE_TOP_M = 0.78;
+const TABLE_TOP = INTERIOR_TABLE_TOP_M;
 
 /**
  * The rooms. Entrances are on the south wall (the camera side at the default view, so it is cut
@@ -143,8 +144,8 @@ const TABLE_TOP = 0.78;
  */
 export const INTERIOR_LAYOUTS: Readonly<Record<InteriorId, InteriorLayout>> = {
   // GDD §4.2: a small studio with a bed, kitchen nook, table, window, mirror and wardrobe.
-  // TODO(M17): the owner's stored furniture layout (users/{uid}/apartment/layout) replaces the
-  // starting furniture in the private ApartmentRoom.
+  // This is the starting furniture; the owner's stored layout (users/{uid}/apartment/layout,
+  // shared apartment/layout.ts) replaces it in their ApartmentRoom (build plan M17).
   apartment: {
     id: "apartment",
     w: 6,

@@ -18,12 +18,15 @@ import {
 import { characterAssetsWith } from "../characters/assetCache";
 import { MoveSync } from "../net/moveSync";
 import { townLive, townSession } from "../net/townSession";
+import { openIntercom, visitSession } from "../net/visitSession";
 import { assembleAvatar, tintAvatar } from "../characters/avatarLook";
 import type { Character } from "../characters/characterGlb";
 import { PLACEHOLDER_APPEARANCE, PLACEHOLDER_NAME } from "../characters/placeholderLook";
 import { avatarStore, useAvatar } from "../state/avatarStore";
 import { dioramaStore } from "../state/dioramaStore";
+import { placementStore } from "../state/placementStore";
 import { worldStore } from "../state/worldStore";
+import { sceneGrids } from "./apartmentLayout";
 import { yawForStep } from "./cameraMath";
 import { cameraRig } from "./cameraRig";
 import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
@@ -36,6 +39,11 @@ const NO_INPUT: Vec2 = [0, 0];
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+}
+
+/** A dialog or placement mode has the keyboard and mouse: the walker stands still. */
+function inputPaused(): boolean {
+  return avatarStore.getState().mirrorOpen || visitSession.getState().intercomOpen || placementStore.getState().open;
 }
 
 /** The appearance the avatar shows: the mirror's live preview, else the profile's, else the placeholder. */
@@ -54,15 +62,18 @@ function clipTimings(manifest: CharacterManifest): ClipTimings {
  * that building's interior (or back out). The avatar is built from the profile's appearance
  * (or the mirror's live preview) with a name tag, and its clips follow the shared
  * AnimationStateMachine (idle/walk/run, emotes on 1–5 with crossfades). F uses the interactable
- * the player stands next to (the apartment mirror). While the mirror is open, input pauses and
- * the avatar turns to the camera so the new look is easy to see.
+ * the player stands next to (the apartment mirror, the lobby intercom). While the mirror is open,
+ * input pauses and the avatar turns to the camera so the new look is easy to see; the intercom
+ * panel and furniture placement mode pause input too. In the apartment the walker's walkability
+ * follows the apartment's furniture layout (build plan M17).
  * Online (build plan M16) the walker is predicted locally and reported to the TownRoom (MoveSync):
  * the server validates every report and a correction (or a fresh session's spawn) snaps the
  * walker back to the server's point. Emotes are relayed to the other players.
  * TODO(M23/M29): `talking` and `seated` inputs of the state machine.
  */
 export function Player({ start }: { start: SpacePoint }) {
-  const controller = useMemo(() => new PlayerController(start), [start]);
+  // The apartment's walkability follows its furniture layout (build plan M17).
+  const controller = useMemo(() => new PlayerController(start, sceneGrids), [start]);
   const gl = useThree((s) => s.gl);
   const get = useThree((s) => s.get);
   const held = useRef(new Set<string>());
@@ -132,13 +143,15 @@ export function Player({ start }: { start: SpacePoint }) {
     const keys = held.current;
     const down = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
-      if (avatarStore.getState().mirrorOpen) return;
+      if (inputPaused()) return;
       if (e.code.startsWith("Arrow")) e.preventDefault();
       if (e.repeat) return;
       keys.add(e.code);
-      if (e.code === "KeyF" && fade.current.phase === "idle" && worldStore.getState().nearby?.kind === "mirror") {
+      const nearby = worldStore.getState().nearby?.kind;
+      if (e.code === "KeyF" && fade.current.phase === "idle" && nearby) {
         keys.clear();
-        avatarStore.getState().openMirror();
+        if (nearby === "mirror") avatarStore.getState().openMirror();
+        else openIntercom();
         return;
       }
       const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
@@ -166,7 +179,7 @@ export function Player({ start }: { start: SpacePoint }) {
     const raycaster = new Raycaster();
     const ndc = new Vector2();
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || fade.current.phase !== "idle" || avatarStore.getState().mirrorOpen) return;
+      if (e.button !== 0 || fade.current.phase !== "idle" || inputPaused()) return;
       const rect = el.getBoundingClientRect();
       ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, get().camera);
@@ -182,6 +195,7 @@ export function Player({ start }: { start: SpacePoint }) {
     const dt = Math.min(rawDt, 0.1);
     const world = worldStore.getState();
     const mirrorOpen = avatarStore.getState().mirrorOpen;
+    const paused = inputPaused();
 
     // Server corrections and a fresh session's spawn put the walker where the server has it.
     const putAt = (to: SpacePoint) => {
@@ -223,7 +237,7 @@ export function Player({ start }: { start: SpacePoint }) {
       worldStore.setState({ fade: fade.current.cover });
     }
 
-    if (mirrorOpen) {
+    if (paused) {
       held.current.clear();
       controller.setInput(NO_INPUT);
       if (controller.waypoints) controller.teleport({ ...controller.state });

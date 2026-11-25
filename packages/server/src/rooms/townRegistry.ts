@@ -64,6 +64,11 @@ export class TownRegistry {
     if (this.sessions.get(uid)?.sessionId === sessionId) this.sessions.delete(uid);
   }
 
+  /** The TownRoom session id `uid` currently plays as, or null. */
+  sessionIdOf(uid: string): string | null {
+    return this.sessions.get(uid)?.sessionId ?? null;
+  }
+
   /** Whether `sessionId` is the current session of `uid`. */
   isCurrent(uid: string, sessionId: string): boolean {
     return this.sessions.get(uid)?.sessionId === sessionId;

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { APARTMENT_MAX_PLACED, APARTMENT_MAX_STORED } from "../apartment/layout";
+import { FURNITURE_IDS } from "../apartment/furniture";
 import { AnimalIdSchema, isFurTintFor } from "../data/animals";
 import { ApartmentIdSchema } from "../data/apartment";
 import { LevelSchema, MAX_LEVEL_STEP } from "../data/difficulty";
@@ -193,18 +195,30 @@ export type InventorySlot = z.infer<typeof InventorySlotSchema>;
 /** Furniture rotation in quarter turns (degrees). */
 export const FurnitureRotationSchema = z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]);
 
-/** `users/{uid}/apartment/layout`: server-written. TODO(M17): grid bounds and overlap checks. */
+/** A piece of apartment furniture: a studio piece or shop furniture (apartment/furniture.ts). */
+export const FurnitureIdSchema = z.enum(FURNITURE_IDS);
+
+/** Room coordinates of a piece (the studio is 6 × 5 m; finer checks are `layoutProblems`). */
+const roomCoord = z.number().min(0).max(12);
+
+/**
+ * `users/{uid}/apartment/layout`: server-written (the ApartmentRoom, build plan M17). The shape
+ * is checked here; the placement rules (grid, walls, overlaps, built-ins, reachability) are
+ * `layoutProblems` in apartment/layout.ts, which the server runs before every save. `stored` holds
+ * the pieces put away in placement mode (missing in a document means none).
+ */
 export const ApartmentLayoutSchema = z.strictObject({
   furniture: z
     .array(
       z.strictObject({
-        itemId: ItemIdSchema,
-        x: z.number().min(-50).max(50),
-        z: z.number().min(-50).max(50),
+        itemId: FurnitureIdSchema,
+        x: roomCoord,
+        z: roomCoord,
         rot: FurnitureRotationSchema,
       }),
     )
-    .max(200),
+    .max(APARTMENT_MAX_PLACED),
+  stored: z.array(FurnitureIdSchema).max(APARTMENT_MAX_STORED).default([]),
 });
 export type ApartmentLayout = z.infer<typeof ApartmentLayoutSchema>;
 

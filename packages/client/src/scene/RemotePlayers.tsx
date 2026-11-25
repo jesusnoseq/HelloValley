@@ -13,6 +13,7 @@ import { characterAssetsWith } from "../characters/assetCache";
 import { assembleAvatar, tintAvatar } from "../characters/avatarLook";
 import type { Character } from "../characters/characterGlb";
 import { PLACEHOLDER_APPEARANCE } from "../characters/placeholderLook";
+import { useApartmentSession } from "../net/apartmentSession";
 import { INTERP_DELAY_MS } from "../net/interpolation";
 import { type RemotePlayerInfo, townLive, useTownSession } from "../net/townSession";
 import { useWorld } from "../state/worldStore";
@@ -34,18 +35,20 @@ export function parseRemoteAppearance(json: string): AvatarAppearance {
 
 /**
  * The other players in the local player's space (build plan M16): one avatar each, built from
- * the appearance in the room state, with a name tag. Nobody is shown in a private apartment.
+ * the appearance in the room state, with a name tag. In an apartment (a private space) only the
+ * people in that same apartment show: the ApartmentRoom lists their TownRoom sessions (M17).
  * TODO(M37): distance culling / LOD when a full 40-player shard crowds one place (each avatar is
  * ~9 meshes plus its shadow).
  */
 export function RemotePlayers() {
   const remotes = useTownSession((s) => s.remotes);
   const space = useWorld((s) => s.space);
-  if (isPrivateSpace(space)) return null;
+  const occupants = useApartmentSession((s) => s.occupants);
+  const privateSpace = isPrivateSpace(space);
   return (
     <>
       {Object.values(remotes)
-        .filter((r) => r.space === space)
+        .filter((r) => r.space === space && (!privateSpace || occupants.includes(r.sessionId)))
         .map((r) => (
           <RemoteAvatar key={r.sessionId} info={r} />
         ))}

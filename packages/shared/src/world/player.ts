@@ -41,7 +41,8 @@ export function isSpaceId(value: unknown): value is SpaceId {
 
 /**
  * Spaces other players never see you in: your apartment is your own private instance (GDD §4.2).
- * TODO(M17): the ApartmentRoom hosts it (and visits); the TownRoom just hides players there.
+ * The ApartmentRoom (build plan M17) hosts its furniture and visits; the TownRoom shows players
+ * in an apartment only to the others in that same apartment.
  */
 export function isPrivateSpace(space: SpaceId): boolean {
   return space === "apartment";
@@ -50,6 +51,13 @@ export function isPrivateSpace(space: SpaceId): boolean {
 export function spaceGrid(space: SpaceId): NavGrid {
   return space === "town" ? townNavGrid() : interiorNavGrid(space);
 }
+
+/**
+ * The walkability grid of each space. The default is the static town and interior grids; the
+ * apartment's grid depends on its owner's furniture layout (build plan M17), so the controller
+ * and the move validation take a lookup.
+ */
+export type SpaceGrids = (space: SpaceId) => NavGrid;
 
 export interface SpacePoint {
   space: SpaceId;
@@ -206,7 +214,11 @@ export class PlayerController {
   private pushTime = 0;
   private pending: DoorLink | null = null;
 
-  constructor(start: SpacePoint) {
+  constructor(
+    start: SpacePoint,
+    /** Walkability per space (the apartment's follows its furniture layout). */
+    readonly grids: SpaceGrids = spaceGrid,
+  ) {
     this.state = { ...start, pos: [start.pos[0], start.pos[1]], motion: "idle" };
   }
 
@@ -233,7 +245,7 @@ export class PlayerController {
   /** Click-to-move. Clicking a building (or a door) walks to its door and through it. Returns false when unreachable. */
   clickTo(target: Vec2): boolean {
     if (this.pending) return false;
-    const grid = spaceGrid(this.state.space);
+    const grid = this.grids(this.state.space);
     const door = spaceDoors(this.state.space).find((d) => inside(target, d.clickArea)) ?? null;
     // Aim for the middle of the door's trigger zone.
     const goal: Vec2 = door
@@ -272,7 +284,7 @@ export class PlayerController {
   /** Advance `dt` seconds. Returns a door when the walker has just walked into one. */
   update(dt: number): DoorLink | null {
     if (this.pending) return null;
-    const grid = spaceGrid(this.state.space);
+    const grid = this.grids(this.state.space);
     const speed = this.running ? RUN_SPEED_MPS : WALK_SPEED_MPS;
     let intent: Vec2 = [0, 0];
     let candidates: readonly DoorLink[] = spaceDoors(this.state.space);
