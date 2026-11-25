@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NpcIdSchema } from "../data/npcs";
 import { ClientMessage } from "./messages";
 
 /** Longest chat line a player can send, in characters (after trimming). */
@@ -56,11 +57,11 @@ export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 /** Lowercase slug ids such as `baker` or `notice_board`. */
 export const EntityIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
 
-export const InteractRequestSchema = z.object({
-  targetKind: z.enum(["npc", "object"]),
-  // TODO(M02/M11): check targetId against the NPC registry and the town's interactables.
-  targetId: EntityIdSchema,
-});
+export const InteractRequestSchema = z.discriminatedUnion("targetKind", [
+  z.object({ targetKind: z.literal("npc"), targetId: NpcIdSchema }),
+  // TODO(M11): check object ids against the town's interactables.
+  z.object({ targetKind: z.literal("object"), targetId: EntityIdSchema }),
+]);
 export type InteractRequest = z.infer<typeof InteractRequestSchema>;
 
 /** Payload schema for every client → server message. */

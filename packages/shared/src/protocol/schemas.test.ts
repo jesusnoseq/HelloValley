@@ -122,6 +122,11 @@ describe("InteractRequestSchema", () => {
       expect(InteractRequestSchema.safeParse({ targetKind: "npc", targetId: id }).success).toBe(false);
     }
   });
+
+  it("only accepts registered NPC ids for NPC targets", () => {
+    expect(InteractRequestSchema.safeParse({ targetKind: "npc", targetId: "wizard" }).success).toBe(false);
+    expect(InteractRequestSchema.safeParse({ targetKind: "object", targetId: "wizard" }).success).toBe(true);
+  });
 });
 
 describe("parseClientMessage", () => {
