@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@colyseus/sdk": "0.18.10",
     "@hellovalley/shared": "file:../shared",
     "firebase": "13.4.0",
     "react": "19.3.1",

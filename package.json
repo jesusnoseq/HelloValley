@@ -3,15 +3,26 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/shared", "packages/client"],
+  "workspaces": [
+    "packages/shared",
+    "packages/client",
+    "packages/server"
+  ],
   "packageManager": "npm@11.16.0",
-  "engines": { "node": ">=26.13.0", "npm": ">=11.16.0 <12" },
+  "engines": {
+    "node": ">=26.13.0",
+    "npm": ">=11.16.0 <12"
+  },
   "devEngines": {
-    "packageManager": { "name": "npm", "version": ">=11.16.0 <12", "onFail": "error" }
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.16.0 <12",
+      "onFail": "error"
+    }
   },
   "allowScripts": {},
   "scripts": {
-    "dev": "npm run dev -w @hellovalley/client",
+    "dev": "concurrently --names server,client --prefix-colors blue,green --kill-others-on-fail \"npm run dev -w @hellovalley/server\" \"npm run dev -w @hellovalley/client\"",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
@@ -22,6 +33,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.5",
+    "concurrently": "10.0.7",
     "eslint": "10.15.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.14.0",
