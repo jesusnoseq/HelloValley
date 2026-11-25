@@ -2,6 +2,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import type { OrthographicCamera } from "three";
 import { dioramaStore } from "../state/dioramaStore";
+import { cameraRig, FOLLOW_DAMPING } from "./cameraRig";
 import {
   cameraOffset,
   CAMERA_PITCH_DEG,
@@ -28,7 +29,9 @@ function isEditable(target: EventTarget | null): boolean {
 /**
  * Drives the default orthographic camera: eases yaw towards the current 90° step and the zoom
  * towards the current level, and binds Q/E (rotate) and the scroll wheel (zoom).
- * TODO(M13): follow the local player instead of a fixed target.
+ * When the player controller sets `cameraRig.follow`, the look-at point eases after the player
+ * (or jumps there on `cameraRig.snap`); otherwise it is the fixed `target`. The eased target and
+ * yaw are published on `cameraRig` for the lights and the interior cut-away.
  */
 export function IsoCamera({
   target = ORIGIN,
@@ -39,7 +42,7 @@ export function IsoCamera({
   viewHeight?: number;
 }) {
   const domElement = useThree((s) => s.gl.domElement);
-  const eased = useRef<{ yaw: number; viewHeight: number } | null>(null);
+  const eased = useRef<{ yaw: number; viewHeight: number; x: number; y: number; z: number } | null>(null);
 
   useEffect(() => {
     const { rotate } = dioramaStore.getState();
@@ -70,13 +73,24 @@ export function IsoCamera({
     const { cameraStep, zoomLevel } = dioramaStore.getState();
     const targetYaw = yawForStep(cameraStep);
     const targetHeight = viewHeight ?? ZOOM_LEVELS[zoomLevel]!.viewHeight;
-    const current = (eased.current ??= { yaw: targetYaw, viewHeight: targetHeight });
+    const focus = cameraRig.follow ?? target;
+    const current = (eased.current ??= { yaw: targetYaw, viewHeight: targetHeight, x: focus[0], y: focus[1], z: focus[2] });
     current.yaw = settle(damp(current.yaw, targetYaw, ROTATION_DAMPING, dt), targetYaw, 1e-4);
     current.viewHeight = settle(dampLog(current.viewHeight, targetHeight, ZOOM_DAMPING, dt), targetHeight, 1e-3);
+    if (cameraRig.follow && !cameraRig.snap) {
+      current.x = damp(current.x, focus[0], FOLLOW_DAMPING, dt);
+      current.y = damp(current.y, focus[1], FOLLOW_DAMPING, dt);
+      current.z = damp(current.z, focus[2], FOLLOW_DAMPING, dt);
+    } else {
+      [current.x, current.y, current.z] = focus;
+      cameraRig.snap = false;
+    }
+    cameraRig.target = [current.x, current.y, current.z];
+    cameraRig.yaw = current.yaw;
 
     const [ox, oy, oz] = cameraOffset(current.yaw, PITCH);
-    camera.position.set(target[0] + ox, target[1] + oy, target[2] + oz);
-    camera.lookAt(target[0], target[1], target[2]);
+    camera.position.set(current.x + ox, current.y + oy, current.z + oz);
+    camera.lookAt(current.x, current.y, current.z);
     const zoom = orthoZoom(current.viewHeight, state.size.height);
     if (camera.zoom !== zoom) {
       camera.zoom = zoom;

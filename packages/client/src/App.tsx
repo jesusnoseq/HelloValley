@@ -6,9 +6,10 @@ import { useTownConnection } from "./net/connection";
 import { DioramaView } from "./scene/DioramaView";
 import { SPAWN_TARGET, TOWN_SHADOW_EXTENT } from "./scene/townCamera";
 import { DebugOverlay } from "./ui/DebugOverlay";
+import { FadeOverlay } from "./ui/FadeOverlay";
 
-// The town pulls in shared game data (and zod): keep it in its own chunk, after sign-in.
-const TownScene = lazy(() => import("./scene/Town").then((m) => ({ default: m.Town })));
+// The world pulls in shared game data (and zod): keep it in its own chunk, after sign-in.
+const WorldScene = lazy(() => import("./scene/World").then((m) => ({ default: m.World })));
 
 const card: CSSProperties = {
   position: "fixed",
@@ -34,10 +35,11 @@ function Town({ user }: { user: User }) {
       shadowExtent={TOWN_SHADOW_EXTENT}
       world={
         <Suspense fallback={null}>
-          <TownScene />
+          <WorldScene />
         </Suspense>
       }
     >
+      <FadeOverlay />
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>HelloValley</h1>
         <p style={{ margin: "4px 0 0" }}>

@@ -8,6 +8,7 @@ import { CAMERA_PITCH_DEG, cameraOffset, degToRad, yawForStep, ZOOM_LEVELS } fro
 import { leafOffsets } from "./DifficultySigns";
 import { DRAW_CALL_BUDGET, estimateDrawCalls } from "./drawCalls";
 import { createKitLoader } from "./kitLoader";
+import { playerDrawItems } from "./playerDraw";
 import { baseWallsGeometry, townDrawItems } from "./Town";
 import { OVERVIEW_VIEW_HEIGHT, SPAWN_TARGET } from "./townCamera";
 import { buildCommonLayer, buildStyleLayer, chunkOf, flatQuads, sampleFlats, TOWN_CHUNK_X, TOWN_CHUNK_Z, type TownLayer } from "./townMeshes";
@@ -159,8 +160,9 @@ describe.skipIf(!present)("town meshes (common + europe kits)", () => {
     const all = onScreen([common, style], TOWN_CENTER, OVERVIEW_VIEW_HEIGHT);
     expect(all.meshes).toBe(meshes);
 
-    // Draw calls, upper bound: every mesh in view, every caster in the shadow camera, the post stack.
-    const calls = estimateDrawCalls(townDrawItems(common, style, vegetation));
+    // Draw calls, upper bound: every mesh in view, every caster in the shadow camera, the post
+    // stack, and the local player's avatar and click marker (M13).
+    const calls = estimateDrawCalls([...townDrawItems(common, style, vegetation), ...playerDrawItems()]);
     expect(calls.total, JSON.stringify(calls)).toBeLessThan(DRAW_CALL_BUDGET);
     for (const p of [...common.parts, ...style.parts]) p.geometry.dispose();
     disposeVegetation(vegetation);

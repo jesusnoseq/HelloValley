@@ -9,9 +9,9 @@ Placement conventions (also in tools/blender/README.md):
 - **Room walls** (``iwall.*``) are one storey (1 cell wide, 3 m high) standing at the *back* of
   their cell: the panel fills ``y in [1 - IWALL_T, 1]`` and its room face, at
   ``y = ROOM_FACE_Y``, looks towards -Y (the camera side). A room is lined by placing panels
-  along its back and side edges (rotated in 90-degree steps); the cut-away hides the walls
-  facing the camera (TODO(M13)). Skirting, wainscot and trims stand up to ``TRIM_M`` proud of
-  the room face. Edges on the x and z footprint planes stay sharp so panels tile seamlessly.
+  along its back and side edges (rotated in 90-degree steps); the cut-away lowers the walls
+  facing the camera to a stub (client scene/Interior.tsx, M13). Skirting, wainscot and trims
+  stand up to ``TRIM_M`` proud of the room face. Edges on the x and z footprint planes stay sharp so panels tile seamlessly.
 - **Furniture** declares a :class:`hvkit.grid.Placement` on the 0.5 m grid (GDD §4.2) and stays
   inside that box. Its front is y = 0 (the side the player uses) and its back edge is
   y = ``placement.depth_m``; ``against_wall`` pieces put that edge on a room face. Wall-mounted

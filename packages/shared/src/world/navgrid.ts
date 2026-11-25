@@ -23,7 +23,7 @@ import {
  * The walkability grid (build plan M11): 0.5 m cells over the town, 1 = walkable. Built from the
  * ground map (water is not walkable, the bridge and dock decks are), building footprints, ground
  * floor flower boxes, recipe props, town props and the difficulty sign posts. The client uses it
- * for click-to-move and collisions (TODO(M13)); the server can build the same grid from shared
+ * for click-to-move and collisions (world/movement.ts); the server can build the same grid from shared
  * data for authoritative movement.
  */
 

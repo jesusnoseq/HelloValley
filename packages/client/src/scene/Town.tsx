@@ -171,6 +171,8 @@ export interface TownProps {
   /** Override the store's town style (dev pages). */
   style?: StyleId;
   loader?: KitLoader;
+  /** Hidden (not unmounted) while the player is inside a building, so coming out is instant. */
+  visible?: boolean;
 }
 
 /**
@@ -179,7 +181,7 @@ export interface TownProps {
  * street furniture in the active style kit, shop sign icons, the leaf difficulty signs and the
  * diorama base. Switching the style swaps only the style layer.
  */
-export function Town({ style, loader }: TownProps) {
+export function Town({ style, loader, visible = true }: TownProps) {
   const storeStyle = useDiorama((s) => s.style);
   const { common, style: styled } = useTownLayers(style ?? storeStyle, loader);
   const signs = useMemo(() => difficultySigns(), []);
@@ -198,7 +200,7 @@ export function Town({ style, loader }: TownProps) {
   useEffect(() => () => sway.dispose(), [sway]);
 
   return (
-    <group name="town">
+    <group name="town" visible={visible}>
       {common ? <LayerMeshes loaded={common} water={river} /> : null}
       {common?.vegetation ? <Vegetation batch={common.vegetation} material={sway} /> : null}
       {styled ? (

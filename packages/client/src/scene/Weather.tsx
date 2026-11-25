@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, Fog, LineSegments, type OrthographicCamera, ShaderMaterial, SRGBColorSpace, Vector3 } from "three";
 import { easeWeatherWeights, weatherAt } from "@hellovalley/shared";
 import { dioramaStore } from "../state/dioramaStore";
+import { worldStore } from "../state/worldStore";
 import { CAMERA_DISTANCE } from "./cameraMath";
 import { lightingAt } from "./dayNight";
 import { fogRange, overcastColor, weatherLook, windVector } from "./weatherLook";
@@ -47,7 +48,9 @@ export function WeatherDriver() {
     const light = lightingAt(store.worldTime);
     const f = fog.current;
     if (f) {
-      const { near, far } = fogRange(look.fog, CAMERA_DISTANCE);
+      // No fog indoors (build plan M13): the room is lit by the same sky but sheltered.
+      const indoors = worldStore.getState().space !== "town";
+      const { near, far } = fogRange(indoors ? 0 : look.fog, CAMERA_DISTANCE);
       f.near = near;
       f.far = far;
       f.color.setRGB(...overcastColor(light.background, look.overcast), SRGBColorSpace);
@@ -177,7 +180,7 @@ export function RainStreaks() {
     const lines = ref.current;
     if (!lines) return;
     const rain = weatherRuntime.look.rain;
-    lines.visible = rain > 0.02;
+    lines.visible = rain > 0.02 && worldStore.getState().space === "town";
     if (!lines.visible) return;
     const u = lines.material.uniforms;
     u.uOpacity!.value = 0.55 * rain;

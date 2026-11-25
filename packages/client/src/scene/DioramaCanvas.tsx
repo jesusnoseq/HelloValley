@@ -16,7 +16,7 @@ export interface DioramaCanvasProps {
   children?: ReactNode;
   /** Half-size of the key light's shadow camera in metres. */
   shadowExtent?: number;
-  /** Camera look-at point and light centre (default: the origin). TODO(M13): follow the player. */
+  /** Camera look-at point and light centre (default: the origin) when nothing sets `cameraRig.follow`. */
   target?: readonly [number, number, number];
   /** Override the zoom level's view height in metres (dev overviews). */
   viewHeight?: number;
@@ -46,7 +46,7 @@ export default function DioramaCanvas({ children, shadowExtent, target, viewHeig
     >
       <PerformanceMonitor factor={1} onChange={({ factor }) => setDpr(dprForFactor(factor, deviceRatio))} />
       <IsoCamera target={target} viewHeight={viewHeight} />
-      <DayNightLights target={target} shadowExtent={shadowExtent} />
+      <DayNightLights shadowExtent={shadowExtent} />
       <KitLighting />
       <Weather />
       {children ?? <TestBlocks />}

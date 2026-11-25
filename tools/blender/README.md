@@ -187,9 +187,10 @@ Conventions (details in `hvmodules/interior/base.py`):
 - **Floor level** is the pivot plane. Floor panels are slabs from -0.06 m (`Module.sink_m`) to 0.
 - **Room walls** stand at the *back* of their cell: the panel fills `y in [0.9, 1]` (0.1 m thick)
   and its room face (`y = 0.9`, socket `face`) looks towards -Y, the camera side. Line a room by
-  placing panels along its back and side edges, rotated in 90-degree steps; the cut-away
-  hides the walls facing the camera (TODO(M13)). Opening sizes are fixed per module (window
-  `x 0.2-0.8, z 1.0-2.2`, door `x 0.2-0.8, z 0-2.2`).
+  placing panels along its back and side edges, rotated in 90-degree steps (the M13 rooms put
+  the slabs just outside the floor, `shared/src/world/interiors.ts`); the cut-away lowers the
+  walls facing the camera to a stub (client `scene/Interior.tsx`). Opening sizes are fixed per
+  module (window `x 0.2-0.8, z 1.0-2.2`, door `x 0.2-0.8, z 0-2.2`).
 - **Furniture** sets `Module.placement` (`hvkit.grid.Placement`): `w x d` cells of
   `PLACEMENT_CELL_M = 0.5` m (GDD §4.2), a `mount` and `against_wall`. The 1 m footprint is
   derived from it, the bounds check uses the placement box, and the manifest gets

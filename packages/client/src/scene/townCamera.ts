@@ -4,8 +4,8 @@
  */
 
 /**
- * Camera target until the player controller follows the local player (TODO(M13)): the spawn point
- * in front of the apartment block door (shared SPAWN_POINT).
+ * Camera target before the player controller takes over (scene/Player sets `cameraRig.follow`):
+ * the spawn point in front of the apartment block door (shared SPAWN_POINT).
  */
 export const SPAWN_TARGET: [number, number, number] = [33, 0, 88.5];
 /** Shadow camera half-size that covers the far zoom around the target. */

@@ -6,8 +6,8 @@ import { ClientMessage } from "./messages";
 export const CHAT_MAX_LENGTH = 200;
 /**
  * Sanity bound for world coordinates in metres (the town itself is TOWN_BOUNDS, world/town.ts).
- * TODO(M13): the server snaps click targets to the walkability grid (`nearestWalkable`) and plans
- * the path with `findPath`.
+ * TODO(M16): the server plans click targets with `planPath` (world/movement.ts, which snaps them
+ * to where a walker fits) and steps movement with `PlayerController` (world/player.ts).
  */
 export const WORLD_COORD_LIMIT = 1000;
 /** Firebase ID tokens are JWTs of roughly 1 KB; anything far larger is rejected outright. */

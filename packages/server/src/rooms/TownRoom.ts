@@ -37,7 +37,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> {
 
   override onCreate(): void {
     this.handle(ClientMessage.PlayerInput, (_client, _input) => {
-      // TODO(M16): authoritative movement (speed caps, walkability, click-to-move with A*).
+      // TODO(M16): authoritative movement: run the shared PlayerController (world/player.ts:
+      // speed caps, collisions with the walkability grid, click-to-move with A*, door links).
     });
     this.handle(ClientMessage.Chat, (_client, _chat) => {
       // TODO(M18): mandatory server moderation, then proximity broadcast.

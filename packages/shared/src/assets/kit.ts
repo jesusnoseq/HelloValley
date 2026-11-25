@@ -20,7 +20,8 @@ export const KIT_MANIFEST_FILE = "kit-manifest.json";
 export const COMMON_KIT_ID = "common";
 /**
  * The interior and furniture kit (M08: room floor and wall panels, apartment furniture and
- * shop interiors) in `kits/interior/`. Loaded by interior scenes (TODO(M13)) and the apartment
+ * shop interiors) in `kits/interior/`. Loaded by interior scenes (client scene/Interior.tsx, room
+ * layouts in shared world/interiors.ts) and the apartment
  * (TODO(M17)). Mirrors INTERIOR_KIT_ID in tools/blender/hvkit/styles.py.
  */
 export const INTERIOR_KIT_ID = "interior";

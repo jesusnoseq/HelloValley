@@ -7,3 +7,6 @@ export * from "./render";
 export * from "./weather";
 export * from "./water";
 export * from "./vegetation";
+export * from "./movement";
+export * from "./interiors";
+export * from "./player";

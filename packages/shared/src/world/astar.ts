@@ -5,7 +5,8 @@ import type { Vec2 } from "./town";
  * A* on the walkability grid (build plan M11): 8-connected, with diagonal steps only when both
  * orthogonal neighbours are free (no cutting corners), unit cost per cell (√2 diagonally) and the
  * octile-distance heuristic, which is admissible and consistent, so paths are shortest on the
- * grid. Click-to-move (TODO(M13)) and NPC walking (TODO(M31)) use it.
+ * grid. Click-to-move (world/movement.ts `planPath`, on the cells a walker fits) and NPC
+ * walking (TODO(M31)) use it.
  */
 
 const SQRT2 = Math.SQRT2;
