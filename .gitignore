@@ -6,3 +6,5 @@ dist/
 .firebase/
 *.log
 coverage/
+__pycache__/
+*.pyc

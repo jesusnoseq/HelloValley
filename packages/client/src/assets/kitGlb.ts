@@ -1,0 +1,92 @@
+import { Box3, Mesh, type Object3D } from "three";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+import { type GLTF, GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import {
+  isKitVariantExtras,
+  KIT_MANIFEST_FILE,
+  type KitManifest,
+  type KitModule,
+  parseKitManifest,
+} from "@hellovalley/shared";
+
+/**
+ * Low-level loading of generated kit files (tools/blender → public/assets/kits/{style}/).
+ * The style-aware kit loader with caching, instancing and the shared atlas texture is
+ * TODO(M10); this module only reads and validates what the generator writes.
+ */
+
+/** A GLTFLoader that decodes EXT_meshopt_compression (tools/optimize-assets). */
+export function createKitGltfLoader(): GLTFLoader {
+  const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
+  // TODO(M10): setKTX2Loader with the Basis transcoder for KTX2 textures and the atlas.
+  return loader;
+}
+
+export function parseKitGlb(data: ArrayBuffer, loader: GLTFLoader = createKitGltfLoader()): Promise<GLTF> {
+  return loader.parseAsync(data, "");
+}
+
+/** The variant roots of a module GLB, keyed by `hv_variant` (from the node extras). */
+export function kitVariants(root: Object3D): Map<number, Object3D> {
+  const variants = new Map<number, Object3D>();
+  root.traverse((node) => {
+    if (isKitVariantExtras(node.userData) && !variants.has(node.userData.hv_variant)) {
+      variants.set(node.userData.hv_variant, node);
+    }
+  });
+  return variants;
+}
+
+/** Triangles in an object's meshes (indexed or not). */
+export function countTris(root: Object3D): number {
+  let tris = 0;
+  root.traverse((node) => {
+    if (!(node instanceof Mesh)) return;
+    const geometry = node.geometry;
+    const count = geometry.index ? geometry.index.count : (geometry.getAttribute("position")?.count ?? 0);
+    tris += Math.floor(count / 3);
+  });
+  return tris;
+}
+
+export function objectBounds(root: Object3D): { min: [number, number, number]; max: [number, number, number] } {
+  root.updateWorldMatrix(true, true);
+  const box = new Box3().setFromObject(root, true);
+  return { min: box.min.toArray(), max: box.max.toArray() };
+}
+
+function joinUrl(base: string, file: string): string {
+  return `${base.replace(/\/+$/, "")}/${file}`;
+}
+
+type FetchLike = (url: string) => Promise<Pick<Response, "ok" | "status" | "json" | "arrayBuffer">>;
+
+export async function fetchKitManifest(kitUrl: string, fetchImpl: FetchLike = fetch): Promise<KitManifest> {
+  const url = joinUrl(kitUrl, KIT_MANIFEST_FILE);
+  const res = await fetchImpl(url);
+  if (!res.ok) throw new Error(`kit manifest ${url}: HTTP ${res.status}`);
+  return parseKitManifest(await res.json());
+}
+
+export interface LoadedKitModule {
+  module: KitModule;
+  gltf: GLTF;
+  variants: Map<number, Object3D>;
+}
+
+export async function loadKitModule(
+  kitUrl: string,
+  module: KitModule,
+  { loader = createKitGltfLoader(), fetchImpl = fetch as FetchLike } = {},
+): Promise<LoadedKitModule> {
+  const url = joinUrl(kitUrl, module.file);
+  const res = await fetchImpl(url);
+  if (!res.ok) throw new Error(`kit module ${url}: HTTP ${res.status}`);
+  const gltf = await parseKitGlb(await res.arrayBuffer(), loader);
+  const variants = kitVariants(gltf.scene);
+  if (variants.size !== module.variants) {
+    throw new Error(`${module.id}: manifest lists ${module.variants} variants, GLB has ${variants.size}`);
+  }
+  return { module, gltf, variants };
+}

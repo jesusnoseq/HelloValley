@@ -1,0 +1,102 @@
+"""Command-line parsing and build planning for build.py (pure Python).
+
+    blender --background --factory-startup --python tools/blender/build.py -- \\
+        --style europe --out packages/client/public/assets/kits [--modules test.cube]
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+from dataclasses import dataclass
+from typing import List, Optional, Sequence
+
+from .manifest import MANIFEST_FILE
+from .module import Module, select_modules
+from .styles import StyleParams, get_style
+from .variants import DEFAULT_SEED
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+DEFAULT_OUT = os.path.join("packages", "client", "public", "assets", "kits")
+ATLAS_FILE = "atlas.png"
+
+MIN_BLENDER = (4, 2, 0)
+"""Oldest Blender whose glTF exporter has the options we use (``export_vertex_color``)."""
+TARGET_BLENDER = (5, 2, 0)
+"""The LTS the framework targets (README)."""
+
+
+def script_args(argv: Sequence[str]) -> List[str]:
+    """Blender passes its own arguments first; ours come after ``--``."""
+    argv = list(argv)
+    return argv[argv.index("--") + 1 :] if "--" in argv else []
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="build.py",
+        description="Generate a HelloValley style kit (GLB modules + kit-manifest.json).",
+    )
+    p.add_argument("--style", default="european", help="style id (european, or the alias europe)")
+    p.add_argument("--out", default=DEFAULT_OUT, help="kits root; the kit goes to <out>/<style>/")
+    p.add_argument(
+        "--modules",
+        default="",
+        help="comma-separated module ids or prefix globs (wall.*); default: every non-test module",
+    )
+    p.add_argument("--include-tests", action="store_true", help="also build test modules")
+    p.add_argument("--seed", type=int, default=DEFAULT_SEED, help="base seed for variants")
+    p.add_argument("--strict", action="store_true", help="fail on budget or bounds problems")
+    p.add_argument("--no-atlas", action="store_true", help="skip writing the style atlas")
+    p.add_argument("--dry-run", action="store_true", help="print the plan and exit (no Blender needed)")
+    return p
+
+
+def parse_args(args: Sequence[str]) -> argparse.Namespace:
+    return build_parser().parse_args(list(args))
+
+
+@dataclass
+class BuildPlan:
+    style: StyleParams
+    out_dir: str
+    """The style's kit folder: <out>/<style id>."""
+    modules: List[Module]
+    seed: int = DEFAULT_SEED
+    strict: bool = False
+    write_atlas: bool = True
+
+    @property
+    def manifest_path(self) -> str:
+        return os.path.join(self.out_dir, MANIFEST_FILE)
+
+    @property
+    def atlas_path(self) -> str:
+        return os.path.join(self.out_dir, ATLAS_FILE)
+
+    def describe(self) -> str:
+        lines = [f"style {self.style.id} -> {self.out_dir}"]
+        for m in self.modules:
+            lines.append(f"  {m.id:<24} {m.variants} variants  -> {m.file_name}")
+        if not self.modules:
+            lines.append("  (no modules selected)")
+        return "\n".join(lines)
+
+
+def make_plan(ns: argparse.Namespace, root: str = REPO_ROOT) -> BuildPlan:
+    style = get_style(ns.style)
+    only: Optional[List[str]] = [s.strip() for s in ns.modules.split(",") if s.strip()] or None
+    modules = select_modules(style.id, only=only, include_tests=ns.include_tests)
+    out = ns.out if os.path.isabs(ns.out) else os.path.join(root, ns.out)
+    return BuildPlan(
+        style=style,
+        out_dir=os.path.normpath(os.path.join(out, style.id)),
+        modules=modules,
+        seed=ns.seed,
+        strict=ns.strict,
+        write_atlas=not ns.no_atlas,
+    )
+
+
+def version_ok(version: Sequence[int]) -> bool:
+    return tuple(version[:3]) >= MIN_BLENDER

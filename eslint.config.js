@@ -19,7 +19,7 @@ export default defineConfig(
   },
   // Node scripts and tool configs at the root and in each package.
   {
-    files: ['scripts/**', 'eslint.config.js', 'vitest.config.*', 'packages/*/vite.config.*'],
+    files: ['scripts/**', 'tools/**', 'eslint.config.js', 'vitest.config.*', 'packages/*/vite.config.*'],
     languageOptions: { globals: globals.node },
   },
   {
