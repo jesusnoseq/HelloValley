@@ -24,7 +24,7 @@ export const EmoteSchema = z.enum(EMOTES);
 
 /**
  * GDD §10: keys 1–5 play emotes (my mapping). `think` is left out of the hotbar: it is the
- * "waiting for an answer" pose of conversations (TODO(M23)).
+ * "waiting for an answer" pose of conversations (the NPC plays it while the model answers, M23).
  */
 export const EMOTE_KEYS = ["wave", "laugh", "cheer", "clap", "heart"] as const satisfies readonly Emote[];
 

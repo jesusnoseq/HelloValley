@@ -7,6 +7,7 @@ import type { MessageKey } from "../../i18n/messages.en";
 import { chat, type ChatLine, type ChatNotice, useChat } from "../../net/chatSession";
 import { visitSession } from "../../net/visitSession";
 import { avatarStore } from "../../state/avatarStore";
+import { conversationActive, conversationStore } from "../../state/conversationStore";
 import { placementStore } from "../../state/placementStore";
 import { hasHover, lineVisible } from "./chatView";
 
@@ -49,9 +50,14 @@ function isEditable(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-/** Another dialog (mirror, intercom, placement mode) has the keyboard. */
+/** Another dialog (mirror, intercom, placement mode, an NPC conversation) has the keyboard. */
 function dialogOpen(): boolean {
-  return avatarStore.getState().mirrorOpen || visitSession.getState().intercomOpen || placementStore.getState().open;
+  return (
+    avatarStore.getState().mirrorOpen ||
+    visitSession.getState().intercomOpen ||
+    placementStore.getState().open ||
+    conversationActive(conversationStore.getState())
+  );
 }
 
 /**

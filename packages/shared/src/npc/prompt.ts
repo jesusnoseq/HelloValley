@@ -3,7 +3,7 @@ import type { TemplateVariables } from "../ai/dotprompt";
 import { getLanguage } from "../data/languages";
 import { getNpc, NPC_IDS, type NpcId } from "../data/npcs";
 import type { NpcContextMessage } from "../protocol/messages";
-import { BAND_LEVEL, cefrDescriptor, friendshipBandHint, type FriendshipBand, type LevelBand, maxWordsPerLine, numSuggestions, type OpenerTimeBand } from "./levels";
+import { BAND_LEVEL, cefrDescriptor, friendshipBandHint, type FriendshipBand, type LevelBand, maxWordsPerLine, type OpenerTimeBand, requestedSuggestions } from "./levels";
 import { cefrOf } from "../data/difficulty";
 
 /**
@@ -105,7 +105,8 @@ export function buildNpcTurnVariables(ctx: NpcContextMessage, player: NpcPlayerI
     effective_level: cefrOf(ctx.effectiveLevel),
     cefr_descriptor: cefrDescriptor(ctx.effectiveLevel, ctx.simplified),
     max_words_per_line: maxWordsPerLine(ctx.effectiveLevel),
-    num_suggestions: numSuggestions(ctx.effectiveLevel),
+    // C1+ asks for one reply too: the panel hides it behind the 💡 button (GDD §6.2).
+    num_suggestions: requestedSuggestions(ctx.effectiveLevel),
     script_note: scriptNote(ctx.lang),
     hearts: Math.round(ctx.hearts * 2) / 2,
     friendship_band_hint: friendshipBandHint(ctx.hearts),

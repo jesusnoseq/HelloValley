@@ -31,6 +31,8 @@ import {
   npcTurnHistory,
   npcTurnMessage,
   numSuggestions,
+  requestedSuggestions,
+  suggestionStyle,
   openerBandsFor,
   openerKeyMaterial,
   openerTimeBand,
@@ -158,6 +160,9 @@ describe("NPC turn prompt builder (build plan M21)", () => {
   it("follows the level tables", () => {
     expect([maxWordsPerLine("A1"), maxWordsPerLine("A2+"), maxWordsPerLine("B2"), maxWordsPerLine("C2")]).toEqual([8, 12, 22, 30]);
     expect([numSuggestions("A2"), numSuggestions("B1"), numSuggestions("B2"), numSuggestions("C1")]).toEqual([3, 2, 1, 0]);
+    // C1+ still asks the model for one reply, which the panel keeps behind the 💡 (GDD §6.2).
+    expect([requestedSuggestions("A1"), requestedSuggestions("B2"), requestedSuggestions("C1"), requestedSuggestions("C2")]).toEqual([3, 1, 1, 1]);
+    expect([suggestionStyle("A2+"), suggestionStyle("B1"), suggestionStyle("B2"), suggestionStyle("C1")]).toEqual(["replies", "replies", "starter", "hint"]);
   });
 });
 

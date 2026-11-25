@@ -1,5 +1,7 @@
 import { aiStatusStore, refreshOnDeviceStatus } from "./availability";
+import type { GrammarFeedback, GrammarPromptInput } from "@hellovalley/shared";
 import type { NpcAi } from "../net/npcConversation";
+import type { TaskResult } from "./hybrid";
 import type { ChatModeration } from "./moderation";
 import type { TranslateResult, Translator } from "./translate";
 import type { TtsResult, TtsSpeaker } from "./tts";
@@ -63,13 +65,30 @@ export async function checkOnDeviceAtLogin(): Promise<void> {
   if (status === "downloadable") void loadAiRuntime().catch(() => undefined);
 }
 
-/** NPC turns and openers from the lazy runtime (build plan M21), for `NpcConversation`. TODO(M23): the conversation panel. */
+/** NPC turns and openers from the lazy runtime (build plan M21), for `NpcConversation` (the M23 conversation panel). */
 export async function loadNpcAi(): Promise<NpcAi> {
   const r = await loadAiRuntime();
   return {
     run: (input) => r.npcTurns.run(input),
     canned: (kind, context) => r.npcTurns.canned(kind, context),
     opener: (context, playerName) => r.openers().get(context, playerName),
+  };
+}
+
+/**
+ * The conversation panel's input helpers (build plan M23, npc-runtime.md §4): on-device grammar
+ * feedback (skipped when unavailable) and language detection for the native-language redirect.
+ */
+export interface InputHelpers {
+  grammarFeedback(input: GrammarPromptInput): Promise<TaskResult<GrammarFeedback>>;
+  detectLanguage(text: string): Promise<TaskResult<{ lang: string }>>;
+}
+
+export async function loadInputHelpers(): Promise<InputHelpers> {
+  const r = await loadAiRuntime();
+  return {
+    grammarFeedback: (input) => r.hybrid().grammarFeedback(input),
+    detectLanguage: (text) => r.hybrid().detectLanguage(text),
   };
 }
 

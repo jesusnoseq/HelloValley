@@ -3,12 +3,17 @@ import { Client, type Room } from "@colyseus/sdk";
 import type { WebSocketTransport } from "@colyseus/ws-transport";
 import {
   ClientMessage,
+  NPC_POSTS,
   type NpcAppliedMessage,
   type NpcContextMessage,
   type NpcRefusedMessage,
   type NpcTradeMessage,
+  PlayerController,
+  type PlayerMoveMessage,
   RoomName,
   ServerMessage,
+  type SpacePoint,
+  type TownPlayerView,
   type UserProfile,
 } from "@hellovalley/shared";
 import { afterEach, describe, expect, it } from "vitest";
@@ -54,9 +59,23 @@ afterEach(async () => {
 });
 
 const next = <T>(room: Room, type: string) => new Promise<T>((resolve) => room.onMessage(type, (m: T) => resolve(m)));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function start(store: MemoryNpcStore): Promise<Room> {
-  server = createGameServer({ verifier: fakeVerifier, profiles: createMemoryProfileStore({ kenji }), npcStore: store });
+/** In front of the Baker's counter (build plan M23: npc:start needs the player next to the NPC). */
+const AT_BAKER: SpacePoint = { space: "bakery", pos: NPC_POSTS.baker.talkSpot, heading: Math.PI };
+
+async function until(check: () => boolean, what: string, ms = 3000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!check()) {
+    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+    await sleep(20);
+  }
+}
+
+const self = (room: Room): TownPlayerView | undefined => (room.state as { players?: Map<string, TownPlayerView> }).players?.get(room.sessionId);
+
+async function start(store: MemoryNpcStore, spawn: SpacePoint = AT_BAKER): Promise<Room> {
+  server = createGameServer({ verifier: fakeVerifier, profiles: createMemoryProfileStore({ kenji }), npcStore: store, town: { spawn } });
   await server.listen(0, "127.0.0.1");
   const { port } = (server.transport as WebSocketTransport).server!.address() as AddressInfo;
   const room = await new Client(`http://127.0.0.1:${port}`).joinOrCreate(RoomName.Town, { idToken: "valid:kenji" });
@@ -88,5 +107,44 @@ describe("TownRoom NPC conversations", () => {
     const refusedP = next<NpcRefusedMessage>(room, ServerMessage.NpcRefused);
     room.send(ClientMessage.NpcReply, { conversationId: ctx.conversationId, turnId: ctx.turnId, actions: BAKER_JA_B2_REPLY.actions });
     expect(await refusedP).toMatchObject({ reason: "unknown_turn" });
+  });
+
+  it("refuses to start away from the NPC", async () => {
+    const store = createMemoryNpcStore({ "kenji/ja": { level: "B2", coins: 20, hearts: {}, slots: [] } });
+    const room = await start(store, { space: "apartment", pos: [1, 1], heading: 0 });
+    const refusedP = next<NpcRefusedMessage>(room, ServerMessage.NpcRefused);
+    room.send(ClientMessage.NpcStart, { npcId: "baker" });
+    expect(await refusedP).toMatchObject({ reason: "too_far", npcId: "baker" });
+  });
+
+  it("shows bystanders who is chatting, until goodbye or walking away", async () => {
+    const store = createMemoryNpcStore({ "kenji/ja": { level: "B2", coins: 20, hearts: {}, slots: [] } });
+    const room = await start(store);
+    await until(() => self(room)?.talkingTo === "", "the synced state");
+
+    const contextP = next<NpcContextMessage>(room, ServerMessage.NpcContext);
+    room.send(ClientMessage.NpcStart, { npcId: "baker" });
+    const ctx = await contextP;
+    await until(() => self(room)?.talkingTo === "baker", "talkingTo = baker");
+    room.send(ClientMessage.NpcEnd, { conversationId: ctx.conversationId });
+    await until(() => self(room)?.talkingTo === "", "talkingTo cleared on npc:end");
+
+    // Again, then walk to the far corner of the bakery: the server ends the conversation.
+    room.send(ClientMessage.NpcStart, { npcId: "baker" });
+    await until(() => self(room)?.talkingTo === "baker", "talkingTo = baker again");
+    const walker = new PlayerController(AT_BAKER);
+    expect(walker.clickTo([0.4, 4.5])).toBe(true);
+    let seq = 0;
+    let last = performance.now();
+    while (walker.waypoints) {
+      await sleep(50);
+      const now = performance.now();
+      walker.update((now - last) / 1000);
+      last = now;
+      const { space, pos, heading, motion } = walker.state;
+      const move: PlayerMoveMessage = { seq: ++seq, epoch: 0, space, x: pos[0], z: pos[1], heading, motion };
+      room.send(ClientMessage.PlayerMove, move);
+    }
+    await until(() => self(room)?.talkingTo === "", "talkingTo cleared on walking away");
   });
 });

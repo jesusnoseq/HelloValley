@@ -15,9 +15,17 @@ export interface CameraRig {
   target: Vec3;
   /** Eased camera yaw this frame (radians, see cameraMath.yawForStep). */
   yaw: number;
+  /**
+   * While talking to an NPC (build plan M23, GDD §8.1 "the camera eases in"): look at the pair's
+   * midpoint and zoom in to this view height. Null otherwise.
+   */
+  talk: { target: Vec3; viewHeight: number } | null;
 }
 
-export const cameraRig: CameraRig = { follow: null, snap: false, target: [0, 0, 0], yaw: Math.PI / 4 };
+export const cameraRig: CameraRig = { follow: null, snap: false, target: [0, 0, 0], yaw: Math.PI / 4, talk: null };
+
+/** View height (metres) of the conversation close-up, a little closer than the nearest zoom level. */
+export const TALK_VIEW_HEIGHT = 7.5;
 
 /** Easing rate (1/s) of the camera following the player. */
 export const FOLLOW_DAMPING = 6;

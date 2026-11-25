@@ -78,7 +78,7 @@ function langInfo(lang: string): LangInfo {
  * (saved to the notebook), the sentence translation on hover (or the 🌐 button), and the 3-state
  * script toggle (native / both / romanized) for non-Latin scripts, with furigana over kanji in
  * "both" for Japanese. Arabic, Hebrew and Persian lines are laid out right to left.
- * The `audio` slot holds the replay and 0.75× buttons (M22). TODO(M23): used by the conversation panel.
+ * The `audio` slot holds the replay and 0.75× buttons (M22). The conversation panel (M23) shows it.
  */
 export function SpeechBubble({
   lines,

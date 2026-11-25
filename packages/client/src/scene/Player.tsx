@@ -10,7 +10,10 @@ import {
   type AvatarAppearance,
   type ClipTimings,
   emoteForKey,
+  headingTowards,
   nearestInteractable,
+  npcPost,
+  pickNpc,
   PlayerController,
   type SpacePoint,
   type Vec2,
@@ -24,13 +27,15 @@ import { assembleAvatar, tintAvatar } from "../characters/avatarLook";
 import type { Character } from "../characters/characterGlb";
 import { PLACEHOLDER_APPEARANCE, PLACEHOLDER_NAME } from "../characters/placeholderLook";
 import { avatarStore, useAvatar } from "../state/avatarStore";
+import { conversationStore } from "../state/conversationStore";
+import { conversation } from "../ui/conversation/controller";
 import { dioramaStore } from "../state/dioramaStore";
 import { placementStore } from "../state/placementStore";
 import { worldStore } from "../state/worldStore";
 import { sceneGrids } from "./apartmentLayout";
 import { CHAT_BUBBLE_GAP_M } from "../ui/chat/chatView";
 import { yawForStep } from "./cameraMath";
-import { cameraRig } from "./cameraRig";
+import { cameraRig, TALK_VIEW_HEIGHT } from "./cameraRig";
 import { ChatBubble } from "./ChatBubble";
 import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
 import { dampAngle, type Fade, IDLE_FADE, RUN_KEYS, screenDirection, screenToWorld, startFade, stepFade } from "./playerMath";
@@ -77,7 +82,10 @@ function clipTimings(manifest: CharacterManifest): ClipTimings {
  * Online (build plan M16) the walker is predicted locally and reported to the TownRoom (MoveSync):
  * the server validates every report and a correction (or a fresh session's spawn) snaps the
  * walker back to the server's point. Emotes are relayed to the other players.
- * TODO(M23/M29): `talking` and `seated` inputs of the state machine.
+ * NPC conversations (build plan M23): F next to an NPC is handled by the conversation layer;
+ * clicking an NPC talks at once when within reach, or walks to its talk spot first. While talking
+ * the avatar faces the NPC and plays the talk clip, the camera eases in on the pair, and walking
+ * away (keys or a click elsewhere) ends the conversation. TODO(M29): the `seated` input.
  */
 export function Player({ start }: { start: SpacePoint }) {
   // The apartment's walkability follows its furniture layout (build plan M17).
@@ -109,6 +117,7 @@ export function Player({ start }: { start: SpacePoint }) {
     cameraRig.snap = true;
     return () => {
       cameraRig.follow = null;
+      cameraRig.talk = null;
       worldStore.setState({ nearby: null });
     };
   }, [start]);
@@ -157,7 +166,8 @@ export function Player({ start }: { start: SpacePoint }) {
       if (e.repeat) return;
       keys.add(e.code);
       const nearby = worldStore.getState().nearby?.kind;
-      if (e.code === "KeyF" && fade.current.phase === "idle" && nearby) {
+      // F next to an NPC belongs to the conversation layer (ui/conversation/ConversationLayer).
+      if (e.code === "KeyF" && fade.current.phase === "idle" && nearby && nearby !== "npc") {
         keys.clear();
         if (nearby === "mirror") avatarStore.getState().openMirror();
         else openIntercom();
@@ -193,8 +203,19 @@ export function Player({ start }: { start: SpacePoint }) {
       ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, get().camera);
       const { origin, direction } = raycaster.ray;
+      const o: [number, number, number] = [origin.x, origin.y, origin.z];
+      const d: [number, number, number] = [direction.x, direction.y, direction.z];
+      // An NPC first (build plan M23): talk now, or walk to the counter and talk on arrival.
+      const npc = pickNpc(controller.state.space, o, d);
+      if (npc) {
+        if (conversationStore.getState().npcId === npc) return;
+        conversation.requestTalk(npc, controller.state.space, controller.state.pos);
+        if (conversationStore.getState().pendingTalk === npc) controller.clickTo(npcPost(npc).talkSpot);
+        return;
+      }
+      conversation.cancelPending();
       // Building walls and doorways first, else the ground plane (shared pickClick).
-      controller.clickRay([origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z]);
+      controller.clickRay(o, d);
     };
     el.addEventListener("pointerdown", onDown);
     return () => el.removeEventListener("pointerdown", onDown);
@@ -252,6 +273,8 @@ export function Player({ start }: { start: SpacePoint }) {
       if (controller.waypoints) controller.teleport({ ...controller.state });
     } else {
       const keys = held.current;
+      // Walking off with the keys cancels a clicked NPC.
+      if (keys.size > 0 && conversationStore.getState().pendingTalk) conversation.cancelPending();
       const run = RUN_KEYS.some((k) => keys.has(k));
       controller.setInput(screenToWorld(screenDirection(keys), yawForStep(dioramaStore.getState().cameraStep)), run);
     }
@@ -274,8 +297,16 @@ export function Player({ start }: { start: SpacePoint }) {
     if ((near?.id ?? null) !== (world.nearby?.id ?? null)) worldStore.setState({ nearby: near ? { id: near.id, kind: near.kind } : null });
 
     cameraRig.follow = [pos[0], 0, pos[1]];
-    // In front of the mirror the avatar turns to the camera to show off the new look.
-    heading.current = dampAngle(heading.current, mirrorOpen ? cameraRig.yaw : controller.state.heading, TURN_RATE, dt);
+    // NPC conversations: walking away ends one, arriving at a clicked NPC starts one.
+    conversation.updatePosition(space, pos);
+    const talk = conversationStore.getState();
+    const talkingTo = talk.npcId && talk.phase !== "idle" && talk.phase !== "unavailable" ? npcPost(talk.npcId) : null;
+    const talking = talkingTo !== null && talkingTo.space === space;
+    cameraRig.talk = talking ? { target: [(pos[0] + talkingTo.pos[0]) / 2, 0.6, (pos[1] + talkingTo.pos[1]) / 2], viewHeight: TALK_VIEW_HEIGHT } : null;
+    // In front of the mirror the avatar turns to the camera to show off the new look; in a
+    // conversation it stands facing the NPC.
+    const faceTo = mirrorOpen ? cameraRig.yaw : talking && motion === "idle" ? headingTowards(pos, talkingTo.pos) : controller.state.heading;
+    heading.current = dampAngle(heading.current, faceTo, TURN_RATE, dt);
     const g = avatar.current;
     if (g) {
       g.position.set(pos[0], 0, pos[1]);
@@ -283,7 +314,7 @@ export function Player({ start }: { start: SpacePoint }) {
     }
     const m0 = machine.current;
     if (m0) {
-      const change = m0.update({ motion }, dt);
+      const change = m0.update({ motion, talking }, dt);
       if (change && character) character.play(change.clip, change.fade, change.restart);
     }
     character?.mixer.update(dt);

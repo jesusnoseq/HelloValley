@@ -1,0 +1,186 @@
+/* Conversation panel (build plan M23, GDD §6.2, §8.1). Same cream card look as the other HUDs. */
+.hv-convo {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 250, 240, 0.96);
+  color: #3d3a44;
+  font: 14px/1.4 system-ui, sans-serif;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 8px;
+}
+
+.hv-convo .hv-speech {
+  max-width: none;
+  box-shadow: none;
+  background: #fff;
+}
+
+.hv-convo__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hv-convo__title {
+  margin: 0;
+  flex: 1;
+  font-size: 15px;
+}
+
+.hv-convo__coins {
+  font-size: 13px;
+}
+
+.hv-convo button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.hv-convo button:focus-visible,
+.hv-convo input:focus-visible,
+.hv-talk-hint:focus-visible {
+  outline: 3px solid #6c8ef5;
+  outline-offset: 2px;
+}
+
+.hv-convo kbd,
+.hv-talk-hint kbd {
+  font: 11px/1 ui-monospace, monospace;
+  padding: 1px 4px;
+  border: 1px solid rgba(61, 58, 68, 0.35);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.hv-convo__status {
+  font-size: 13px;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.hv-convo__note {
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 236, 179, 0.6);
+  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.hv-convo__log {
+  font-size: 13px;
+}
+
+.hv-convo__log ol {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+}
+
+.hv-convo__cards {
+  display: grid;
+  gap: 6px;
+}
+
+.hv-card {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(61, 58, 68, 0.2);
+  background: #fff;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.hv-card__text {
+  flex: 1;
+  min-width: 12em;
+}
+
+.hv-convo__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hv-suggestion {
+  position: relative;
+}
+
+.hv-suggestion > button {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(61, 58, 68, 0.3);
+  background: #fff;
+}
+
+.hv-suggestion__tip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 4px);
+  z-index: 2;
+  width: max-content;
+  max-width: 260px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #3d3a44;
+  color: #fff;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.hv-convo__form {
+  display: flex;
+  gap: 6px;
+}
+
+.hv-convo__form input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 5px 8px;
+}
+
+.hv-convo__mic[aria-pressed="true"] {
+  background: #ffd8d8;
+}
+
+.hv-talk-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 24;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.95);
+  color: #3d3a44;
+  font: 600 14px/1.4 system-ui, sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.hv-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

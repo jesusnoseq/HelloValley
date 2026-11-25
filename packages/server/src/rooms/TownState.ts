@@ -17,6 +17,8 @@ export const TownPlayer = schema(
     z: t.number(),
     heading: t.number(),
     motion: t.string(),
+    /** The NPC this player is talking to, or "" (build plan M23: bystanders see "chatting"). */
+    talkingTo: t.string(),
   },
   "TownPlayer",
 );
@@ -40,7 +42,8 @@ export const TownWorld = schema(
 export type TownWorld = SchemaType<typeof TownWorld>;
 
 /**
- * Synced TownRoom state. TODO(M19): NPCs (positions and schedule state). TODO(M28): forage spawns
+ * Synced TownRoom state. NPCs stand at fixed posts for now (shared npcPosts.ts, build plan M23);
+ * TODO(M31): NPC positions and schedule state. TODO(M28): forage spawns
  * and fish shadows (architecture §7.1).
  */
 export const TownState = schema(

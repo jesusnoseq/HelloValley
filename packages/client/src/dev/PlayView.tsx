@@ -25,6 +25,7 @@ import { ApartmentHud } from "../ui/apartment/ApartmentHud";
 import { FadeOverlay } from "../ui/FadeOverlay";
 import { MirrorLayer } from "../ui/mirror/MirrorLayer";
 import type { SaveAppearance } from "../ui/mirror/MirrorPanel";
+import { ConversationLayer } from "../ui/conversation/ConversationLayer";
 import { PerfHud } from "../ui/PerfHud";
 
 const panel: CSSProperties = {
@@ -102,6 +103,8 @@ const fakeSave: SaveAppearance = async (request) => {
  * the M15 avatar `&name=Lia` and `&save=offline`. In the apartment, F at the mirror edits the look;
  * 1–5 play emotes. In the apartment, Decorate opens furniture placement mode (M17, a local layout:
  * no server); in town, F at the intercom beside the apartment block door opens the (empty) panel.
+ * M23: every interior has its villager; F or a click next to one opens the conversation panel,
+ * which says it is offline here (no TownRoom; the component tests drive it with a mocked room).
  */
 export function PlayView() {
   const space = useWorld((st) => st.space);
@@ -111,6 +114,7 @@ export function PlayView() {
       <FadeOverlay />
       <MirrorLayer save={fakeSave} />
       <ApartmentHud />
+      <ConversationLayer />
       <PerfHud />
       <div style={panel}>
         <strong>Play (M13, M15, M17)</strong>

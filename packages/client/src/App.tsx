@@ -23,6 +23,8 @@ import type { SaveAppearance } from "./ui/mirror/MirrorPanel";
 
 // The world pulls in shared game data (and zod): keep it in its own chunk, after sign-in.
 const WorldScene = lazy(() => import("./scene/World").then((m) => ({ default: m.World })));
+// Build plan M23: the NPC conversation panel carries shared game rules too (its own lazy chunk).
+const ConversationLayer = lazy(() => import("./ui/conversation/ConversationLayer").then((m) => ({ default: m.ConversationLayer })));
 
 const card: CSSProperties = {
   position: "fixed",
@@ -114,6 +116,9 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       <ApartmentHud />
       {/* Build plan M18: proximity chat, read in the first target language (TODO(M24/M37): a switcher). */}
       <ChatHud targetLang={profile.targetLangs[0] ?? profile.nativeLang} nativeLang={profile.nativeLang} />
+      <Suspense fallback={null}>
+        <ConversationLayer />
+      </Suspense>
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>
         <p style={{ margin: "4px 0 0" }}>

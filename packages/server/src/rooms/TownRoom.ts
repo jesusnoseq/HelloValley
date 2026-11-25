@@ -30,7 +30,9 @@ import {
   JoinOptionsSchema,
   type MoveCorrectionMessage,
   type MoveTracker,
+  canTalkTo,
   type NpcId,
+  NPC_TALK_SLACK_M,
   type NpcRefusedMessage,
   parseClientMessage,
   resetMoveTracker,
@@ -44,6 +46,7 @@ import {
   type TokenBucket,
   type UserProfile,
   validateMove,
+  walkedAway,
   type VisitClosedMessage,
   type VisitIncomingMessage,
   type VisitState,
@@ -146,6 +149,9 @@ interface Session {
   /** Block list saves run one after another. */
   blockSave: Promise<void>;
   lastReportMs: number;
+  /** The NPC conversation this session is in (build plan M23), for the "chatting" indicator. */
+  talkingTo: NpcId | null;
+  conversationId: string | null;
 }
 
 /** A delivered chat line, as the room remembers it for reports. */
@@ -187,6 +193,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected safety: SafetyStore = noSafety;
   protected moderateChat: ChatModerator = moderateChat;
   protected npc: NpcDialogueService = noNpcs;
+  /** Where joining players appear (tests start next to an NPC). */
+  protected spawn: SpacePoint = TOWN_SPAWN;
   private readonly sessions = new Map<string, Session>();
   private readonly recentChat: RecentLine[] = [];
   private readonly visits = new Map<string, PendingVisit>();
@@ -227,14 +235,16 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.ChatUnblock, (client, { uid }) => this.onChatUnblock(client, uid));
     this.handle(ClientMessage.ChatReport, (client, report) => this.onChatReport(client, report));
     this.handle(ClientMessage.Interact, (_client, _request) => {
-      // NPC conversations start with `npc:start` (build plan M21). TODO(M23/M26): world objects.
+      // NPC conversations start with `npc:start` (build plan M21). TODO(M25/M26): world objects.
     });
     this.handle(ClientMessage.NpcStart, (client, { npcId }) => void this.onNpcStart(client, npcId));
     this.handle(ClientMessage.NpcReply, (client, reply) => void this.onNpcReply(client, reply));
     this.handle(ClientMessage.NpcConfirm, (client, confirm) => void this.onNpcConfirm(client, confirm));
     this.handle(ClientMessage.NpcEnd, (client, { conversationId }) => {
       const session = this.sessions.get(client.sessionId);
-      if (session) this.npc.end(session.uid, conversationId);
+      if (!session) return;
+      this.npc.end(session.uid, conversationId);
+      if (session.conversationId === conversationId) this.stopTalking(client.sessionId, session);
     });
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
     this.handle(ClientMessage.VisitRequest, (client, { sessionId }) => this.onVisitRequest(client, sessionId));
@@ -274,16 +284,17 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
 
   override onJoin(client: TownClient): void {
     const { uid, profile, blocks } = client.auth!;
+    const spawn = this.spawn;
     const now = Date.now();
     this.sessions.set(client.sessionId, {
       uid,
-      tracker: createMoveTracker(TOWN_SPAWN, now),
+      tracker: createMoveTracker(spawn, now),
       seq: -1,
       epoch: 0,
       lastEmoteMs: 0,
       name: profile.name,
       apartmentId: profile.apartmentId,
-      apartmentHost: TOWN_SPAWN.space === "apartment" ? uid : null,
+      apartmentHost: spawn.space === "apartment" ? uid : null,
       lastVisitRequestMs: Number.NEGATIVE_INFINITY,
       targetLang: activeTargetLang(profile),
       chatBucket: createTokenBucket(CHAT_RATE, now),
@@ -291,17 +302,20 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       blocked: new Map(blocks.map((b) => [b.uid, b.name])),
       blockSave: Promise.resolve(),
       lastReportMs: Number.NEGATIVE_INFINITY,
+      talkingTo: null,
+      conversationId: null,
     });
     this.state.players.set(
       client.sessionId,
       new TownPlayer({
         name: profile.name,
         appearance: JSON.stringify(appearanceOf(profile)),
-        space: TOWN_SPAWN.space,
-        x: TOWN_SPAWN.pos[0],
-        z: TOWN_SPAWN.pos[1],
-        heading: TOWN_SPAWN.heading,
+        space: spawn.space,
+        x: spawn.pos[0],
+        z: spawn.pos[1],
+        heading: spawn.heading,
         motion: "idle",
+        talkingTo: "",
       }),
     );
     // One session per uid: an older tab (in any shard) is disconnected.
@@ -309,7 +323,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     const welcome: WelcomeMessage = {
       uid,
       shard: this.state.shard,
-      spawn: { space: TOWN_SPAWN.space, x: TOWN_SPAWN.pos[0], z: TOWN_SPAWN.pos[1], heading: TOWN_SPAWN.heading },
+      spawn: { space: spawn.space, x: spawn.pos[0], z: spawn.pos[1], heading: spawn.heading },
     };
     client.send(ServerMessage.Welcome, welcome);
     this.sendSafety(client.sessionId);
@@ -403,6 +417,11 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     player.z = move.z;
     player.heading = wrapAngle(move.heading);
     player.motion = move.motion;
+    // Walking away from an NPC (or out of the room) ends the conversation (GDD §8.1 step 4).
+    if (session.talkingTo && walkedAway(session.talkingTo, move.space, [move.x, move.z])) {
+      this.npc.end(session.uid, session.conversationId ?? undefined);
+      this.stopTalking(client.sessionId, session);
+    }
   }
 
   private onEmote(client: TownClient, emote: EmoteBroadcast["emote"]): void {
@@ -542,6 +561,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     player.z = arrival.pos[1];
     player.heading = arrival.heading;
     player.motion = "idle";
+    if (visitor.talkingTo) {
+      this.npc.end(visitor.uid, visitor.conversationId ?? undefined);
+      this.stopTalking(visit.visitor, visitor);
+    }
     // Status first, so the client knows whose apartment it is before the teleport lands.
     this.sendVisitStatus(visit, "accepted");
     const teleport: MoveCorrectionMessage = {
@@ -711,12 +734,31 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.clientOf(sessionId)?.send(ServerMessage.NpcRefused, message);
   }
 
-  /** TODO(M23/M31): check that the player stands next to the NPC (live NPC positions). */
+  /** The "chatting" indicator goes off. */
+  private stopTalking(sessionId: string, session: Session): void {
+    session.talkingTo = null;
+    session.conversationId = null;
+    const player = this.state.players.get(sessionId);
+    if (player) player.talkingTo = "";
+  }
+
+  /**
+   * `npc:start`: only next to the NPC (the server's own walker, against the shared NPC posts;
+   * TODO(M31): live NPC positions). A new conversation replaces the previous one.
+   */
   private async onNpcStart(client: TownClient, npcId: NpcId): Promise<void> {
     const session = this.sessions.get(client.sessionId);
     if (!session) return;
+    const t = session.tracker;
+    if (!canTalkTo(npcId, t.space, t.pos, NPC_TALK_SLACK_M)) return this.refuseNpc(client.sessionId, { reason: "too_far", npcId });
     const result = await this.npc.start({ uid: session.uid, npcId, lang: session.targetLang, nativeLang: client.auth!.profile.nativeLang });
     if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, npcId });
+    // The session may have left while the store answered.
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.sessions.get(client.sessionId) !== session) return;
+    session.talkingTo = npcId;
+    session.conversationId = result.context.conversationId;
+    player.talkingTo = npcId;
     this.clientOf(client.sessionId)?.send(ServerMessage.NpcContext, result.context);
   }
 
@@ -781,6 +823,8 @@ export interface TownRoomDeps {
 export interface TownRoomOptions {
   /** Seats per shard (default TOWN_MAX_CLIENTS; tests use small shards). */
   maxClients?: number;
+  /** Where joining players appear (default TOWN_SPAWN; tests start next to an NPC). */
+  spawn?: SpacePoint;
 }
 
 /** A TownRoom class bound to the verifier, the profile store and the registries, for `server.define`. */
@@ -797,5 +841,6 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override safety = deps.safety;
     protected override moderateChat = deps.moderateChat ?? moderateChat;
     protected override npc = npc;
+    protected override spawn = options.spawn ?? TOWN_SPAWN;
   };
 }

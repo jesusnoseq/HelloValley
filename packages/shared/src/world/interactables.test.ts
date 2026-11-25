@@ -11,7 +11,8 @@ describe("interactables", () => {
     expect(list.map((i) => i.kind)).toEqual(["mirror"]);
     expect(list[0]!.spot).toEqual(interiorLayout("apartment").spots.mirror);
     expect(spaceInteractables("town").map((i) => i.kind)).toEqual(["intercom"]);
-    for (const id of INTERIOR_IDS) if (id !== "apartment") expect(spaceInteractables(id)).toEqual([]);
+    // Every other room has exactly its villager (build plan M23).
+    for (const id of INTERIOR_IDS) if (id !== "apartment") expect(spaceInteractables(id).map((i) => i.kind)).toEqual(["npc"]);
   });
 
   it("finds the mirror only within reach", () => {

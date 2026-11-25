@@ -38,6 +38,27 @@ export function numSuggestions(level: Level): number {
   return n[cefrOf(level)];
 }
 
+/**
+ * Suggested replies the model is asked for: as many as are shown, and one at C1+ that the
+ * conversation panel keeps behind its 💡 button (GDD §6.2: "a 💡 button reveals one on demand").
+ */
+export function requestedSuggestions(level: Level): number {
+  return Math.max(1, numSuggestions(level));
+}
+
+/**
+ * How the conversation panel offers suggested replies (GDD §6.2): A1–A2 three replies, B1 two
+ * (sent as they are, each with a hover translation); B2 one starter fragment that goes into the
+ * input for the player to finish; C1+ none, with a 💡 that reveals one (also into the input).
+ */
+export type SuggestionStyle = "replies" | "starter" | "hint";
+
+export function suggestionStyle(level: Level): SuggestionStyle {
+  const n = numSuggestions(level);
+  if (n === 0) return "hint";
+  return n === 1 ? "starter" : "replies";
+}
+
 /** npc-runtime.md §2 `{{friendship_band_hint}}`. */
 export function friendshipBandHint(hearts: number): string {
   const h = Math.floor(Math.min(MAX_HEARTS, Math.max(0, hearts)));

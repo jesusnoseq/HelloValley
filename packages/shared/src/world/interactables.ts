@@ -3,16 +3,18 @@ import { circleFits, headingFor } from "./movement";
 import { townNavGrid } from "./navgrid";
 import type { SpaceId } from "./player";
 import { buildingDoors, townBuilding, type Vec2 } from "./town";
+import type { NpcId } from "../data/npcs";
+import { NPC_TALK_RADIUS_M, npcsInSpace } from "./npcPosts";
 
 /**
  * Things the player can use with F (GDD §10) when standing next to them (build plan M15 starts
  * with the apartment mirror, which edits the avatar's appearance). Pure data from the interior
  * spots, so the server can check the same distances later.
- * Build plan M17 adds the lobby intercom in town.
- * TODO(M23/M25): NPCs, shop counters and labelled objects (labelKey) join this list.
+ * Build plan M17 adds the lobby intercom in town, M23 the villagers at their posts (npcPosts.ts).
+ * TODO(M25): labelled objects (labelKey) join this list.
  */
 
-export type InteractableKind = "mirror" | "intercom";
+export type InteractableKind = "mirror" | "intercom" | "npc";
 
 export interface Interactable {
   id: string;
@@ -24,6 +26,8 @@ export interface Interactable {
   facing: number;
   /** Usable within this distance of the spot (metres). */
   radius: number;
+  /** With kind `npc`: who you talk to (the spot is where they stand). */
+  npcId?: NpcId;
 }
 
 /** How close to the mirror spot the player must stand (my choice). */
@@ -71,6 +75,10 @@ export function spaceInteractables(space: SpaceId): readonly Interactable[] {
     const spot = interiorLayout("apartment").spots.mirror;
     // The mirror hangs on the west wall (x = 0), so it is faced looking west.
     if (spot) list.push({ id: "apartment:mirror", kind: "mirror", space, spot, facing: headingFor([-1, 0]), radius: MIRROR_RADIUS_M });
+  }
+  for (const post of npcsInSpace(space)) {
+    // You face the NPC from wherever you stand; `facing` is the NPC's own resting heading.
+    list.push({ id: `npc:${post.npcId}`, kind: "npc", space, spot: post.pos, facing: post.facing, radius: NPC_TALK_RADIUS_M, npcId: post.npcId });
   }
   cache.set(space, list);
   return list;

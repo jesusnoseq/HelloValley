@@ -19,6 +19,7 @@ import { type RemotePlayerInfo, townLive, useTownSession } from "../net/townSess
 import { useWorld } from "../state/worldStore";
 import { CHAT_BUBBLE_GAP_M } from "../ui/chat/chatView";
 import { ChatBubble } from "./ChatBubble";
+import { ChattingIndicator } from "./ChattingIndicator";
 import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
 
 function clipTimings(manifest: CharacterManifest): ClipTimings {
@@ -61,7 +62,8 @@ export function RemotePlayers() {
 /**
  * One remote avatar: drawn INTERP_DELAY_MS in the past between the room's snapshots
  * (net/interpolation.ts), with its own AnimationStateMachine fed by the synced motion and the
- * emotes the server relays.
+ * emotes the server relays. While they talk to an NPC (the synced `talkingTo`, build plan M23)
+ * they play the talk clip and show the "chatting" indicator.
  */
 function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   const group = useRef<Group>(null);
@@ -70,12 +72,16 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   const [tagY, setTagY] = useState(1.6);
   const look = useMemo(() => parseRemoteAppearance(info.appearance), [info.appearance]);
   const lookRef = useRef(look);
+  const talkingRef = useRef(info.talkingTo !== "");
   const animal = look.animal;
 
   // Before the build effect below, so a new character starts with the newest look.
   useEffect(() => {
     lookRef.current = look;
   }, [look]);
+  useEffect(() => {
+    talkingRef.current = info.talkingTo !== "";
+  }, [info.talkingTo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +129,8 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
     const m = machine.current;
     if (m) {
       for (const emote of townLive.takeEmotes(info.sessionId)) m.playEmote(emote);
-      const change = m.update({ motion: sample.motion }, dt);
+      // Talking to an NPC (build plan M23): the talk clip while standing.
+      const change = m.update({ motion: sample.motion, talking: talkingRef.current }, dt);
       if (change && character) character.play(change.clip, change.fade, change.restart);
     }
     character?.mixer.update(dt);
@@ -134,6 +141,7 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
       {character ? <primitive object={character.root} /> : null}
       <primitive object={tag} position={[0, tagY, 0]} />
       <ChatBubble sessionId={info.sessionId} y={tagY + CHAT_BUBBLE_GAP_M} />
+      {info.talkingTo ? <ChattingIndicator y={tagY + 0.35} /> : null}
     </group>
   );
 }

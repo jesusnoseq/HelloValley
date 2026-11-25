@@ -31,7 +31,8 @@ function isEditable(target: EventTarget | null): boolean {
  * towards the current level, and binds Q/E (rotate) and the scroll wheel (zoom).
  * When the player controller sets `cameraRig.follow`, the look-at point eases after the player
  * (or jumps there on `cameraRig.snap`); otherwise it is the fixed `target`. The eased target and
- * yaw are published on `cameraRig` for the lights and the interior cut-away.
+ * yaw are published on `cameraRig` for the lights and the interior cut-away. During an NPC
+ * conversation `cameraRig.talk` takes over the target and zoom, eased the same way.
  */
 export function IsoCamera({
   target = ORIGIN,
@@ -72,12 +73,14 @@ export function IsoCamera({
     const camera = state.camera as OrthographicCamera;
     const { cameraStep, zoomLevel } = dioramaStore.getState();
     const targetYaw = yawForStep(cameraStep);
-    const targetHeight = viewHeight ?? ZOOM_LEVELS[zoomLevel]!.viewHeight;
-    const focus = cameraRig.follow ?? target;
+    // A conversation eases in on the pair (build plan M23); the zoom level comes back after it.
+    const talk = cameraRig.talk;
+    const targetHeight = talk?.viewHeight ?? viewHeight ?? ZOOM_LEVELS[zoomLevel]!.viewHeight;
+    const focus = talk?.target ?? cameraRig.follow ?? target;
     const current = (eased.current ??= { yaw: targetYaw, viewHeight: targetHeight, x: focus[0], y: focus[1], z: focus[2] });
     current.yaw = settle(damp(current.yaw, targetYaw, ROTATION_DAMPING, dt), targetYaw, 1e-4);
     current.viewHeight = settle(dampLog(current.viewHeight, targetHeight, ZOOM_DAMPING, dt), targetHeight, 1e-3);
-    if (cameraRig.follow && !cameraRig.snap) {
+    if ((talk || cameraRig.follow) && !cameraRig.snap) {
       current.x = damp(current.x, focus[0], FOLLOW_DAMPING, dt);
       current.y = damp(current.y, focus[1], FOLLOW_DAMPING, dt);
       current.z = damp(current.z, focus[2], FOLLOW_DAMPING, dt);

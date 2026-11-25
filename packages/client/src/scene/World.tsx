@@ -1,6 +1,7 @@
 import { interiorArrivalPoint, SPAWN_POINT, type SpacePoint } from "@hellovalley/shared";
 import { useWorld } from "../state/worldStore";
 import { Interior } from "./Interior";
+import { Npcs } from "./Npcs";
 import { PlacementMode } from "./PlacementMode";
 import { Player } from "./Player";
 import { RemotePlayers } from "./RemotePlayers";
@@ -18,7 +19,7 @@ export const HOME_START: SpacePoint = interiorArrivalPoint("apartment");
 /**
  * The playable world (build plan M13): the town (kept loaded, hidden while indoors), the interior
  * the player is in, the local player and (online, build plan M16) the other players in the same
- * space, plus furniture placement mode in the apartment (M17). The fade between them is drawn by
+ * space, the villagers at their posts (M23), plus furniture placement mode in the apartment (M17). The fade between them is drawn by
  * ui/FadeOverlay.
  */
 export function World({ start = HOME_START }: { start?: SpacePoint }) {
@@ -27,6 +28,7 @@ export function World({ start = HOME_START }: { start?: SpacePoint }) {
     <>
       <Town visible={space === "town"} />
       {space !== "town" ? <Interior id={space} /> : null}
+      <Npcs />
       <Player start={start} />
       <RemotePlayers />
       <PlacementMode />

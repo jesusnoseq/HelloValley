@@ -175,6 +175,12 @@ export interface TownPlayerView {
   z: number;
   heading: number;
   motion: Motion;
+  /**
+   * The NPC the player is talking to, or "" (build plan M23): bystanders see a "chatting"
+   * indicator over the pair. Set by the server on `npc:start`, cleared on `npc:end`, on walking
+   * away and on leaving.
+   */
+  talkingTo: string;
 }
 
 /** The synced world clock and weather (the server's `TownWorld` schema). */
@@ -288,7 +294,7 @@ export interface ChatSendMessage {
    * The language the line is written in, as the sender's client says (an untrusted claim; it only
    * decides how readers translate it). Missing: the sender's target language.
    * The sender picks it with the chat input's language toggle (M18). Build plan M20 adds on-device
-   * detection (`detectLanguage`), used for the NPC native-language redirect (TODO(M23)), not here.
+   * detection (`detectLanguage`), used for the NPC native-language redirect (M23 conversation panel), not here.
    */
   lang?: string;
 }
@@ -480,9 +486,10 @@ export interface NpcEndMessage {
 /**
  * Why an NPC message was refused: `rate` (too fast), `daily_limit` / `turn_limit` (turn caps,
  * architecture §9), `unknown_turn` (no such turn id, or already used), `no_conversation`,
- * `unavailable` (the server could not read or write the player's records).
+ * `unavailable` (the server could not read or write the player's records), `too_far` (the
+ * player is not standing next to the NPC, build plan M23).
  */
-export type NpcRefusal = "rate" | "daily_limit" | "turn_limit" | "unknown_turn" | "no_conversation" | "unavailable";
+export type NpcRefusal = "rate" | "daily_limit" | "turn_limit" | "unknown_turn" | "no_conversation" | "unavailable" | "too_far";
 
 /** Payload of `ServerMessage.NpcRefused`. */
 export interface NpcRefusedMessage {

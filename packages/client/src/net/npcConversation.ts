@@ -134,6 +134,8 @@ export class NpcConversation {
     }
     this.fails = 0;
     const turnId = this.turnId;
+    // Goodbye (or walking away) while the model was answering: nothing goes to the server.
+    if (!turnId) return { ok: false, line: null, retry: false, reason: "ended" };
     const message: NpcReplyMessage = { conversationId: this.context.conversationId, turnId, actions: turn.reply.actions };
     const answer = waitFor<NpcAppliedMessage>(this.room, ServerMessage.NpcApplied, (m) => m.turnId === turnId, (m) => m.turnId === turnId);
     this.room.send(ClientMessage.NpcReply, message);

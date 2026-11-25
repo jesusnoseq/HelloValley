@@ -36,6 +36,8 @@ export interface RemotePlayerInfo {
   /** Profile `{animal, colors}` as JSON (parse with AvatarAppearanceSchema). */
   appearance: string;
   space: SpaceId;
+  /** The NPC they are talking to, or "" (build plan M23: the "chatting" indicator). */
+  talkingTo: string;
 }
 
 export interface TownSessionState {
@@ -137,9 +139,10 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
 
   const setRemote = (sessionId: string, p: TownPlayerView) => {
     const prev = townSession.getState().remotes[sessionId];
-    if (prev && prev.name === p.name && prev.appearance === p.appearance && prev.space === p.space) return;
+    const talkingTo = p.talkingTo ?? "";
+    if (prev && prev.name === p.name && prev.appearance === p.appearance && prev.space === p.space && prev.talkingTo === talkingTo) return;
     townSession.setState((s) => ({
-      remotes: { ...s.remotes, [sessionId]: { sessionId, name: p.name, appearance: p.appearance, space: p.space } },
+      remotes: { ...s.remotes, [sessionId]: { sessionId, name: p.name, appearance: p.appearance, space: p.space, talkingTo } },
     }));
   };
 

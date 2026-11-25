@@ -119,7 +119,7 @@ export const ChatReportSchema = z.strictObject({
 /** Server-issued conversation, turn and trade ids (UUIDs). */
 export const NpcTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 
-/** `npc:start` (build plan M21). TODO(M23/M31): range check against the NPC's live position. */
+/** `npc:start` (build plan M21). The TownRoom checks the range against the NPC posts (M23); TODO(M31): live positions. */
 export const NpcStartSchema = z.strictObject({ npcId: NpcIdSchema });
 /** `npc:reply`: the actions are model output, parsed leniently (unknown ones dropped) and validated by the server. */
 export const NpcReplySchema = z.strictObject({ conversationId: NpcTokenSchema, turnId: NpcTokenSchema, actions: NpcActionListSchema });
