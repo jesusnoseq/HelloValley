@@ -23,8 +23,16 @@ export const ClientMessage = {
   Emote: "player:emote",
   /** Clock sync probe: the server answers with its wall time. */
   TimeSync: "time:sync",
-  /** A proximity chat line typed by the player. */
+  /** A proximity chat line typed by the player (build plan M18). */
   Chat: "chat:send",
+  /** Mute or unmute a player's chat for this session (server-enforced). */
+  ChatMute: "chat:mute",
+  /** Block a player: no chat either way and no visit requests, kept across sessions. */
+  ChatBlock: "chat:block",
+  /** Lift a block, by uid (the blocked player may be offline). */
+  ChatUnblock: "chat:unblock",
+  /** Report a player (and optionally one of their lines) to moderators. Also mutes them. */
+  ChatReport: "chat:report",
   /** Talk to an NPC or use a world object (F / click). */
   Interact: "interact:request",
   /** TownRoom, at the lobby intercom: list the players online (build plan M17). */
@@ -59,6 +67,14 @@ export const ServerMessage = {
   VisitStatus: "visit:status",
   /** ApartmentRoom: the answer to one `furniture:edit`. */
   FurnitureResult: "furniture:result",
+  /** A chat line that passed the server checks, to everyone in range (and back to its sender). */
+  ChatMessage: "chat:message",
+  /** To a sender: their line was not delivered. */
+  ChatRejected: "chat:rejected",
+  /** The player's own mute and block lists (on join and after every change). */
+  ChatSafety: "chat:safety",
+  /** The answer to a `chat:report`. */
+  ChatReported: "chat:reported",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -241,6 +257,93 @@ export interface ApartmentStateView {
   apartmentId: string;
   layout: string;
   revision: number;
+}
+
+/** Longest chat line a player can send, in characters (after trimming). */
+export const CHAT_MAX_LENGTH = 200;
+
+/** Payload of `ClientMessage.Chat`. */
+export interface ChatSendMessage {
+  text: string;
+  /**
+   * The language the line is written in, as the sender's client says (an untrusted claim; it only
+   * decides how readers translate it). Missing: the sender's target language.
+   * TODO(M20): the sender's client detects it on-device.
+   */
+  lang?: string;
+}
+
+/** Payload of `ServerMessage.ChatMessage` (build plan M18, GDD §6.6). */
+export interface ChatBroadcast {
+  /** Server-issued id: translations are cached per message id, reports name it. */
+  id: string;
+  /** The sender's TownRoom session id. */
+  from: string;
+  name: string;
+  /** The text as written (it passed the server's moderation check). */
+  text: string;
+  /** The language it is written in. */
+  lang: string;
+  /** Server wall time (ms). */
+  ts: number;
+}
+
+/**
+ * Why a line was not delivered: `moderation` (the server check refused it), `rate` (too many lines
+ * too fast), `muted` (the sender is muted shard-wide, TODO(M36)).
+ */
+export type ChatRejectReason = "moderation" | "rate" | "muted";
+
+/** Payload of `ServerMessage.ChatRejected`. */
+export interface ChatRejectedMessage {
+  reason: ChatRejectReason;
+}
+
+/** Payload of `ClientMessage.ChatMute`. */
+export interface ChatMuteMessage {
+  sessionId: string;
+  muted: boolean;
+}
+
+/** Payload of `ClientMessage.ChatBlock`. */
+export interface ChatBlockMessage {
+  sessionId: string;
+}
+
+/** Payload of `ClientMessage.ChatUnblock`. */
+export interface ChatUnblockMessage {
+  uid: string;
+}
+
+export const CHAT_REPORT_REASONS = ["spam", "harassment", "inappropriate", "other"] as const;
+export type ChatReportReason = (typeof CHAT_REPORT_REASONS)[number];
+
+/** Payload of `ClientMessage.ChatReport`. */
+export interface ChatReportMessage {
+  /** The reported player's session id (as the line's `from` names it). */
+  sessionId: string;
+  /** The reported line, when the report is about one. */
+  messageId?: string;
+  reason: ChatReportReason;
+}
+
+/** Payload of `ServerMessage.ChatReported`. */
+export interface ChatReportedMessage {
+  ok: boolean;
+}
+
+/** A player on someone's block list. */
+export interface BlockedPlayer {
+  uid: string;
+  name: string;
+}
+
+/** Payload of `ServerMessage.ChatSafety`. */
+export interface ChatSafetyMessage {
+  /** Session ids in this shard whose chat the player muted. */
+  muted: string[];
+  /** Everyone the player blocked (online or not). */
+  blocked: BlockedPlayer[];
 }
 
 export const CLIENT_MESSAGE_TYPES: readonly ClientMessage[] = Object.values(ClientMessage);

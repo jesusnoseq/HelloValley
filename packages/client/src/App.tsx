@@ -13,6 +13,7 @@ import { SPAWN_TARGET, TOWN_SHADOW_EXTENT } from "./scene/townCamera";
 import { avatarStore, useAvatar } from "./state/avatarStore";
 import { dioramaStore } from "./state/dioramaStore";
 import { ApartmentHud } from "./ui/apartment/ApartmentHud";
+import { ChatHud } from "./ui/chat/ChatHud";
 import { DebugOverlay } from "./ui/DebugOverlay";
 import { FadeOverlay } from "./ui/FadeOverlay";
 import { MirrorLayer } from "./ui/mirror/MirrorLayer";
@@ -83,6 +84,8 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       <FadeOverlay />
       <MirrorLayer save={saveAppearance} />
       <ApartmentHud />
+      {/* Build plan M18: proximity chat, read in the first target language (TODO(M24/M37): a switcher). */}
+      <ChatHud targetLang={profile.targetLangs[0] ?? profile.nativeLang} nativeLang={profile.nativeLang} />
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>
         <p style={{ margin: "4px 0 0" }}>

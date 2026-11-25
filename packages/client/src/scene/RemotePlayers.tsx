@@ -17,6 +17,8 @@ import { useApartmentSession } from "../net/apartmentSession";
 import { INTERP_DELAY_MS } from "../net/interpolation";
 import { type RemotePlayerInfo, townLive, useTownSession } from "../net/townSession";
 import { useWorld } from "../state/worldStore";
+import { CHAT_BUBBLE_GAP_M } from "../ui/chat/chatView";
+import { ChatBubble } from "./ChatBubble";
 import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
 
 function clipTimings(manifest: CharacterManifest): ClipTimings {
@@ -131,6 +133,7 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
     <group ref={group} name={`remote-${info.sessionId}`} visible={false}>
       {character ? <primitive object={character.root} /> : null}
       <primitive object={tag} position={[0, tagY, 0]} />
+      <ChatBubble sessionId={info.sessionId} y={tagY + CHAT_BUBBLE_GAP_M} />
     </group>
   );
 }

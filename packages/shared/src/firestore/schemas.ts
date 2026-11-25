@@ -9,6 +9,7 @@ import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
 import { ClothingColorSchema } from "../data/palette";
 import { StyleIdSchema } from "../data/styles";
+import { CHAT_REPORT_REASONS } from "../protocol/messages";
 
 /**
  * Zod schemas for the Firestore documents in GDD §9.4 (with the ownership in architecture §8.1).
@@ -221,6 +222,55 @@ export const ApartmentLayoutSchema = z.strictObject({
   stored: z.array(FurnitureIdSchema).max(APARTMENT_MAX_STORED).default([]),
 });
 export type ApartmentLayout = z.infer<typeof ApartmentLayoutSchema>;
+
+/** Firebase uids (the protocol's `UidSchema`; repeated here to keep the modules acyclic). */
+const uidField = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+/** Display names as stored on reports and block lists (not re-validated: names can be renamed). */
+const nameField = z.string().min(1).max(64);
+
+/** Most players one player can block (my number). */
+export const MAX_BLOCKED_PLAYERS = 200;
+
+/**
+ * `users/{uid}/safety/blocks`: whom the player blocked (build plan M18, architecture §6.4).
+ * Server-only: no rule matches the path, so clients cannot read or write it; the TownRoom sends
+ * the list to its owner (`chat:safety`).
+ */
+export const BlockListSchema = z.strictObject({
+  players: z.array(z.strictObject({ uid: uidField, name: nameField })).max(MAX_BLOCKED_PLAYERS),
+});
+export type BlockList = z.infer<typeof BlockListSchema>;
+
+/** Lines of the reported player attached to a report, newest last (the server's own copies). */
+export const REPORT_MAX_MESSAGES = 5;
+
+/** The fields of a `reports/{id}` document the game server fills in (`createdAt` is added on write). */
+export const ChatReportInputSchema = z.strictObject({
+  kind: z.literal("chat"),
+  reporterUid: uidField,
+  reportedUid: uidField,
+  reportedName: nameField,
+  reason: z.enum(CHAT_REPORT_REASONS),
+  /** The reported line, when the report named one. */
+  messageId: z.string().max(64).optional(),
+  /** Shard number ("Valley #n") where it happened. */
+  shard: z.number().int().min(1),
+  messages: z
+    .array(
+      z.strictObject({
+        id: z.string().max(64),
+        text: z.string().max(400),
+        lang: z.string().max(32),
+        ts: z.number().int().min(0),
+      }),
+    )
+    .max(REPORT_MAX_MESSAGES),
+});
+export type ChatReportInput = z.infer<typeof ChatReportInputSchema>;
+
+/** `reports/{id}`: a player report, server-written, never readable by clients (architecture §6.4). */
+export const ChatReportDocSchema = ChatReportInputSchema.extend({ createdAt: TimestampSchema });
+export type ChatReportDoc = z.infer<typeof ChatReportDocSchema>;
 
 /** `village/{shardId}/events/{id}`: public game events, server-written (GDD §8.2). */
 export const VillageEventSchema = z.strictObject({

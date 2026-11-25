@@ -7,6 +7,8 @@ import { createFirebaseVerifier, type IdTokenVerifier } from "./auth/idToken";
 import { readFirebaseConfig } from "./config";
 import { adminApp } from "./firebase/admin";
 import { type HttpDeps, registerHttpRoutes } from "./http";
+import type { ChatModerator } from "./moderation/chat";
+import { createMemorySafetyStore, firestoreSafetyStoreFor, type SafetyStore } from "./safety/safetyStore";
 import { firestoreProfileStoreFor, type ProfileStore } from "./profiles/profileStore";
 import { apartmentRoomWith } from "./rooms/ApartmentRoom";
 import { ApartmentRegistry } from "./rooms/apartmentRegistry";
@@ -29,6 +31,13 @@ export interface GameServerOptions {
   onboarding?: HttpDeps["onboarding"];
   /** TownRoom settings (tests use small shards). */
   town?: TownRoomOptions;
+  /**
+   * Block lists and reports; defaults to Firestore through firebase-admin (in memory when both
+   * the verifier and the profile store are injected, as in tests).
+   */
+  safety?: SafetyStore;
+  /** The mandatory server chat check (tests inject one; default `moderateChat`, a stub until M36). */
+  moderateChat?: ChatModerator;
 }
 
 export interface GameServer extends Server {
@@ -46,6 +55,7 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   const profiles = options.profiles ?? firestoreProfileStoreFor(adminApp(firebase!));
   // With an injected verifier and profile store (tests) there is no Firebase app to fall back on.
   const layouts = options.layouts ?? (firebase ? firestoreLayoutStoreFor(adminApp(firebase)) : createMemoryLayoutStore());
+  const safety = options.safety ?? (firebase ? firestoreSafetyStoreFor(adminApp(firebase)) : createMemorySafetyStore());
   const towns = new TownRegistry();
   const apartments = new ApartmentRegistry();
   const httpServer = createServer();
@@ -58,7 +68,7 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   // A full shard is locked by Colyseus, so joinOrCreate creates the next one. Joining a friend's
   // shard goes through GET /api/shards?friend=<uid> and joinById.
   server
-    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments }, options.town))
+    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat }, options.town))
     .sortBy({ "metadata.shard": 1 });
   // Build plan M17: one private ApartmentRoom per owner. Visitors get in with a pass the owner
   // granted at the lobby intercom (TownRoom).

@@ -17,7 +17,8 @@ import {
 } from "@hellovalley/shared";
 import { characterAssetsWith } from "../characters/assetCache";
 import { MoveSync } from "../net/moveSync";
-import { townLive, townSession } from "../net/townSession";
+import { chat } from "../net/chatSession";
+import { townLive, townSession, useTownSession } from "../net/townSession";
 import { openIntercom, visitSession } from "../net/visitSession";
 import { assembleAvatar, tintAvatar } from "../characters/avatarLook";
 import type { Character } from "../characters/characterGlb";
@@ -27,8 +28,10 @@ import { dioramaStore } from "../state/dioramaStore";
 import { placementStore } from "../state/placementStore";
 import { worldStore } from "../state/worldStore";
 import { sceneGrids } from "./apartmentLayout";
+import { CHAT_BUBBLE_GAP_M } from "../ui/chat/chatView";
 import { yawForStep } from "./cameraMath";
 import { cameraRig } from "./cameraRig";
+import { ChatBubble } from "./ChatBubble";
 import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
 import { dampAngle, type Fade, IDLE_FADE, RUN_KEYS, screenDirection, screenToWorld, startFade, stepFade } from "./playerMath";
 
@@ -41,9 +44,14 @@ function isEditable(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-/** A dialog or placement mode has the keyboard and mouse: the walker stands still. */
+/** A dialog, placement mode or the chat input has the keyboard and mouse: the walker stands still. */
 function inputPaused(): boolean {
-  return avatarStore.getState().mirrorOpen || visitSession.getState().intercomOpen || placementStore.getState().open;
+  return (
+    avatarStore.getState().mirrorOpen ||
+    visitSession.getState().intercomOpen ||
+    placementStore.getState().open ||
+    chat.store.getState().typing
+  );
 }
 
 /** The appearance the avatar shows: the mirror's live preview, else the profile's, else the placeholder. */
@@ -86,6 +94,7 @@ export function Player({ start }: { start: SpacePoint }) {
   const [tagY, setTagY] = useState(1.6);
   const sync = useRef(new MoveSync());
 
+  const selfSession = useTownSession((s) => s.room?.sessionId ?? null);
   const profile = useAvatar((s) => s.profile);
   const preview = useAvatar((s) => s.preview);
   const shown = preview ?? (profile ? appearanceOf(profile) : PLACEHOLDER_APPEARANCE);
@@ -304,6 +313,7 @@ export function Player({ start }: { start: SpacePoint }) {
       <group ref={avatar} name="player">
         {character ? <primitive object={character.root} /> : null}
         <primitive object={tag} position={[0, tagY, 0]} />
+        {selfSession ? <ChatBubble sessionId={selfSession} y={tagY + CHAT_BUBBLE_GAP_M} /> : null}
       </group>
       <mesh ref={marker} geometry={markerResources.geometry} material={markerResources.material} visible={false} renderOrder={5} />
     </>

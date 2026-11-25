@@ -2,12 +2,11 @@ import { z } from "zod";
 import { APARTMENT_MAX_PLACED } from "../apartment/layout";
 import { EMOTE_KEYS } from "../avatar/animation";
 import { FurnitureIdSchema, FurnitureRotationSchema } from "../firestore/schemas";
+import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
 import { INTERIOR_IDS } from "../world/interiors";
-import { ClientMessage } from "./messages";
+import { CHAT_MAX_LENGTH, CHAT_REPORT_REASONS, ClientMessage } from "./messages";
 
-/** Longest chat line a player can send, in characters (after trimming). */
-export const CHAT_MAX_LENGTH = 200;
 /** Sanity bound for world coordinates in metres (the town itself is TOWN_BOUNDS, world/town.ts). */
 export const WORLD_COORD_LIMIT = 1000;
 /** Headings are radians; anything beyond a few turns is garbage. */
@@ -53,6 +52,7 @@ export const EmoteRequestSchema = z.object({ emote: z.enum(EMOTE_KEYS) });
 /** `time:sync`: the client's clock when it sent the probe. */
 export const TimeSyncRequestSchema = z.object({ t: z.number() });
 
+/** `chat:send` (build plan M18): the line as typed, plus the language the sender says it is in. */
 export const ChatMessageSchema = z.object({
   text: z
     .string()
@@ -60,6 +60,7 @@ export const ChatMessageSchema = z.object({
     .min(1)
     .max(CHAT_MAX_LENGTH)
     .refine((t) => !CONTROL_CHARS.test(t), { message: "text must not contain control characters" }),
+  lang: LanguageCodeSchema.optional(),
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
@@ -102,12 +103,28 @@ export const FurnitureEditSchema = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("place"), editId, itemId: FurnitureIdSchema, x: roomCoord, z: roomCoord, rot: FurnitureRotationSchema }),
 ]);
 
+/** Server-issued chat message ids (UUIDs). */
+export const ChatMessageIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+
+export const ChatMuteSchema = z.strictObject({ sessionId: SessionIdSchema, muted: z.boolean() });
+export const ChatBlockSchema = z.strictObject({ sessionId: SessionIdSchema });
+export const ChatUnblockSchema = z.strictObject({ uid: UidSchema });
+export const ChatReportSchema = z.strictObject({
+  sessionId: SessionIdSchema,
+  messageId: ChatMessageIdSchema.optional(),
+  reason: z.enum(CHAT_REPORT_REASONS),
+});
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
   [ClientMessage.Emote]: EmoteRequestSchema,
   [ClientMessage.TimeSync]: TimeSyncRequestSchema,
   [ClientMessage.Chat]: ChatMessageSchema,
+  [ClientMessage.ChatMute]: ChatMuteSchema,
+  [ClientMessage.ChatBlock]: ChatBlockSchema,
+  [ClientMessage.ChatUnblock]: ChatUnblockSchema,
+  [ClientMessage.ChatReport]: ChatReportSchema,
   [ClientMessage.Interact]: InteractRequestSchema,
   [ClientMessage.IntercomList]: IntercomListSchema,
   [ClientMessage.VisitRequest]: VisitRequestSchema,

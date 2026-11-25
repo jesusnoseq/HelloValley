@@ -15,7 +15,11 @@ export const Collection = {
   Events: "events",
   Cache: "cache",
   Reports: "reports",
+  Safety: "safety",
 } as const;
+
+/** `users/{uid}/safety/blocks`: the player's block list (server-only, build plan M18). */
+export const BLOCK_LIST_DOC = "blocks";
 
 /** `users/{uid}/apartment/layout` is the only document in the apartment collection. */
 export const APARTMENT_LAYOUT_DOC = "layout";
@@ -56,4 +60,6 @@ export const FirestorePaths = {
   villageEvent: (shardId: string, eventId: string) => join(C.Village, shardId, C.Events, eventId),
   cacheEntry: (kind: CacheKind, id: string) => join(C.Cache, kind, id),
   report: (id: string) => join(C.Reports, id),
+  reports: () => C.Reports,
+  blockList: (uid: string) => join(C.Users, uid, C.Safety, BLOCK_LIST_DOC),
 } as const;

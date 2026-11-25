@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { CLIENT_MESSAGE_TYPES, ClientMessage, isClientMessage, RoomName } from "./messages";
+import { CHAT_MAX_LENGTH, CLIENT_MESSAGE_TYPES, ClientMessage, isClientMessage, RoomName } from "./messages";
 import {
   ApartmentJoinOptionsSchema,
-  CHAT_MAX_LENGTH,
   FurnitureEditSchema,
   IntercomListSchema,
   VisitAnswerSchema,

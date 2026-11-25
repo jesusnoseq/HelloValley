@@ -1,10 +1,25 @@
 import { randomUUID } from "node:crypto";
 import { type Client, type Delayed, Room, ServerError } from "@colyseus/core";
 import {
+  activeTargetLang,
   appearanceOf,
+  type BlockedPlayer,
+  CHAT_RATE,
+  type ChatBroadcast,
+  type ChatPosition,
+  type ChatRejectedMessage,
+  type ChatRejectReason,
+  type ChatReportedMessage,
+  type ChatReportInput,
+  type ChatReportMessage,
+  type ChatSafetyMessage,
+  chatAudible,
   ClientMessage,
   type ClientMessagePayloads,
   createMoveTracker,
+  createTokenBucket,
+  MAX_BLOCKED_PLAYERS,
+  REPORT_MAX_MESSAGES,
   type EmoteBroadcast,
   type IntercomEntry,
   type IntercomListMessage,
@@ -22,7 +37,9 @@ import {
   type SpaceGrids,
   spaceGrid,
   type SpacePoint,
+  takeToken,
   type TimeSyncReply,
+  type TokenBucket,
   type UserProfile,
   validateMove,
   type VisitClosedMessage,
@@ -36,7 +53,9 @@ import {
   worldDayAt,
 } from "@hellovalley/shared";
 import { type IdTokenVerifier, InvalidIdTokenError, type VerifiedUser } from "../auth/idToken";
+import { type ChatModerator, moderateChat } from "../moderation/chat";
 import type { ProfileStore } from "../profiles/profileStore";
+import type { SafetyStore } from "../safety/safetyStore";
 import { ApartmentRegistry } from "./apartmentRegistry";
 import { type RegisteredTown, TownRegistry } from "./townRegistry";
 import { TownPlayer, TownState, TownWorld } from "./TownState";
@@ -57,11 +76,17 @@ export const VISIT_REQUEST_TTL_MS = 30_000;
 export const VISIT_REQUEST_COOLDOWN_MS = 2000;
 /** Slack on the intercom's reach for the server check (reports lag the client a little). */
 export const INTERCOM_REACH_SLACK_M = 0.5;
+/** Chat lines the room remembers, so reports carry the server's own copy of what was said. */
+export const CHAT_HISTORY_LINES = 200;
+/** Shortest gap between two reports of one player (my number). */
+export const REPORT_COOLDOWN_MS = 5000;
 
 /** What `onAuth` returns; Colyseus keeps it on `client.auth`. */
 export interface TownAuth {
   uid: string;
   profile: UserProfile;
+  /** The player's block list (build plan M18), loaded with the profile. */
+  blocks: BlockedPlayer[];
 }
 
 export type TownClient = Client<{ auth: TownAuth }>;
@@ -69,6 +94,13 @@ export type TownClient = Client<{ auth: TownAuth }>;
 /** Rejects every token. Real rooms are created through `townRoomWith(verifier)`. */
 const denyAll: IdTokenVerifier = {
   verify: () => Promise.reject(new InvalidIdTokenError()),
+};
+
+/** Stores nothing: real rooms get a store through `townRoomWith`. */
+const noSafety: SafetyStore = {
+  getBlocks: () => Promise.resolve([]),
+  saveBlocks: () => Promise.resolve(),
+  addReport: () => Promise.reject(new Error("no safety store")),
 };
 
 /** Knows no profiles, so nobody counts as onboarded. */
@@ -95,6 +127,23 @@ interface Session {
    */
   apartmentHost: string | null;
   lastVisitRequestMs: number;
+  /** The language the player's chat lines are in unless they say otherwise (build plan M18). */
+  targetLang: string;
+  chatBucket: TokenBucket;
+  /** uid → name of the players whose chat this session muted (this session only). */
+  muted: Map<string, string>;
+  /** uid → name of the players this player blocked (stored in `users/{uid}/safety/blocks`). */
+  blocked: Map<string, string>;
+  /** Block list saves run one after another. */
+  blockSave: Promise<void>;
+  lastReportMs: number;
+}
+
+/** A delivered chat line, as the room remembers it for reports. */
+interface RecentLine extends ChatBroadcast {
+  uid: string;
+  /** The uids it was delivered to. */
+  recipients: Set<string>;
 }
 
 /** A visit request rung at the lobby intercom, waiting for the owner's answer. */
@@ -126,7 +175,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected profiles: ProfileStore = noProfiles;
   protected registry: TownRegistry = new TownRegistry();
   protected apartments: ApartmentRegistry = new ApartmentRegistry();
+  protected safety: SafetyStore = noSafety;
+  protected moderateChat: ChatModerator = moderateChat;
   private readonly sessions = new Map<string, Session>();
+  private readonly recentChat: RecentLine[] = [];
   private readonly visits = new Map<string, PendingVisit>();
   /** Sessions a newer tab replaced: they may not reconnect. */
   private readonly replaced = new Set<string>();
@@ -159,9 +211,11 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       const reply: TimeSyncReply = { t, server: Date.now() };
       client.send(ServerMessage.TimeSync, reply);
     });
-    this.handle(ClientMessage.Chat, (_client, _chat) => {
-      // TODO(M18): mandatory server moderation, then proximity broadcast.
-    });
+    this.handle(ClientMessage.Chat, (client, chat) => this.onChat(client, chat.text, chat.lang));
+    this.handle(ClientMessage.ChatMute, (client, { sessionId, muted }) => this.onChatMute(client, sessionId, muted));
+    this.handle(ClientMessage.ChatBlock, (client, { sessionId }) => this.onChatBlock(client, sessionId));
+    this.handle(ClientMessage.ChatUnblock, (client, { uid }) => this.onChatUnblock(client, uid));
+    this.handle(ClientMessage.ChatReport, (client, report) => this.onChatReport(client, report));
     this.handle(ClientMessage.Interact, (_client, _request) => {
       // TODO(M19/M21): range check and NPC conversation start (turnId issue, architecture §9).
     });
@@ -191,11 +245,18 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       throw new ServerError(503, "profile unavailable");
     }
     if (!profile) throw new ServerError(403, "onboarding required");
-    return { uid: user.uid, profile };
+    let blocks: BlockedPlayer[] = [];
+    try {
+      blocks = await this.safety.getBlocks(user.uid);
+    } catch (err) {
+      // Better to play without the block list for a session than not at all.
+      console.error(`[town] block list lookup failed for ${user.uid}:`, err);
+    }
+    return { uid: user.uid, profile, blocks };
   }
 
   override onJoin(client: TownClient): void {
-    const { uid, profile } = client.auth!;
+    const { uid, profile, blocks } = client.auth!;
     const now = Date.now();
     this.sessions.set(client.sessionId, {
       uid,
@@ -207,6 +268,12 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       apartmentId: profile.apartmentId,
       apartmentHost: TOWN_SPAWN.space === "apartment" ? uid : null,
       lastVisitRequestMs: Number.NEGATIVE_INFINITY,
+      targetLang: activeTargetLang(profile),
+      chatBucket: createTokenBucket(CHAT_RATE, now),
+      muted: new Map(),
+      blocked: new Map(blocks.map((b) => [b.uid, b.name])),
+      blockSave: Promise.resolve(),
+      lastReportMs: Number.NEGATIVE_INFINITY,
     });
     this.state.players.set(
       client.sessionId,
@@ -228,6 +295,11 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       spawn: { space: TOWN_SPAWN.space, x: TOWN_SPAWN.pos[0], z: TOWN_SPAWN.pos[1], heading: TOWN_SPAWN.heading },
     };
     client.send(ServerMessage.Welcome, welcome);
+    this.sendSafety(client.sessionId);
+    // Whoever muted this uid sees the new session id in their mute list.
+    for (const [sessionId, other] of this.sessions) {
+      if (sessionId !== client.sessionId && other.muted.has(uid)) this.sendSafety(sessionId);
+    }
   }
 
   override onDrop(client: TownClient, code?: number): void {
@@ -358,7 +430,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (!session || !this.atIntercom(session)) return;
     const players: IntercomEntry[] = [];
     for (const [sessionId, other] of this.sessions) {
-      if (sessionId === client.sessionId) continue;
+      if (sessionId === client.sessionId || this.blockedBetween(session, other)) continue;
       const home = this.state.players.get(sessionId)?.space === "apartment" && other.apartmentHost === other.uid;
       players.push({ sessionId, name: other.name, apartmentId: other.apartmentId, home });
     }
@@ -401,7 +473,9 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     // One open request per visitor: ringing someone else withdraws the last one.
     for (const visit of [...this.visits.values()]) if (visit.visitor === client.sessionId) this.closeVisit(visit, "unavailable");
     const id = randomUUID();
-    if (!this.sessions.has(ownerSessionId)) {
+    const owner = this.sessions.get(ownerSessionId);
+    // Blocked players cannot ring each other (they look unavailable).
+    if (!owner || this.blockedBetween(session, owner)) {
       this.sendVisitStatus({ id, visitor: client.sessionId, owner: ownerSessionId }, "unavailable");
       return;
     }
@@ -462,6 +536,154 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.clientOf(visit.visitor)?.send(ServerMessage.MoveCorrection, teleport);
   }
 
+  // -------------------------------------------------------------------------------------------
+  // Proximity chat, mute, block and report (build plan M18, GDD §6.6, architecture §6.4)
+
+  /** Where a session's server-side walker is, for the chat range check. */
+  private chatPosition(session: Session): ChatPosition {
+    const t = session.tracker;
+    return { space: t.space, x: t.pos[0], z: t.pos[1], instance: isPrivateSpace(t.space) ? (session.apartmentHost ?? session.uid) : null };
+  }
+
+  private blockedBetween(a: Session, b: Session): boolean {
+    return a.blocked.has(b.uid) || b.blocked.has(a.uid);
+  }
+
+  private rejectChat(client: TownClient, reason: ChatRejectReason): void {
+    const message: ChatRejectedMessage = { reason };
+    client.send(ServerMessage.ChatRejected, message);
+  }
+
+  /**
+   * A chat line: the rate limit, the mandatory server moderation check, then delivery to the
+   * sender and to everyone within CHAT_RADIUS_M of the speaker's server-side position (same
+   * space, same apartment) who has not muted the sender and is not blocked either way.
+   * Translation happens on each reader's client (architecture §5.2): the server never calls a model.
+   */
+  private onChat(client: TownClient, text: string, claimedLang: string | undefined): void {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return;
+    const now = Date.now();
+    // TODO(M36): shard-wide mutes for repeat offenders answer "muted" here.
+    if (!takeToken(session.chatBucket, CHAT_RATE, now)) return this.rejectChat(client, "rate");
+    const lang = claimedLang ?? session.targetLang;
+    if (!this.moderateChat(text, { uid: session.uid, lang }).ok) return this.rejectChat(client, "moderation");
+    const message: ChatBroadcast = { id: randomUUID(), from: client.sessionId, name: session.name, text, lang, ts: now };
+    const speaker = this.chatPosition(session);
+    const recipients = new Set<string>();
+    for (const other of this.clients) {
+      const listener = this.sessions.get(other.sessionId);
+      if (!listener) continue;
+      if (other !== client) {
+        if (!chatAudible(speaker, this.chatPosition(listener))) continue;
+        if (listener.muted.has(session.uid) || this.blockedBetween(session, listener)) continue;
+      }
+      other.send(ServerMessage.ChatMessage, message);
+      recipients.add(listener.uid);
+    }
+    this.recentChat.push({ ...message, uid: session.uid, recipients });
+    if (this.recentChat.length > CHAT_HISTORY_LINES) this.recentChat.splice(0, this.recentChat.length - CHAT_HISTORY_LINES);
+  }
+
+  /** Sends a session its mute and block lists. */
+  private sendSafety(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const muted: string[] = [];
+    for (const [id, other] of this.sessions) if (id !== sessionId && session.muted.has(other.uid)) muted.push(id);
+    const blocked: BlockedPlayer[] = [...session.blocked].map(([uid, name]) => ({ uid, name }));
+    const message: ChatSafetyMessage = { muted, blocked };
+    this.clientOf(sessionId)?.send(ServerMessage.ChatSafety, message);
+  }
+
+  private onChatMute(client: TownClient, targetSessionId: string, muted: boolean): void {
+    const session = this.sessions.get(client.sessionId);
+    const target = this.sessions.get(targetSessionId);
+    if (!session || !target || target.uid === session.uid) return;
+    if (muted) session.muted.set(target.uid, target.name);
+    else session.muted.delete(target.uid);
+    this.sendSafety(client.sessionId);
+  }
+
+  /** Saves the block list after the saves already queued. */
+  private saveBlocks(session: Session): void {
+    session.blockSave = session.blockSave
+      .then(() => this.safety.saveBlocks(session.uid, [...session.blocked].map(([uid, name]) => ({ uid, name }))))
+      .catch((err: unknown) => console.error(`[town] block list save failed for ${session.uid}:`, err));
+  }
+
+  private onChatBlock(client: TownClient, targetSessionId: string): void {
+    const session = this.sessions.get(client.sessionId);
+    const target = this.sessions.get(targetSessionId);
+    if (!session || !target || target.uid === session.uid || session.blocked.has(target.uid)) return;
+    if (session.blocked.size >= MAX_BLOCKED_PLAYERS) return;
+    session.blocked.set(target.uid, target.name);
+    // Open visit requests between the two end.
+    for (const visit of [...this.visits.values()]) {
+      const pair = [visit.visitor, visit.owner];
+      if (pair.includes(client.sessionId) && pair.includes(targetSessionId)) this.closeVisit(visit, "unavailable");
+    }
+    this.saveBlocks(session);
+    this.sendSafety(client.sessionId);
+  }
+
+  private onChatUnblock(client: TownClient, uid: string): void {
+    const session = this.sessions.get(client.sessionId);
+    if (!session?.blocked.delete(uid)) return;
+    this.saveBlocks(session);
+    this.sendSafety(client.sessionId);
+  }
+
+  /**
+   * A report goes to `reports/{id}` with the server's own copies of the reported player's last
+   * lines that reached the reporter, so a client cannot put words in anyone's mouth. Reporting
+   * also mutes the reported player for the reporter.
+   * TODO(M36): reports feed strikes and shard-wide mutes; a moderator review tool.
+   */
+  private onChatReport(client: TownClient, report: ChatReportMessage): void {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return;
+    const answer = (ok: boolean) => {
+      const message: ChatReportedMessage = { ok };
+      this.clientOf(client.sessionId)?.send(ServerMessage.ChatReported, message);
+    };
+    const now = Date.now();
+    if (now - session.lastReportMs < REPORT_COOLDOWN_MS) return answer(false);
+    const line = report.messageId ? this.recentChat.find((l) => l.id === report.messageId) : undefined;
+    // A named line must be the reported player's, and one the reporter actually received.
+    if (report.messageId && (!line || line.from !== report.sessionId || !line.recipients.has(session.uid))) return answer(false);
+    const target = this.sessions.get(report.sessionId);
+    const reportedUid = target?.uid ?? line?.uid;
+    const reportedName = target?.name ?? line?.name;
+    if (!reportedUid || !reportedName || reportedUid === session.uid) return answer(false);
+    session.lastReportMs = now;
+
+    const heard = this.recentChat.filter((l) => l.uid === reportedUid && l.recipients.has(session.uid));
+    let picked = heard.slice(-REPORT_MAX_MESSAGES);
+    if (line && !picked.includes(line)) {
+      picked = [...heard.filter((l) => l !== line).slice(-(REPORT_MAX_MESSAGES - 1)), line].sort((a, b) => a.ts - b.ts);
+    }
+    const doc: ChatReportInput = {
+      kind: "chat",
+      reporterUid: session.uid,
+      reportedUid,
+      reportedName,
+      reason: report.reason,
+      ...(line ? { messageId: line.id } : {}),
+      shard: this.state.shard,
+      messages: picked.map((l) => ({ id: l.id, text: l.text, lang: l.lang, ts: l.ts })),
+    };
+    session.muted.set(reportedUid, reportedName);
+    this.sendSafety(client.sessionId);
+    this.safety.addReport(doc).then(
+      () => answer(true),
+      (err: unknown) => {
+        console.error(`[town] report by ${session.uid} could not be saved:`, err);
+        answer(false);
+      },
+    );
+  }
+
   /** Refreshes the clock and weather in the state (wall time: survives restarts, architecture §3.1). */
   private tickWorld(): void {
     const now = Date.now();
@@ -494,6 +716,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
 export interface TownRoomDeps {
   verifier: IdTokenVerifier;
   profiles: ProfileStore;
+  /** Block lists and reports (build plan M18). */
+  safety: SafetyStore;
+  /** The mandatory server chat check (default: `moderateChat`). */
+  moderateChat?: ChatModerator;
   registry?: TownRegistry;
   apartments?: ApartmentRegistry;
 }
@@ -513,5 +739,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override profiles = deps.profiles;
     protected override registry = registry;
     protected override apartments = apartments;
+    protected override safety = deps.safety;
+    protected override moderateChat = deps.moderateChat ?? moderateChat;
   };
 }
