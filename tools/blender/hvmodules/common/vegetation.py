@@ -2,7 +2,7 @@
 
 Trees split into a ``trunk`` mesh (bark, the ``atlas`` material) and a ``canopy`` mesh (the
 ``canopy`` material, extras ``hv_canopy``) whose object origin is the top of the trunk, so the
-client can sway the canopy in a vertex shader around that pivot (TODO(M12)). Bushes and
+client can sway the canopy in a vertex shader around that pivot (client scene/vegetation.ts). Bushes and
 flowers are canopy-only. Canopy blob layouts are chosen in ``variant_params`` (pure, so the
 tests can check they stay inside the footprint)."""
 

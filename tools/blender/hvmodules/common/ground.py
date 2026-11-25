@@ -124,7 +124,10 @@ class TerrainTile(CommonModule):
         accept = self._inside(poly)
         if self.ground == "cobble":
             stone = ctx.paint("cobble", 2, tile="stone")
-            for x, y in scatter(rng, min(max(3, n), 5 if self.kind == "full" else 4), accept, min_gap=0.16):
+            # Edge pieces line the whole square and road (about 160 in the town), so they get one
+            # loose stone per decoration point instead of at least three (M12 triangle budget).
+            count = min(max(3, n), 5) if self.kind == "full" else min(n, 3)
+            for x, y in scatter(rng, count, accept, min_gap=0.16):
                 sx, sy = rng.uniform(0.09, 0.14), rng.uniform(0.07, 0.11)
                 b.box((x - sx / 2, y - sy / 2, top - 0.02), (x + sx / 2, y + sy / 2, top + 0.018), stone, bevel=0.012, segments=1)
             return

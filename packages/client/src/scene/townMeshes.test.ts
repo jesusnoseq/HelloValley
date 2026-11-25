@@ -3,13 +3,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Box3, Frustum, Matrix4, OrthographicCamera, Texture, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { difficultySigns, SPAWN_POINT, TERRAIN_TOP, TERRAIN_Y, TOWN_BOUNDS, TOWN_CENTER, TOWN_D, TOWN_W, townPlaces } from "@hellovalley/shared";
+import { difficultySigns, isPlantModule, SPAWN_POINT, TERRAIN_TOP, TERRAIN_Y, TOWN_BOUNDS, TOWN_CENTER, TOWN_D, TOWN_W, townGrassTufts, townPlaces, townRenderPlan } from "@hellovalley/shared";
 import { CAMERA_PITCH_DEG, cameraOffset, degToRad, yawForStep, ZOOM_LEVELS } from "./cameraMath";
 import { leafOffsets } from "./DifficultySigns";
+import { DRAW_CALL_BUDGET, estimateDrawCalls } from "./drawCalls";
 import { createKitLoader } from "./kitLoader";
-import { baseWallsGeometry } from "./Town";
+import { baseWallsGeometry, townDrawItems } from "./Town";
 import { OVERVIEW_VIEW_HEIGHT, SPAWN_TARGET } from "./townCamera";
 import { buildCommonLayer, buildStyleLayer, chunkOf, flatQuads, sampleFlats, TOWN_CHUNK_X, TOWN_CHUNK_Z, type TownLayer } from "./townMeshes";
+import { buildVegetation, disposeVegetation } from "./vegetation";
 
 const PUBLIC = new URL("../../public/", import.meta.url);
 const present = ["common", "european"].every((k) => existsSync(fileURLToPath(new URL(`assets/kits/${k}/kit-manifest.json`, PUBLIC))));
@@ -114,15 +116,20 @@ describe.skipIf(!present)("town meshes (common + europe kits)", () => {
   });
 
   it("merges the town into a few chunked meshes within the GDD budget", async () => {
-    const common = await buildCommonLayer(await loader.load("common"));
+    const kit = await loader.load("common");
+    const common = await buildCommonLayer(kit);
     const style = await buildStyleLayer(await loader.loadStyle("european"));
+    const vegetation = await buildVegetation(kit, (await sampleFlats(kit)).ground.grass);
     const meshes = common.parts.length + style.parts.length;
-    const triangles = common.triangles + style.triangles;
+    // Everything the town draws: merged chunks plus the instanced vegetation (canopies and grass).
+    const triangles = common.triangles + style.triangles + vegetation.triangles;
     // GDD §7.2: under 300k triangles and 150 draw calls for the whole town.
     expect(triangles).toBeLessThan(300_000);
     expect(meshes).toBeLessThan(60);
-    // Ground meshes do not cast shadows.
+    // Ground meshes do not cast shadows; canopies left the chunks for the sway batch.
     expect(common.parts.some((p) => p.ground)).toBe(true);
+    expect(common.parts.some((p) => p.kind === "canopy")).toBe(false);
+    expect(common.parts.some((p) => p.kind === "water")).toBe(true);
     // Every merged part sits inside the diorama (plus overhangs) and on or under the ground plane.
     const box = new Box3();
     for (const p of [...common.parts, ...style.parts]) box.union(p.geometry.boundingBox!);
@@ -134,7 +141,8 @@ describe.skipIf(!present)("town meshes (common + europe kits)", () => {
     expect(style.signs.length).toBeGreaterThan(0);
     expect(style.signs.length % 2).toBe(0);
 
-    // What gameplay views draw: the far zoom around the spawn point and the square.
+    // What gameplay views draw: the far zoom around the spawn point and the square (the
+    // vegetation batch counted whole, as if none of it were culled).
     const far = ZOOM_LEVELS.at(-1)!.viewHeight;
     for (const [label, target] of [
       ["spawn", SPAWN_POINT],
@@ -143,14 +151,49 @@ describe.skipIf(!present)("town meshes (common + europe kits)", () => {
     ] as const) {
       for (const step of [0, 1, 2, 3]) {
         const view = onScreen([common, style], [target[0], target[1]], far, step);
-        expect(view.triangles, `${label} step ${step}`).toBeLessThan(300_000);
+        expect(view.triangles + vegetation.triangles, `${label} step ${step}`).toBeLessThan(300_000);
         expect(view.meshes).toBeLessThanOrEqual(meshes);
       }
     }
     // The overview sees everything.
     const all = onScreen([common, style], TOWN_CENTER, OVERVIEW_VIEW_HEIGHT);
     expect(all.meshes).toBe(meshes);
+
+    // Draw calls, upper bound: every mesh in view, every caster in the shadow camera, the post stack.
+    const calls = estimateDrawCalls(townDrawItems(common, style, vegetation));
+    expect(calls.total, JSON.stringify(calls)).toBeLessThan(DRAW_CALL_BUDGET);
     for (const p of [...common.parts, ...style.parts]) p.geometry.dispose();
+    disposeVegetation(vegetation);
+  });
+
+  it("batches every plant canopy and grass cluster with a sway weight", async () => {
+    const kit = await loader.load("common");
+    const vegetation = await buildVegetation(kit, (await sampleFlats(kit)).ground.grass);
+    const plants = townRenderPlan().modules.filter((m) => m.kit === "common" && isPlantModule(m.module));
+    expect(vegetation.instances.length).toBe(plants.length + townGrassTufts().length);
+    // One geometry per plant variant and grass look, shared by all their instances.
+    expect(vegetation.geometries.length).toBeLessThan(25);
+    for (const { key, geometry } of vegetation.geometries) {
+      const sway = geometry.getAttribute("sway");
+      expect(sway, key).toBeDefined();
+      const pos = geometry.getAttribute("position");
+      let top = -Infinity;
+      let topSway = 0;
+      for (let i = 0; i < pos.count; i++) {
+        if (pos.getY(i) > top) {
+          top = pos.getY(i);
+          topSway = sway.getX(i);
+        }
+      }
+      // The top of every canopy moves with the wind; tree canopies pivot on the trunk top.
+      expect(topSway, key).toBeGreaterThan(0.2);
+      if (key.startsWith("tree.")) expect(Math.min(...Array.from(sway.array as Float32Array)), key).toBeGreaterThan(-0.5);
+    }
+    // Trunks stay in the static chunks.
+    const common = await buildCommonLayer(kit);
+    expect(common.parts.some((p) => p.kind === "atlas" && !p.ground)).toBe(true);
+    for (const p of common.parts) p.geometry.dispose();
+    disposeVegetation(vegetation);
   });
 
   it("swaps the style layer without moving anything", async () => {

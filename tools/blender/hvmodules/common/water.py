@@ -7,7 +7,7 @@ back-right corner), the 2 x 2 bends ``bank.curve_outer`` (water inside a 1.5 m a
 front-left corner) and ``bank.curve_inner`` (land inside a 1.5 m arc around the back-right
 corner), and ``bank.water`` (open river). The land is a height field that slopes from the
 grass top (``GROUND_Z``) down to the bed (``BED_Z``); the water surface (``WATER_Z``) is a
-separate mesh with the ``water`` material and ``hv_part: water`` (river shader TODO(M12)).
+separate mesh with the ``water`` material and ``hv_part: water`` (river shader: client scene/riverMaterial.ts).
 """
 
 from __future__ import annotations

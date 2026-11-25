@@ -10,6 +10,7 @@ import { KitLighting } from "./KitLighting";
 import { dprForFactor } from "./perfStats";
 import { PerfProbe } from "./PerfProbe";
 import { TestBlocks } from "./TestBlocks";
+import { Weather } from "./Weather";
 
 export interface DioramaCanvasProps {
   children?: ReactNode;
@@ -24,8 +25,8 @@ export interface DioramaCanvasProps {
 const initialPosition = cameraOffset(yawForStep(dioramaStore.getState().cameraStep), degToRad(CAMERA_PITCH_DEG));
 
 /**
- * The R3F diorama (GDD §7.1): orthographic isometric camera, day/night lights with soft shadows
- * and the post-processing stack. Loaded lazily (see DioramaView) so three.js, R3F and
+ * The R3F diorama (GDD §7.1): orthographic isometric camera, day/night lights with soft shadows,
+ * the cosmetic weather (fog, rain, wind) and the post-processing stack. Loaded lazily (see DioramaView) so three.js, R3F and
  * postprocessing stay out of the entry chunk. `children` is the world; it defaults to the M09
  * placeholder blocks. The resolution drops towards dpr 1 when frames fall below 50 fps.
  */
@@ -47,6 +48,7 @@ export default function DioramaCanvas({ children, shadowExtent, target, viewHeig
       <IsoCamera target={target} viewHeight={viewHeight} />
       <DayNightLights target={target} shadowExtent={shadowExtent} />
       <KitLighting />
+      <Weather />
       {children ?? <TestBlocks />}
       <DioramaEffects />
       {import.meta.env.DEV ? <PerfProbe /> : null}

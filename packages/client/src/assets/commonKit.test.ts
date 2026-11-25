@@ -17,7 +17,7 @@ import { canopyMeshes, countTris, kitParts, kitVariants, objectBounds, parseKitG
 
 // The committed style-neutral kit (M06), generated with `npm run assets:build -- --style common`.
 // Checks the manifest, the budgets, every GLB, and that tree canopies are their own mesh and
-// material slot (so the client can sway them in a vertex shader, TODO(M12)).
+// material slot (so the client can sway them in a vertex shader: scene/vegetation.ts).
 const KIT = new URL("../../public/assets/kits/common/", import.meta.url);
 const present = existsSync(fileURLToPath(new URL("kit-manifest.json", KIT)));
 

@@ -6,9 +6,11 @@ import {
   Matrix4,
   Mesh,
   MeshStandardMaterial,
+  type Object3D,
   SRGBColorSpace,
   type Texture,
   TextureLoader,
+  Vector3,
 } from "three";
 import type { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { COMMON_KIT_ID, type KitId, type KitManifest, type KitModule, type StyleId } from "@hellovalley/shared";
@@ -39,7 +41,7 @@ export const SHARED_KIT_IDS: readonly KitId[] = [COMMON_KIT_ID];
 
 /**
  * Material slots of the generated kits, from the material extras the generator writes:
- * `atlas` (vertex colour x atlas), `canopy` (atlas, swayed by M12), `glass`, `glow` and `water`.
+ * `atlas` (vertex colour x atlas), `canopy` (atlas; swayed in the town), `glass`, `glow` and `water`.
  */
 export const KIT_MATERIAL_KINDS = ["atlas", "canopy", "glass", "glow", "water"] as const;
 export type KitMaterialKind = (typeof KIT_MATERIAL_KINDS)[number];
@@ -69,6 +71,11 @@ export interface KitGeometryPart {
   geometry: BufferGeometry;
   /** `hv_part` of the node (`canopy`, `trunk`, `water`), or "". */
   part: string;
+  /**
+   * Origin of the node that carries `hv_part`, in the module frame (the mesh's own origin when
+   * no ancestor does). For canopies it is the top of the trunk, the wind-sway pivot (M06).
+   */
+  pivot: [number, number, number];
 }
 
 /** The attribute layout every kit part is converted to, so parts of any module merge. */
@@ -140,7 +147,8 @@ export class LoadedKit {
     const atlasMaterial = (name: string) => new MeshStandardMaterial({ ...base, name, map: atlas });
     this.materials = {
       atlas: atlasMaterial(`${id}.atlas`),
-      // TODO(M12): canopy wind sway and the river shader replace these two.
+      // Plain fallbacks for galleries; the town draws canopies with the sway material
+      // (scene/vegetation.ts) and water with the river shader (scene/riverMaterial.ts).
       canopy: atlasMaterial(`${id}.canopy`),
       water: new MeshStandardMaterial({ ...base, name: `${id}.water`, roughness: 0.3 }),
       glass: new MeshStandardMaterial({ ...base, name: `${id}.glass`, roughness: 0.25, emissive: new Color("#ffc977"), emissiveIntensity: 0 }),
@@ -187,13 +195,16 @@ export class LoadedKit {
           if (!(node instanceof Mesh)) return;
           const material = (Array.isArray(node.material) ? node.material[0] : node.material) as Material;
           let part = "";
-          for (let n: typeof node.parent = node; n; n = n.parent) {
+          let owner: Object3D = node;
+          for (let n: Object3D | null = node; n; n = n.parent) {
             if (typeof n.userData.hv_part === "string") {
               part = n.userData.hv_part;
+              owner = n;
               break;
             }
           }
-          parts.push({ kind: materialKind(material), part, geometry: normalizeKitGeometry(node.geometry, node.matrixWorld) });
+          const origin = new Vector3().setFromMatrixPosition(owner.matrixWorld);
+          parts.push({ kind: materialKind(material), part, pivot: [origin.x, origin.y, origin.z], geometry: normalizeKitGeometry(node.geometry, node.matrixWorld) });
         });
         return parts;
       });

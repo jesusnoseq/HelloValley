@@ -4,3 +4,6 @@ export * from "./town";
 export * from "./navgrid";
 export * from "./astar";
 export * from "./render";
+export * from "./weather";
+export * from "./water";
+export * from "./vegetation";

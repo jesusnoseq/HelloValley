@@ -15,6 +15,8 @@ import {
   townNavGrid,
   townPlaces,
   type Vec2,
+  WEATHERS,
+  type Weather,
 } from "@hellovalley/shared";
 import { ZOOM_LEVELS } from "../scene/cameraMath";
 import { DioramaView } from "../scene/DioramaView";
@@ -52,6 +54,8 @@ if (query.get("speed") === "0") s.setTimeScale(0);
 if (query.get("fx") === "0") s.setEffects(false);
 if (query.has("zoom")) dioramaStore.setState({ zoomLevel: Math.min(ZOOM_LEVELS.length - 1, Math.max(0, Number(query.get("zoom")) || 0)) });
 if (query.has("step")) dioramaStore.setState({ cameraStep: Math.round(Number(query.get("step")) || 0) });
+const initialWeather = query.get("weather");
+if ((WEATHERS as readonly string[]).includes(initialWeather ?? "")) s.setWeather(initialWeather as Weather);
 const places = townPlaces();
 const initialFocus = query.get("focus");
 const startFocus: Focus = initialFocus === "spawn" || (initialFocus !== null && initialFocus in places) ? (initialFocus as Focus) : "overview";
@@ -121,13 +125,15 @@ const pathLength = (p: readonly Vec2[]) => p.slice(1).reduce((n, q, k) => n + Ma
 /**
  * Dev-only town page (`/dev/town`, build plan M11): the whole town in the active style with the
  * perf HUD, camera focus on any place (or the whole-town overview), the walkability grid overlay,
- * and click-to-path: a click on the ground runs A* from the spawn point. Query parameters:
- * `?focus=overview|spawn|<place>&style=european&nav=1&t=0.2&speed=0&zoom=1&step=0&fx=0`.
+ * and click-to-path: a click on the ground runs A* from the spawn point. M12 adds a weather picker
+ * (the shared schedule, or a pinned sun / rain / fog). Query parameters:
+ * `?focus=overview|spawn|<place>&style=european&nav=1&t=0.2&speed=0&zoom=1&step=0&fx=0&weather=rain`.
  */
 export function TownView() {
   const style = useDiorama((st) => st.style);
   const zoomLevel = useDiorama((st) => st.zoomLevel);
-  const { rotate, zoom, setStyle } = dioramaStore.getState();
+  const weather = useDiorama((st) => (st.weatherAuto ? "auto" : st.weather));
+  const { rotate, zoom, setStyle, setWeather } = dioramaStore.getState();
   const [focus, setFocus] = useState<Focus>(startFocus);
   const [nav, setNav] = useState(query.get("nav") === "1");
   const [path, setPath] = useState<{ to: Vec2; points: Vec2[] | null } | null>(null);
@@ -155,7 +161,7 @@ export function TownView() {
     >
       <PerfHud />
       <div style={panel}>
-        <strong>Town (M11)</strong>
+        <strong>Town (M11–M12)</strong>
         <label>
           focus{" "}
           <select value={focus} onChange={(e) => setFocus(e.target.value as Focus)}>
@@ -175,6 +181,17 @@ export function TownView() {
               <option key={id} value={id}>
                 {STYLES[id].englishName}
                 {AVAILABLE_STYLE_KITS.includes(id) ? "" : " (no kit yet)"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          weather{" "}
+          <select value={weather} onChange={(e) => setWeather(e.target.value === "auto" ? null : (e.target.value as Weather))}>
+            <option value="auto">schedule (world state)</option>
+            {WEATHERS.map((w) => (
+              <option key={w} value={w}>
+                {w}
               </option>
             ))}
           </select>

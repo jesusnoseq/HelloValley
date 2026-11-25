@@ -63,7 +63,7 @@ export function kitParts(variant: Object3D): Map<string, Mesh[]> {
 }
 
 /** The canopy meshes of a tree or plant variant: the client sways these in a vertex shader
- * around their node origin (the top of the trunk). TODO(M12): the sway material. */
+ * around their node origin (the top of the trunk); see scene/vegetation.ts. */
 export function canopyMeshes(variant: Object3D): Mesh[] {
   return kitParts(variant).get(KIT_CANOPY_PART) ?? [];
 }

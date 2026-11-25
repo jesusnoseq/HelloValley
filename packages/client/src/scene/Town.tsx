@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BufferAttribute, BufferGeometry, MeshStandardMaterial } from "three";
+import { type BatchedMesh, BufferAttribute, BufferGeometry, type Material, MeshStandardMaterial } from "three";
 import { COMMON_KIT_ID, difficultySigns, type StyleId, TOWN_BOUNDS } from "@hellovalley/shared";
 import { useDiorama } from "../state/dioramaStore";
 import { DifficultySigns } from "./DifficultySigns";
+import type { DrawItem } from "./drawCalls";
 import { type KitLoader, kitLoader, type LoadedKit } from "./kitLoader";
 import { SignIcons } from "./SignIcons";
-import { buildCommonLayer, buildStyleLayer, disposeTownLayer, type TownLayer } from "./townMeshes";
+import { createRiverMaterial, disposeRiverMaterial } from "./riverMaterial";
+import { buildCommonLayer, buildStyleLayer, disposeTownLayer, sampleFlats, type TownLayer } from "./townMeshes";
+import { buildVegetation, createSwayMaterial, createVegetationMesh, disposeVegetation, type VegetationBatch } from "./vegetation";
 
 interface Loaded {
   kit: LoadedKit;
   layer: TownLayer;
+  /** The swaying canopies and grass (common layer only). */
+  vegetation?: VegetationBatch;
+}
+
+function disposeLoaded(loaded: Loaded): void {
+  disposeTownLayer(loaded.layer);
+  if (loaded.vegetation) disposeVegetation(loaded.vegetation);
 }
 
 /**
@@ -26,13 +36,13 @@ function useLayer(label: string, load: () => Promise<Loaded>): Loaded | null {
       try {
         const next = await load();
         if (cancelled) {
-          disposeTownLayer(next.layer);
+          disposeLoaded(next);
           return;
         }
         const previous = current.current;
         current.current = next;
         setLoaded(next);
-        if (previous) disposeTownLayer(previous.layer);
+        if (previous) disposeLoaded(previous);
       } catch (error) {
         console.error(`town layer ${label}:`, error);
       }
@@ -44,7 +54,7 @@ function useLayer(label: string, load: () => Promise<Loaded>): Loaded | null {
 
   useEffect(
     () => () => {
-      if (current.current) disposeTownLayer(current.current.layer);
+      if (current.current) disposeLoaded(current.current);
     },
     [],
   );
@@ -55,7 +65,8 @@ function useLayer(label: string, load: () => Promise<Loaded>): Loaded | null {
 export function useTownLayers(style: StyleId, loader: KitLoader = kitLoader): { common: Loaded | null; style: Loaded | null } {
   const loadCommon = useCallback(async () => {
     const kit = await loader.load(COMMON_KIT_ID);
-    return { kit, layer: await buildCommonLayer(kit) };
+    const [layer, samples] = await Promise.all([buildCommonLayer(kit), sampleFlats(kit)]);
+    return { kit, layer, vegetation: await buildVegetation(kit, samples.ground.grass) };
   }, [loader]);
   const loadStyle = useCallback(async () => {
     const kit = await loader.loadStyle(style);
@@ -66,7 +77,7 @@ export function useTownLayers(style: StyleId, loader: KitLoader = kitLoader): { 
   return { common, style: styled };
 }
 
-function LayerMeshes({ loaded }: { loaded: Loaded }) {
+function LayerMeshes({ loaded, water }: { loaded: Loaded; water?: Material }) {
   const { kit, layer } = loaded;
   return (
     <>
@@ -74,13 +85,38 @@ function LayerMeshes({ loaded }: { loaded: Loaded }) {
         <mesh
           key={`${layer.kitId}:${part.chunk}:${part.kind}:${part.ground ? "g" : "o"}`}
           geometry={part.geometry}
-          material={kit.materials[part.kind]}
+          material={part.kind === "water" && water ? water : kit.materials[part.kind]}
           castShadow={!part.ground}
           receiveShadow
         />
       ))}
     </>
   );
+}
+
+/** Effects currently using each vegetation mesh (StrictMode mounts effects twice in dev). */
+const vegetationMounts = new Map<BatchedMesh, number>();
+
+/**
+ * The vegetation batch as one BatchedMesh with the sway material (rebuilt if the batch changes).
+ * BatchedMesh.dispose() cannot be undone, so disposal waits a tick and is skipped if the same
+ * mesh was mounted again in the meantime (StrictMode's effect replay).
+ */
+function Vegetation({ batch, material }: { batch: VegetationBatch; material: Material }) {
+  const mesh = useMemo<BatchedMesh>(() => createVegetationMesh(batch, material), [batch, material]);
+  useEffect(() => {
+    vegetationMounts.set(mesh, (vegetationMounts.get(mesh) ?? 0) + 1);
+    return () => {
+      vegetationMounts.set(mesh, (vegetationMounts.get(mesh) ?? 1) - 1);
+      setTimeout(() => {
+        if ((vegetationMounts.get(mesh) ?? 0) > 0) return;
+        vegetationMounts.delete(mesh);
+        mesh.customDepthMaterial?.dispose();
+        mesh.dispose();
+      }, 0);
+    };
+  }, [mesh]);
+  return <primitive object={mesh} />;
 }
 
 /** Depth of the diorama base under the ground. */
@@ -114,6 +150,23 @@ export function baseWallsGeometry(bounds: readonly number[] = TOWN_BOUNDS, depth
   return g;
 }
 
+/**
+ * Every mesh the town and its weather put in the scene, for the draw-call estimate (keep in step
+ * with what `Town`, `Weather` and `DioramaCanvas` render).
+ */
+export function townDrawItems(common: TownLayer, style: TownLayer, vegetation: VegetationBatch | null): DrawItem[] {
+  const items: DrawItem[] = [];
+  for (const layer of [common, style]) {
+    for (const p of layer.parts) items.push({ label: `${layer.kitId}:${p.chunk}:${p.kind}`, castShadow: !p.ground });
+  }
+  if (vegetation && vegetation.instances.length > 0) items.push({ label: "vegetation", castShadow: true });
+  for (const icon of new Set(style.signs.map((s) => s.icon))) items.push({ label: `sign icon ${icon}`, castShadow: false });
+  items.push({ label: "difficulty sign posts", castShadow: true }, { label: "difficulty sign leaves", castShadow: false });
+  items.push({ label: "diorama base", castShadow: false });
+  items.push({ label: "rain", castShadow: false });
+  return items;
+}
+
 export interface TownProps {
   /** Override the store's town style (dev pages). */
   style?: StyleId;
@@ -121,9 +174,10 @@ export interface TownProps {
 }
 
 /**
- * The whole town (GDD §4.1, build plan M11): merged terrain and nature chunks from the common kit,
- * the ten buildings and street furniture in the active style kit, shop sign icons, the leaf
- * difficulty signs and the diorama base. Switching the style swaps only the style layer.
+ * The whole town (GDD §4.1, build plan M11): merged terrain and nature chunks from the common kit
+ * with the river shader on their water (M12), the swaying vegetation batch, the ten buildings and
+ * street furniture in the active style kit, shop sign icons, the leaf difficulty signs and the
+ * diorama base. Switching the style swaps only the style layer.
  */
 export function Town({ style, loader }: TownProps) {
   const storeStyle = useDiorama((s) => s.style);
@@ -137,10 +191,16 @@ export function Town({ style, loader }: TownProps) {
     },
     [base],
   );
+  const river = useMemo(() => createRiverMaterial(), []);
+  useEffect(() => () => disposeRiverMaterial(river), [river]);
+  const atlas = common?.kit.atlas ?? null;
+  const sway = useMemo(() => createSwayMaterial(atlas), [atlas]);
+  useEffect(() => () => sway.dispose(), [sway]);
 
   return (
     <group name="town">
-      {common ? <LayerMeshes loaded={common} /> : null}
+      {common ? <LayerMeshes loaded={common} water={river} /> : null}
+      {common?.vegetation ? <Vegetation batch={common.vegetation} material={sway} /> : null}
       {styled ? (
         <>
           <LayerMeshes loaded={styled} />

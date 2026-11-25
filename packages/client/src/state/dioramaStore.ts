@@ -1,7 +1,7 @@
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 // Type-only: importing values from shared here would pull zod into the entry chunk.
-import type { StyleId } from "@hellovalley/shared";
+import type { StyleId, Weather } from "@hellovalley/shared";
 import { DEFAULT_ZOOM_LEVEL, stepZoomLevel } from "../scene/cameraMath";
 import { wrapWorldTime } from "../scene/dayNight";
 
@@ -29,6 +29,13 @@ export interface DioramaState {
    * Settings screen.
    */
   style: StyleId;
+  /**
+   * Cosmetic weather (GDD §4.3), a world-state value. With `weatherAuto` the scene follows the
+   * shared weather schedule (`weatherAt` in shared/world/weather.ts) and `weather` is ignored;
+   * dev pages pin a weather instead. TODO(M16): mirror the TownRoom's broadcast weather.
+   */
+  weather: Weather;
+  weatherAuto: boolean;
   rotate: (direction: -1 | 1) => void;
   zoom: (direction: number) => void;
   setWorldTime: (t: number) => void;
@@ -36,6 +43,8 @@ export interface DioramaState {
   setTiltShift: (on: boolean) => void;
   setEffects: (on: boolean) => void;
   setStyle: (style: StyleId) => void;
+  /** Pin a weather (turns the schedule off); null goes back to the schedule. */
+  setWeather: (weather: Weather | null) => void;
 }
 
 /** Sunny late morning: a pleasant first impression before the server clock arrives. */
@@ -50,6 +59,8 @@ export function createDioramaStore(initial: Partial<Pick<DioramaState, "worldTim
     tiltShift: true,
     effects: true,
     style: "european",
+    weather: "sun",
+    weatherAuto: true,
     rotate: (direction) => set((s) => ({ cameraStep: s.cameraStep + direction })),
     zoom: (direction) => set((s) => ({ zoomLevel: stepZoomLevel(s.zoomLevel, direction) })),
     setWorldTime: (t) => set({ worldTime: wrapWorldTime(t) }),
@@ -57,6 +68,7 @@ export function createDioramaStore(initial: Partial<Pick<DioramaState, "worldTim
     setTiltShift: (on) => set({ tiltShift: on }),
     setEffects: (on) => set({ effects: on }),
     setStyle: (style) => set({ style }),
+    setWeather: (weather) => set(weather === null ? { weatherAuto: true } : { weather, weatherAuto: false }),
   }));
 }
 

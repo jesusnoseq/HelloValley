@@ -11,10 +11,10 @@ Placement conventions (also in tools/blender/README.md):
   the feature) and ``inner`` everywhere except a quarter disc of grass/land around the
   back-right corner (a concave corner of the feature).
 - **Water** pieces dig below the pivot (``sink_m``): the river bed is at ``BED_Z`` and the
-  water surface at ``WATER_Z``, a separate ``water`` mesh the client shades (TODO(M12)).
+  water surface at ``WATER_Z``, a separate ``water`` mesh the client shades (river shader, client scene/riverMaterial.ts).
 - **Vegetation** stands on the ground at the footprint centre. Tree canopies are their own
   mesh (``hv_part: canopy``) with the ``canopy`` material and the object origin at the top of
-  the trunk, so the client can sway them in a vertex shader (TODO(M12)).
+  the trunk, so the client can sway them in a vertex shader (client scene/vegetation.ts).
 """
 
 from __future__ import annotations

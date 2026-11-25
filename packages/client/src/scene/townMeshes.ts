@@ -5,6 +5,7 @@ import {
   buildingRecipe,
   type FlatTile,
   type Ground,
+  isPlantModule,
   RIVER_BED_Y,
   rotateVec,
   TERRAIN_TOP,
@@ -237,7 +238,10 @@ function addFlats(buckets: Buckets, flats: readonly FlatTile[], samples: FlatSam
 
 const matrixFor = (position: Vec3, rot: number, target = new Matrix4()) => placementMatrix({ position, rot, scale: [1, 1, 1] }, target);
 
-/** The style-neutral layer: flat ground, terrain and river pieces, bridge, dock, trees and props. */
+/**
+ * The style-neutral layer: flat ground, terrain and river pieces, bridge, dock, tree trunks and
+ * props. Plant canopies are not merged here: they sway in the vegetation batch (scene/vegetation).
+ */
 export async function buildCommonLayer(common: LoadedKit): Promise<TownLayer> {
   const plan = townRenderPlan();
   const buckets = new Buckets();
@@ -246,8 +250,10 @@ export async function buildCommonLayer(common: LoadedKit): Promise<TownLayer> {
   const loaded = await Promise.all(mods.map(async (m) => ({ m, parts: await common.variantParts(m.module, m.variant) })));
   const matrix = new Matrix4();
   for (const { m, parts } of loaded) {
+    const kept = isPlantModule(m.module) ? parts.filter((p) => p.kind !== "canopy") : parts;
+    if (kept.length === 0) continue;
     matrixFor(m.position, m.rot, matrix);
-    buckets.addParts(parts, matrix, chunkOf(m.position[0], m.position[2]), isGroundModule(m.module));
+    buckets.addParts(kept, matrix, chunkOf(m.position[0], m.position[2]), isGroundModule(m.module));
   }
   return { kitId: common.id, signs: [], ...buckets.merge("common layer") };
 }
