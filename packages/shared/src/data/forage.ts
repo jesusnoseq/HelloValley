@@ -5,7 +5,7 @@ import type { PlaceId } from "./world";
 export const FORAGE_KINDS = ["flower", "mushroom", "shell", "pebble", "berry", "herb", "rare_find"] as const;
 export type ForageKind = (typeof FORAGE_KINDS)[number];
 
-/** Spawn zones for daily forage (GDD §5.3). Zone shapes come with the town layout (TODO(M11)). */
+/** Spawn zones for daily forage (GDD §5.3). Their areas are `FORAGE_ZONE_AREAS` in world/town.ts. */
 export const FORAGE_ZONES = ["meadow", "forest_edge", "riverbank", "hill", "square"] as const;
 export type ForageZone = (typeof FORAGE_ZONES)[number];
 

@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { CanvasTexture, MeshStandardMaterial, PlaneGeometry, Quaternion, SRGBColorSpace, Vector3 } from "three";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import { CanvasTexture, type InstancedMesh, Matrix4, MeshStandardMaterial, PlaneGeometry, Quaternion, SRGBColorSpace, Vector3 } from "three";
 import type { SignIcon } from "@hellovalley/shared";
 import type { BuildingSign } from "./buildingMeshes";
 
@@ -57,26 +57,39 @@ function iconMaterial(icon: SignIcon): MeshStandardMaterial {
 }
 
 const FORWARD = new Vector3(0, 0, 1);
+const UNIT = new Vector3(1, 1, 1);
 
+/** Icon planes, one instanced mesh per icon (a building or the whole town is a few draw calls). */
 export function SignIcons({ signs }: { signs: readonly BuildingSign[] }) {
-  const placed = useMemo(
-    () =>
-      signs.map((s) => {
-        const normal = new Vector3(...s.normal).normalize();
-        return {
-          key: `${s.position.join(",")}`,
-          material: iconMaterial(s.icon),
-          position: new Vector3(...s.position).addScaledVector(normal, SURFACE_OFFSET),
-          quaternion: new Quaternion().setFromUnitVectors(FORWARD, normal),
-        };
-      }),
-    [signs],
-  );
+  const groups = useMemo(() => {
+    const byIcon = new Map<SignIcon, Matrix4[]>();
+    for (const s of signs) {
+      const normal = new Vector3(...s.normal).normalize();
+      const position = new Vector3(...s.position).addScaledVector(normal, SURFACE_OFFSET);
+      const matrix = new Matrix4().compose(position, new Quaternion().setFromUnitVectors(FORWARD, normal), UNIT);
+      const list = byIcon.get(s.icon) ?? [];
+      list.push(matrix);
+      byIcon.set(s.icon, list);
+    }
+    return [...byIcon].map(([icon, matrices]) => ({ icon, matrices, material: iconMaterial(icon) }));
+  }, [signs]);
   return (
     <>
-      {placed.map((p) => (
-        <mesh key={p.key} geometry={plane} material={p.material} position={p.position} quaternion={p.quaternion} />
+      {groups.map((g) => (
+        <IconInstances key={`${g.icon}:${g.matrices.length}`} matrices={g.matrices} material={g.material} />
       ))}
     </>
   );
+}
+
+function IconInstances({ matrices, material }: { matrices: readonly Matrix4[]; material: MeshStandardMaterial }) {
+  const ref = useRef<InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [matrices]);
+  return <instancedMesh ref={ref} args={[plane, material, matrices.length]} />;
 }

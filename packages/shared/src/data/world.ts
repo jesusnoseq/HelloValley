@@ -25,8 +25,8 @@ export function clockToMinutes(time: string): number | undefined {
 }
 
 /**
- * Places in the town that schedules, spawns and labels refer to (GDD §4.1). Positions come with the
- * town layout in TODO(M11).
+ * Places in the town that schedules, spawns and labels refer to (GDD §4.1). Their standing points
+ * are `townPlaces()` in world/town.ts.
  */
 export const PLACE_IDS = [
   "apartment_block",

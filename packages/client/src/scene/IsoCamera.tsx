@@ -18,6 +18,7 @@ import {
 } from "./cameraMath";
 
 const PITCH = degToRad(CAMERA_PITCH_DEG);
+const ORIGIN = [0, 0, 0] as const;
 
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -29,7 +30,14 @@ function isEditable(target: EventTarget | null): boolean {
  * towards the current level, and binds Q/E (rotate) and the scroll wheel (zoom).
  * TODO(M13): follow the local player instead of a fixed target.
  */
-export function IsoCamera({ target = [0, 0, 0] }: { target?: readonly [number, number, number] }) {
+export function IsoCamera({
+  target = ORIGIN,
+  viewHeight,
+}: {
+  target?: readonly [number, number, number];
+  /** Overrides the zoom level's view height (whole-town dev overview). */
+  viewHeight?: number;
+}) {
   const domElement = useThree((s) => s.gl.domElement);
   const eased = useRef<{ yaw: number; viewHeight: number } | null>(null);
 
@@ -61,7 +69,7 @@ export function IsoCamera({ target = [0, 0, 0] }: { target?: readonly [number, n
     const camera = state.camera as OrthographicCamera;
     const { cameraStep, zoomLevel } = dioramaStore.getState();
     const targetYaw = yawForStep(cameraStep);
-    const targetHeight = ZOOM_LEVELS[zoomLevel]!.viewHeight;
+    const targetHeight = viewHeight ?? ZOOM_LEVELS[zoomLevel]!.viewHeight;
     const current = (eased.current ??= { yaw: targetYaw, viewHeight: targetHeight });
     current.yaw = settle(damp(current.yaw, targetYaw, ROTATION_DAMPING, dt), targetYaw, 1e-4);
     current.viewHeight = settle(dampLog(current.viewHeight, targetHeight, ZOOM_DAMPING, dt), targetHeight, 1e-3);

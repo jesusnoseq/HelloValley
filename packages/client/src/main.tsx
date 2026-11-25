@@ -6,13 +6,16 @@ const root = createRoot(document.getElementById("root")!);
 const render = (node: ReactNode) => root.render(<StrictMode>{node}</StrictMode>);
 
 // Dev-only pages (no sign-in): /dev/characters is the M07 character gallery, /dev/diorama the
-// M09 renderer test scene and /dev/buildings the M10 building gallery. The DEV check is replaced
+// M09 renderer test scene, /dev/buildings the M10 building gallery and /dev/town the M11 town
+// (overview, walkability grid, A* paths). The DEV check is replaced
 // with `false` in production builds, so the pages are never bundled there.
 const path = window.location.pathname;
 if (import.meta.env.DEV && path === "/dev/characters") {
   void import("./dev/CharacterGallery").then(({ CharacterGallery }) => render(<CharacterGallery />));
 } else if (import.meta.env.DEV && path === "/dev/buildings") {
   void import("./dev/BuildingGallery").then(({ BuildingGallery }) => render(<BuildingGallery />));
+} else if (import.meta.env.DEV && path === "/dev/town") {
+  void import("./dev/TownView").then(({ TownView }) => render(<TownView />));
 } else if (import.meta.env.DEV && path === "/dev/diorama") {
   void import("./dev/DioramaSandbox").then(({ DioramaSandbox }) => render(<DioramaSandbox />));
 } else {

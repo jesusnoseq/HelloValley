@@ -1,10 +1,14 @@
 import type { User } from "firebase/auth";
-import type { CSSProperties } from "react";
+import { type CSSProperties, lazy, Suspense } from "react";
 import { AuthGate } from "./auth/AuthGate";
 import { signOutUser } from "./auth/useAuth";
 import { useTownConnection } from "./net/connection";
 import { DioramaView } from "./scene/DioramaView";
+import { SPAWN_TARGET, TOWN_SHADOW_EXTENT } from "./scene/townCamera";
 import { DebugOverlay } from "./ui/DebugOverlay";
+
+// The town pulls in shared game data (and zod): keep it in its own chunk, after sign-in.
+const TownScene = lazy(() => import("./scene/Town").then((m) => ({ default: m.Town })));
 
 const card: CSSProperties = {
   position: "fixed",
@@ -24,9 +28,16 @@ export function App() {
 
 function Town({ user }: { user: User }) {
   const connection = useTownConnection(user);
-  // TODO(M11): the town layout replaces the placeholder blocks.
   return (
-    <DioramaView>
+    <DioramaView
+      target={SPAWN_TARGET}
+      shadowExtent={TOWN_SHADOW_EXTENT}
+      world={
+        <Suspense fallback={null}>
+          <TownScene />
+        </Suspense>
+      }
+    >
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>HelloValley</h1>
         <p style={{ margin: "4px 0 0" }}>

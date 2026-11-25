@@ -1,7 +1,7 @@
 /**
  * Deterministic layout for the M09 placeholder scene: pastel blocks with roofs, cloud trees and
- * street lamps on a square diorama base. Pure data so it can be tested; the real town replaces it
- * in TODO(M11).
+ * street lamps on a square diorama base. Pure data so it can be tested. The real town (M11,
+ * scene/Town.tsx) replaced it in the app; it stays as the `/dev/diorama` test bed.
  */
 
 export const TEST_BASE_SIZE = 30;

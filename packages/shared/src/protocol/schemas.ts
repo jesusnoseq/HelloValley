@@ -5,8 +5,9 @@ import { ClientMessage } from "./messages";
 /** Longest chat line a player can send, in characters (after trimming). */
 export const CHAT_MAX_LENGTH = 200;
 /**
- * Sanity bound for world coordinates in metres. The real town bounds come with the town layout.
- * TODO(M11): validate click targets against the town bounds and the walkability grid.
+ * Sanity bound for world coordinates in metres (the town itself is TOWN_BOUNDS, world/town.ts).
+ * TODO(M13): the server snaps click targets to the walkability grid (`nearestWalkable`) and plans
+ * the path with `findPath`.
  */
 export const WORLD_COORD_LIMIT = 1000;
 /** Firebase ID tokens are JWTs of roughly 1 KB; anything far larger is rejected outright. */
@@ -59,7 +60,8 @@ export const EntityIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
 
 export const InteractRequestSchema = z.discriminatedUnion("targetKind", [
   z.object({ targetKind: z.literal("npc"), targetId: NpcIdSchema }),
-  // TODO(M11): check object ids against the town's interactables.
+  // TODO(M26/M28): check object ids against the town's interactables (notice board, dock, shop
+  // counters) and the live forage spawns; the static layout is world/town.ts.
   z.object({ targetKind: z.literal("object"), targetId: EntityIdSchema }),
 ]);
 export type InteractRequest = z.infer<typeof InteractRequestSchema>;

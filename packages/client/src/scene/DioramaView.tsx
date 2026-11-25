@@ -1,4 +1,5 @@
 import { lazy, type ReactNode, Suspense } from "react";
+import type { DioramaCanvasProps } from "./DioramaCanvas";
 
 // three.js, R3F, drei and postprocessing load in their own chunk, after sign-in.
 const DioramaCanvas = lazy(() => import("./DioramaCanvas"));
@@ -7,7 +8,11 @@ const DioramaCanvas = lazy(() => import("./DioramaCanvas"));
  * Full-window diorama behind the UI. `world` is the scene content (the M09 placeholder blocks
  * when omitted); `children` overlay the canvas.
  */
-export function DioramaView({ children, world, shadowExtent }: { children?: ReactNode; world?: ReactNode; shadowExtent?: number }) {
+export function DioramaView({
+  children,
+  world,
+  ...canvas
+}: { children?: ReactNode; world?: ReactNode } & Omit<DioramaCanvasProps, "children">) {
   return (
     <div style={{ position: "fixed", inset: 0, overflow: "hidden", background: "#d6eaf5" }}>
       <Suspense
@@ -17,7 +22,7 @@ export function DioramaView({ children, world, shadowExtent }: { children?: Reac
           </p>
         }
       >
-        <DioramaCanvas shadowExtent={shadowExtent}>{world}</DioramaCanvas>
+        <DioramaCanvas {...canvas}>{world}</DioramaCanvas>
       </Suspense>
       {children}
     </div>

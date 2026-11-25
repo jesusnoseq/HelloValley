@@ -11,6 +11,16 @@ import { dprForFactor } from "./perfStats";
 import { PerfProbe } from "./PerfProbe";
 import { TestBlocks } from "./TestBlocks";
 
+export interface DioramaCanvasProps {
+  children?: ReactNode;
+  /** Half-size of the key light's shadow camera in metres. */
+  shadowExtent?: number;
+  /** Camera look-at point and light centre (default: the origin). TODO(M13): follow the player. */
+  target?: readonly [number, number, number];
+  /** Override the zoom level's view height in metres (dev overviews). */
+  viewHeight?: number;
+}
+
 const initialPosition = cameraOffset(yawForStep(dioramaStore.getState().cameraStep), degToRad(CAMERA_PITCH_DEG));
 
 /**
@@ -19,7 +29,7 @@ const initialPosition = cameraOffset(yawForStep(dioramaStore.getState().cameraSt
  * postprocessing stay out of the entry chunk. `children` is the world; it defaults to the M09
  * placeholder blocks. The resolution drops towards dpr 1 when frames fall below 50 fps.
  */
-export default function DioramaCanvas({ children, shadowExtent }: { children?: ReactNode; shadowExtent?: number }) {
+export default function DioramaCanvas({ children, shadowExtent, target, viewHeight }: DioramaCanvasProps) {
   const deviceRatio = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
   const [dpr, setDpr] = useState(() => dprForFactor(1, deviceRatio));
   return (
@@ -34,8 +44,8 @@ export default function DioramaCanvas({ children, shadowExtent }: { children?: R
       style={{ position: "absolute", inset: 0 }}
     >
       <PerformanceMonitor factor={1} onChange={({ factor }) => setDpr(dprForFactor(factor, deviceRatio))} />
-      <IsoCamera />
-      <DayNightLights shadowExtent={shadowExtent} />
+      <IsoCamera target={target} viewHeight={viewHeight} />
+      <DayNightLights target={target} shadowExtent={shadowExtent} />
       <KitLighting />
       {children ?? <TestBlocks />}
       <DioramaEffects />
