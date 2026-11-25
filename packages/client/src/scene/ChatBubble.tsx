@@ -25,8 +25,9 @@ const extra: CSSProperties = { fontSize: 12, opacity: 0.75, borderTop: "1px soli
  * past few seconds, each in the reader's target language. Hovering a line shows the original as
  * written plus its translation into the reader's native language. A DOM overlay (drei `Html`), so
  * it costs no draw calls and any script renders with the system fonts.
- * TODO(M19): the tokenized speech bubble (word hover, click-to-save, script toggle) replaces the
- * plain text for chat lines too.
+ * TODO(M20): chat lines get tokens from the hybrid tokenize task (npc-runtime §5.1), then render
+ * with the M19 speech bubble pieces (ui/speech/SpeechBubble: word hover, click-to-save with
+ * source `chat`, script toggle) instead of plain text.
  */
 export function ChatBubble({ sessionId, y }: { sessionId: string; y: number }) {
   const lines = useChat((s) => s.lines);

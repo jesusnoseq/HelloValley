@@ -9,6 +9,7 @@ import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
 import { ClothingColorSchema } from "../data/palette";
 import { StyleIdSchema } from "../data/styles";
+import { SCRIPT_MODES } from "../language/scriptMode";
 import { CHAT_REPORT_REASONS } from "../protocol/messages";
 
 /**
@@ -124,10 +125,8 @@ export const UserProfileClientUpdateSchema = z
   .refine(furMatchesAnimal, furMatchesAnimalIssue);
 export type UserProfileClientUpdate = z.infer<typeof UserProfileClientUpdateSchema>;
 
-/** GDD §6.1 script toggle: native only, native + reading, or romanized only. */
-export const SCRIPT_MODES = ["native", "both", "romanized"] as const;
+/** GDD §6.1 script toggle: native only, native + reading, or romanized only (language/scriptMode). */
 export const ScriptModeSchema = z.enum(SCRIPT_MODES);
-export type ScriptMode = z.infer<typeof ScriptModeSchema>;
 
 /** Per-language settings, the only `langs/{lang}` field a client may write. */
 export const LangSettingsSchema = z.strictObject({

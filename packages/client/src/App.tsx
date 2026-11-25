@@ -66,6 +66,18 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
     avatarStore.getState().setProfile(profile);
     return () => avatarStore.getState().setProfile(null);
   }, [profile]);
+  // Build plan M19: the script toggle is saved per target language in users/{uid}/langs/{lang}.
+  useEffect(() => {
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    void import("./ui/speech/scriptModeSync").then(({ startScriptModeSync }) => {
+      if (!cancelled) stop = startScriptModeSync(user.uid, profile.targetLangs);
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [user.uid, profile.targetLangs]);
   const name = useAvatar((s) => s.profile?.name) ?? profile.name;
   // The API client pulls in shared schemas (zod): load it on first save, not in the entry chunk.
   const saveAppearance: SaveAppearance = (appearance) =>
