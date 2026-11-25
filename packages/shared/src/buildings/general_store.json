@@ -1,0 +1,26 @@
+{
+  "id": "general_store",
+  "name": "General store",
+  "footprint": { "w": 5, "d": 3 },
+  "floors": 2,
+  "variant": 0,
+  "walls": {
+    "default": "wall.plain",
+    "front": [
+      ["wall.shopfront", "wall.door", "wall.shopfront"],
+      ["wall.window", "wall.window", "wall.window"]
+    ],
+    "left": [["wall.window"]],
+    "right": [["wall.window"]]
+  },
+  "roof": { "module": "roof.hip", "ridge": "x", "variant": 1, "chimney": true },
+  "attachments": [
+    { "module": "awning", "side": "front", "floor": 0, "slot": 0 },
+    { "module": "awning", "side": "front", "floor": 0, "slot": 2 },
+    { "module": "sign.hanging", "side": "front", "floor": 0, "slot": 1, "icon": "basket" },
+    { "module": "shutters", "side": "front", "floor": 1, "slot": 0 },
+    { "module": "shutters", "side": "front", "floor": 1, "slot": 1 },
+    { "module": "shutters", "side": "front", "floor": 1, "slot": 2 }
+  ],
+  "props": [{ "module": "lamp", "at": [-1.4, 1.4] }]
+}

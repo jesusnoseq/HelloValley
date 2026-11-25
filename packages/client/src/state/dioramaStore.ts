@@ -1,5 +1,7 @@
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
+// Type-only: importing values from shared here would pull zod into the entry chunk.
+import type { StyleId } from "@hellovalley/shared";
 import { DEFAULT_ZOOM_LEVEL, stepZoomLevel } from "../scene/cameraMath";
 import { wrapWorldTime } from "../scene/dayNight";
 
@@ -21,12 +23,19 @@ export interface DioramaState {
   tiltShift: boolean;
   /** All post-processing (AO, bloom, tilt-shift); off is the low-end fallback. */
   effects: boolean;
+  /**
+   * Town style the kits render in. Switching it swaps the kit under every building without
+   * moving anything (scene/KitBuilding). TODO(M14/M37): set it from the player's profile and the
+   * Settings screen.
+   */
+  style: StyleId;
   rotate: (direction: -1 | 1) => void;
   zoom: (direction: number) => void;
   setWorldTime: (t: number) => void;
   setTimeScale: (scale: number) => void;
   setTiltShift: (on: boolean) => void;
   setEffects: (on: boolean) => void;
+  setStyle: (style: StyleId) => void;
 }
 
 /** Sunny late morning: a pleasant first impression before the server clock arrives. */
@@ -40,12 +49,14 @@ export function createDioramaStore(initial: Partial<Pick<DioramaState, "worldTim
     timeScale: initial.timeScale ?? 1,
     tiltShift: true,
     effects: true,
+    style: "european",
     rotate: (direction) => set((s) => ({ cameraStep: s.cameraStep + direction })),
     zoom: (direction) => set((s) => ({ zoomLevel: stepZoomLevel(s.zoomLevel, direction) })),
     setWorldTime: (t) => set({ worldTime: wrapWorldTime(t) }),
     setTimeScale: (scale) => set({ timeScale: Math.max(0, scale) }),
     setTiltShift: (on) => set({ tiltShift: on }),
     setEffects: (on) => set({ effects: on }),
+    setStyle: (style) => set({ style }),
   }));
 }
 

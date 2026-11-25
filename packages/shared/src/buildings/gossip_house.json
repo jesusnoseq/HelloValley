@@ -1,0 +1,26 @@
+{
+  "id": "gossip_house",
+  "name": "Gossip's house",
+  "footprint": { "w": 4, "d": 3 },
+  "floors": 2,
+  "variant": 0,
+  "walls": {
+    "default": "wall.window",
+    "front": [
+      ["wall.window", "wall.door"],
+      ["wall.window", "wall.window"]
+    ],
+    "back": [["wall.plain", "wall.window"]]
+  },
+  "roof": { "module": "roof.gable", "ridge": "x", "variant": 1, "chimney": true, "dormers": 1 },
+  "attachments": [
+    { "module": "shutters", "side": "front", "floor": 0, "slot": 0 },
+    { "module": "flowerbox", "side": "front", "floor": 0, "slot": 0 },
+    { "module": "shutters", "side": "front", "floor": 1, "slot": 0 },
+    { "module": "shutters", "side": "front", "floor": 1, "slot": 1 },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 0 },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 1 },
+    { "module": "flowerbox", "side": "right", "floor": 1, "slot": 0 }
+  ],
+  "props": []
+}

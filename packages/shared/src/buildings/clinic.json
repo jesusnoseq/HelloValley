@@ -1,0 +1,23 @@
+{
+  "id": "clinic",
+  "name": "Clinic",
+  "footprint": { "w": 4, "d": 3 },
+  "floors": 2,
+  "variant": 2,
+  "walls": {
+    "default": "wall.window",
+    "front": [
+      ["wall.door", "wall.window"],
+      ["wall.window", "wall.window"]
+    ],
+    "back": [["wall.plain", "wall.plain"]]
+  },
+  "roof": { "module": "roof.hip", "ridge": "x", "variant": 2 },
+  "attachments": [
+    { "module": "sign.hanging", "side": "front", "floor": 0, "slot": 0, "icon": "cross" },
+    { "module": "flowerbox", "side": "front", "floor": 0, "slot": 1 },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 0 },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 1 }
+  ],
+  "props": [{ "module": "bench", "at": [2, 2.2] }]
+}

@@ -114,6 +114,9 @@ Placement conventions (details in `hvmodules/europe/common.py`):
   plane (y = 1) is the wall face. Their `mount` socket (0.5, 1, 0) mates with the wall's
   `facade` socket, and `fits:<wall id>` tags say which openings they are sized for. Opening
   sizes are fixed per module so any shutters fit any `wall.window` variant.
+- **Plaster swatch per variant**: every wall-like module except `wall.timber` uses the same
+  plaster swatch for the same variant index (`WALL_SWATCH_BY_VARIANT`), so a building recipe
+  that picks one variant for all its walls gets one coherent facade colour (M10).
 - **Roofs** cover a 2 x 2 building and sit on the wall tops; the M10 assembler scales them to
   other footprints. `chimney`, `dormer` and `ridge` sockets give roof-part positions.
 - Materials: `atlas` (vertex colour x atlas), `glass` (window panes, extras `hv_glass`) and

@@ -1,0 +1,26 @@
+{
+  "id": "library",
+  "name": "Library",
+  "footprint": { "w": 5, "d": 4 },
+  "floors": 2,
+  "variant": 0,
+  "walls": {
+    "default": "wall.window",
+    "front": [
+      ["wall.window", "wall.door", "wall.window"],
+      ["wall.timber", "wall.window", "wall.timber"]
+    ],
+    "back": [
+      ["wall.plain", "wall.plain", "wall.plain"],
+      ["wall.timber", "wall.timber", "wall.timber"]
+    ]
+  },
+  "roof": { "module": "roof.hip", "ridge": "x", "variant": 0, "chimney": true },
+  "attachments": [
+    { "module": "sign.hanging", "side": "front", "floor": 0, "slot": 1, "icon": "book" },
+    { "module": "flowerbox", "side": "front", "floor": 0, "slot": 0 },
+    { "module": "flowerbox", "side": "front", "floor": 0, "slot": 2 },
+    { "module": "shutters", "side": "front", "floor": 1, "slot": 1 }
+  ],
+  "props": [{ "module": "bench", "at": [5.5, 1.2] }]
+}

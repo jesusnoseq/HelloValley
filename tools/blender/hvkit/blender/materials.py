@@ -3,7 +3,7 @@
 The GLB keeps the UVs and the ``COLOR_0`` vertex colours but not the atlas image (one shared
 ``atlas.*`` file per kit instead of a copy in every GLB). Atlas materials carry the
 ``hv_atlas`` custom property, which the exporter writes as material extras, so the client can
-bind the shared atlas texture at load time (TODO(M10)). In Blender the node tree previews
+bind the shared atlas texture at load time (packages/client/src/scene/kitLoader.ts). In Blender the node tree previews
 the same result.
 """
 

@@ -1,0 +1,22 @@
+{
+  "id": "elder_cottage",
+  "name": "Elder's cottage",
+  "footprint": { "w": 3, "d": 3 },
+  "floors": 1,
+  "variant": 2,
+  "walls": {
+    "default": "wall.window",
+    "front": [["wall.door"]]
+  },
+  "roof": { "module": "roof.gable", "ridge": "x", "variant": 0, "chimney": true },
+  "attachments": [
+    { "module": "shutters", "side": "left", "floor": 0, "slot": 0 },
+    { "module": "shutters", "side": "right", "floor": 0, "slot": 0 },
+    { "module": "flowerbox", "side": "left", "floor": 0, "slot": 0 },
+    { "module": "flowerbox", "side": "right", "floor": 0, "slot": 0 }
+  ],
+  "props": [
+    { "module": "bench", "at": [3.6, 1.2] },
+    { "module": "fence", "at": [-3, 1.6], "count": 2 }
+  ]
+}

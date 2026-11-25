@@ -13,15 +13,16 @@ import {
 
 /**
  * Low-level loading of generated kit files (tools/blender → public/assets/kits/{style}/).
- * The style-aware kit loader with caching, instancing and the shared atlas texture is
- * TODO(M10); this module only reads and validates what the generator writes.
+ * The style-aware loader with caching and the shared atlas texture is scene/kitLoader.ts (M10);
+ * this module only reads and validates what the generator writes.
  */
 
 /** A GLTFLoader that decodes EXT_meshopt_compression (tools/optimize-assets). */
 export function createKitGltfLoader(): GLTFLoader {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  // TODO(M10): setKTX2Loader with the Basis transcoder for KTX2 textures and the atlas.
+  // Kit GLBs embed no textures (the atlas is a separate file, see scene/kitLoader.ts), so no
+  // KTX2Loader is needed here. TODO(M37): KTX2 atlases.
   return loader;
 }
 
@@ -89,7 +90,7 @@ function joinUrl(base: string, file: string): string {
   return `${base.replace(/\/+$/, "")}/${file}`;
 }
 
-type FetchLike = (url: string) => Promise<Pick<Response, "ok" | "status" | "json" | "arrayBuffer">>;
+export type FetchLike = (url: string) => Promise<Pick<Response, "ok" | "status" | "json" | "arrayBuffer">>;
 
 export async function fetchKitManifest(kitUrl: string, fetchImpl: FetchLike = fetch): Promise<KitManifest> {
   const url = joinUrl(kitUrl, KIT_MANIFEST_FILE);

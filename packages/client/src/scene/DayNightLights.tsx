@@ -14,7 +14,14 @@ const SHADOW_EXTENT = 22;
  * day/night gradient for the store's `worldTime`. Also paints the background colour and advances
  * the local clock by `timeScale`.
  */
-export function DayNightLights({ target = [0, 0, 0] }: { target?: readonly [number, number, number] }) {
+export function DayNightLights({
+  target = [0, 0, 0],
+  shadowExtent = SHADOW_EXTENT,
+}: {
+  target?: readonly [number, number, number];
+  /** Half-size of the shadow camera in metres. */
+  shadowExtent?: number;
+}) {
   const key = useRef<DirectionalLight>(null);
   const fill = useRef<HemisphereLight>(null);
   const background = useRef(new Color());
@@ -57,7 +64,7 @@ export function DayNightLights({ target = [0, 0, 0] }: { target?: readonly [numb
       >
         <orthographicCamera
           attach="shadow-camera"
-          args={[-SHADOW_EXTENT, SHADOW_EXTENT, SHADOW_EXTENT, -SHADOW_EXTENT, 1, KEY_DISTANCE * 2]}
+          args={[-shadowExtent, shadowExtent, shadowExtent, -shadowExtent, 1, KEY_DISTANCE * 2]}
         />
       </directionalLight>
     </>

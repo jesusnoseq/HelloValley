@@ -1,0 +1,30 @@
+{
+  "id": "cafe",
+  "name": "Café",
+  "footprint": { "w": 5, "d": 3 },
+  "floors": 2,
+  "variant": 1,
+  "walls": {
+    "default": "wall.plain",
+    "front": [
+      ["wall.shopfront", "wall.door", "wall.plain"],
+      ["wall.window", "wall.window", "wall.window"]
+    ],
+    "left": [["wall.window"]],
+    "right": [["wall.window"]]
+  },
+  "roof": { "module": "roof.gable", "ridge": "x", "variant": 2, "dormers": 2 },
+  "attachments": [
+    { "module": "awning", "side": "front", "floor": 0, "slot": 0 },
+    { "module": "awning", "side": "front", "floor": 0, "slot": 1 },
+    { "module": "sign.hanging", "side": "front", "floor": 0, "slot": 2, "icon": "coffee" },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 0 },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 1 },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 2 }
+  ],
+  "props": [
+    { "module": "bench", "at": [0, 2.6] },
+    { "module": "bench", "at": [2.5, 2.6] },
+    { "module": "lamp", "at": [5.3, 1.4] }
+  ]
+}

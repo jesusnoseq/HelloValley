@@ -1,0 +1,23 @@
+{
+  "id": "farm",
+  "name": "Farm barn",
+  "footprint": { "w": 5, "d": 4 },
+  "floors": 1,
+  "variant": 0,
+  "walls": {
+    "default": "wall.timber",
+    "front": [["wall.timber", "wall.door", "wall.timber"]],
+    "left": [["wall.window", "wall.window"]],
+    "right": [["wall.window", "wall.window"]]
+  },
+  "roof": { "module": "roof.gable", "ridge": "z", "variant": 1 },
+  "attachments": [
+    { "module": "sign.hanging", "side": "front", "floor": 0, "slot": 0, "icon": "wheat" },
+    { "module": "shutters", "side": "right", "floor": 0, "slot": 0 },
+    { "module": "shutters", "side": "right", "floor": 0, "slot": 1 }
+  ],
+  "props": [
+    { "module": "fence", "at": [6, 1], "count": 4 },
+    { "module": "fence", "at": [10, 1], "rot": 1, "count": 4 }
+  ]
+}

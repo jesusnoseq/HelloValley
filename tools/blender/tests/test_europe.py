@@ -57,6 +57,16 @@ class EuropeModulesTest(unittest.TestCase):
             self.assertEqual(params, again, m.id)
             self.assertEqual(len({json.dumps(p, sort_keys=True) for p in params}), m.variants, f"{m.id} variants must differ")
 
+    def test_walls_share_a_swatch_per_variant(self):
+        # M10: one building uses one variant index, so its walls and corners must match.
+        for i in range(3):
+            swatches = set()
+            for m in self.modules:
+                if "wall" not in m.tags or m.id == "wall.timber":
+                    continue
+                swatches.add(m.variant_params(self.style, i, m.rng(self.style.id, i).fork("params"))["swatch"])
+            self.assertEqual(swatches, {common.WALL_SWATCH_BY_VARIANT[i]}, f"variant {i}")
+
     def test_constants_match_the_style(self):
         self.assertEqual(common.WALL_T, self.style.wall_thickness_m)
         self.assertEqual(common.ROOF_PITCH_DEG, self.style.roof_pitch_deg)

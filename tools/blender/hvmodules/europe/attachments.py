@@ -240,7 +240,7 @@ class Shutters(EuropeAttachment):
 @register
 class SignHanging(EuropeAttachment):
     """Wrought-iron bracket with a blank hanging shop sign, readable from along the street.
-    The client draws the shop icon on the board at the ``icon`` sockets (TODO(M10))."""
+    The client draws the shop icon on the board at the ``icon`` sockets (scene/SignIcons.tsx)."""
 
     id = "sign.hanging"
     tags = ("attachment", "sign", "europe", "fits:wall.plain", "fits:wall.door", "fits:wall.shopfront", "fits:wall.timber")

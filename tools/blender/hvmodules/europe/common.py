@@ -11,8 +11,8 @@ Placement conventions (also in tools/blender/README.md):
   (y = 1) and z = 0 is the storey floor. Place one at the wall's position moved one cell
   forward. Its ``mount`` socket coincides with the matching wall socket.
 - **Roofs** cover a 2 x 2 cell building and sit on the top storey (z = 0 = wall top). Wider or
-  deeper buildings scale the roof (TODO(M10): the assembler scales x/z to the footprint and y
-  with the depth so the pitch stays the same).
+  deeper buildings scale the roof (the M10 assembler, packages/shared/src/buildings/assemble.ts,
+  scales x/z to the footprint and y with the span across the ridge so the pitch stays the same).
 - **Dormers and chimneys** sit on a roof; their base is buried in the roof surface.
 - **Props** (stair, fence, lamp, bench, tile.cobble) stand on the ground.
 
@@ -100,11 +100,18 @@ def pick(rng, items: Sequence, variant: int, offset: int = 0):
     return rng.choice(items)
 
 
+WALL_SWATCH_BY_VARIANT = (2, 1, 0)
+"""Plaster swatch of each wall variant. Every wall-like module uses the same swatch for the same
+variant index, so the M10 assembler can build one coherent facade by picking one variant for a
+whole building (``wall.timber`` keeps its own infill colours)."""
+
+
 def wall_params(style, variant: int, rng) -> Dict[str, object]:
     """Choices every wall-like module shares: plaster swatch, plinth and cornice style."""
     walls = style.palette["walls"]
+    rng.randint(0, 1)  # formerly the swatch pick; still drawn so later seeded choices stay stable
     return {
-        "swatch": (variant + rng.randint(0, 1) * 2) % len(walls),
+        "swatch": WALL_SWATCH_BY_VARIANT[variant % len(WALL_SWATCH_BY_VARIANT)] % len(walls),
         "plinth": ("stone", "brick", "stone")[variant % 3],
         "cornice": ("trim", "timber", "double")[variant % 3],
     }

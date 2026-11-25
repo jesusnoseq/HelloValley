@@ -1,0 +1,36 @@
+{
+  "id": "apartment_block",
+  "name": "Apartment block",
+  "footprint": { "w": 7, "d": 4 },
+  "floors": 5,
+  "variant": 2,
+  "walls": {
+    "default": "wall.window",
+    "front": [
+      ["wall.window", "wall.window", "wall.door", "wall.window", "wall.window"],
+      ["wall.window", "wall.door", "wall.window", "wall.door", "wall.window"]
+    ]
+  },
+  "roof": { "module": "roof.gable", "ridge": "x", "variant": 1, "chimney": true, "dormers": 2 },
+  "attachments": [
+    { "module": "awning", "side": "front", "floor": 0, "slot": 2 },
+    { "module": "balcony", "side": "front", "floor": 1, "slot": 1 },
+    { "module": "balcony", "side": "front", "floor": 1, "slot": 3 },
+    { "module": "balcony", "side": "front", "floor": 2, "slot": 1 },
+    { "module": "balcony", "side": "front", "floor": 2, "slot": 3 },
+    { "module": "balcony", "side": "front", "floor": 3, "slot": 1 },
+    { "module": "balcony", "side": "front", "floor": 3, "slot": 3 },
+    { "module": "balcony", "side": "front", "floor": 4, "slot": 1 },
+    { "module": "balcony", "side": "front", "floor": 4, "slot": 3 },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 0 },
+    { "module": "flowerbox", "side": "front", "floor": 1, "slot": 4 },
+    { "module": "flowerbox", "side": "front", "floor": 3, "slot": 2 },
+    { "module": "shutters", "side": "right", "floor": 0, "slot": 0 },
+    { "module": "shutters", "side": "right", "floor": 0, "slot": 1 }
+  ],
+  "props": [
+    { "module": "lamp", "at": [2, 1.4] },
+    { "module": "lamp", "at": [5, 1.4] },
+    { "module": "bench", "at": [-2.5, 1.5] }
+  ]
+}

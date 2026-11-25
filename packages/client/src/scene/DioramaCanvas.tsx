@@ -6,6 +6,7 @@ import { CAMERA_FAR, CAMERA_NEAR, cameraOffset, CAMERA_PITCH_DEG, degToRad, yawF
 import { DayNightLights } from "./DayNightLights";
 import { DioramaEffects } from "./DioramaEffects";
 import { IsoCamera } from "./IsoCamera";
+import { KitLighting } from "./KitLighting";
 import { dprForFactor } from "./perfStats";
 import { PerfProbe } from "./PerfProbe";
 import { TestBlocks } from "./TestBlocks";
@@ -18,7 +19,7 @@ const initialPosition = cameraOffset(yawForStep(dioramaStore.getState().cameraSt
  * postprocessing stay out of the entry chunk. `children` is the world; it defaults to the M09
  * placeholder blocks. The resolution drops towards dpr 1 when frames fall below 50 fps.
  */
-export default function DioramaCanvas({ children }: { children?: ReactNode }) {
+export default function DioramaCanvas({ children, shadowExtent }: { children?: ReactNode; shadowExtent?: number }) {
   const deviceRatio = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
   const [dpr, setDpr] = useState(() => dprForFactor(1, deviceRatio));
   return (
@@ -34,7 +35,8 @@ export default function DioramaCanvas({ children }: { children?: ReactNode }) {
     >
       <PerformanceMonitor factor={1} onChange={({ factor }) => setDpr(dprForFactor(factor, deviceRatio))} />
       <IsoCamera />
-      <DayNightLights />
+      <DayNightLights shadowExtent={shadowExtent} />
+      <KitLighting />
       {children ?? <TestBlocks />}
       <DioramaEffects />
       {import.meta.env.DEV ? <PerfProbe /> : null}
