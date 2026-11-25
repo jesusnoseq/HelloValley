@@ -6,13 +6,18 @@ could not be verified in this environment.
 
 ## Environment (2026-11-25)
 
-- Blender 5.2.1 turned out to be installed (`C:\Program Files\Blender Foundation\Blender 5.2\`, not on PATH), so the generators can run. Should generated GLBs be committed? (see M04)
+- Blender 5.2.1 turned out to be installed (`C:\Program Files\Blender Foundation\Blender 5.2\`, not on PATH), so the generators can run. Should generated GLBs be committed? (see M04)  
+User: SOLVED
 - The `firebase:firestore-rules-author` subagent cannot start in this environment: its tool names (view_file, write_to_file, …) are not recognised, so it gets zero tools. Rules were written with the `firestore-rules-creation` skill instead and need a human review.
-- The Firebase CLI is not installed and the only Java on PATH is Java 8 (Corretto). The emulator suite needs a newer JDK, so emulator-based tests (rules tests, auth flow) cannot run here.
+- The Firebase CLI is not installed and the only Java on PATH is Java 8 (Corretto). The emulator suite needs a newer JDK, so emulator-based tests (rules tests, auth flow) cannot run here.  
+User: firebase cli installed
+  Orchestrator follow-up: Firebase CLI 15.37.0 is now on PATH, but Java is still 8 only, and the Firestore/Auth emulators need JDK 21+. Emulator tests keep skipping until a newer JDK is installed.
+
 - No Firebase project, credentials or API keys are configured, so live Gemini, TTS, Auth and Firestore calls cannot be exercised. The code uses emulator/mock paths and placeholders.
 - Manual browser acceptance checks (60 fps, two-browser multiplayer, on-device Gemini Nano in Chrome) were not performed.
 - Deployment (M38) is outward-facing and was not run: config and CI were prepared only.
-- The repo had no linter. A lint step was added (M00) so "tests and linters" can run before each commit.
+- The repo had no linter. A lint step was added (M00) so "tests and linters" can run before each commit.  
+User: perfect
 
 ## M00
 
@@ -100,7 +105,6 @@ could not be verified in this environment.
 - Fixed a framework bug found on the way: `MeshBuilder.to_object` shadowed its new `part` argument and crashed Blender; the europe kit rebuilds byte-identical after the framework changes.
 - `npm run assets:contact-sheet` now takes `--style` and names the PNG after the kit (`--contact-sheet auto`). The common sheet is `docs/art/common-kit-contact-sheet.png` (inspected). Not verified: the in-game look (atlas binding, sway, river shader), which needs M09–M12 and a browser.
 - Atlas: two new procedural patterns (`speckle` for grass/dirt/sand/leaves, `streaks` for bark); hand-painted tiles remain TODO(M37).
-
 
 ## M07
 
@@ -325,7 +329,6 @@ could not be verified in this environment.
 - **Chunks**: the panel and controller are their own lazy chunks, and the entry chunk grew by about 0.9 kB (strings only).
 - **Tests**: shared (NPC posts reachable from each door, reach and walk-away, NPC ray picking, starter suggestions, suggestion styles), server (SDK: `too_far`, `talkingTo` set and cleared by `npc:end` and by walking away), client (`controller.test.ts`: suggestion counts, offline and refused starts, walk-away, click-then-walk, check timeout and unavailability, chip choices, trades and late answers after goodbye; `ConversationPanel.test.tsx`, the **acceptance**: a full Baker shop conversation (F, opener with voice, grammar chip, offer card → Buy → 45 coins, suggestions by arrow keys with translations, "Adiós" → ended → Escape → `npc:end`) by **keyboard only** and again by **mouse only** (hover translations, word gloss, Buy, a declined second offer, Goodbye), plus the native-language redirect and B2/C1 suggestion styles, against a mocked model (`fakeNpc.ts`) and a mocked room).
 - **Not verified**: anything in a real browser (no manual checks possible here), including the 3D NPCs (outfits load on demand), the camera ease-in, the click picking, autoplay, the mic, and the on-device helpers with real Gemini Nano. `/dev/play?space=bakery` shows the Baker, but the panel says "offline" there, because there is no TownRoom (a scripted offline NPC for the dev page was not added). ES strings are not reviewed.
-
 ## M24
 
 - **Architecture mapping (decision)**: the build plan says "the client runs compactConversation on-device … if that is unavailable, the server runs it in the cloud". Architecture §1/§5.2/§11 override that: the server never calls a model. The client runs the hybrid `compactConversation` task (npc-runtime.md §7 prompt, `PREFER_ON_DEVICE`), so when Gemini Nano is unavailable the AI Logic SDK itself falls back to the cloud model. That SDK fallback is the "cloud fallback". If both fail, the previous memory is kept and nothing is sent (routing `keep-previous`). The **server** only validates the result: it sanitises the text (no control characters, quote tags or angle brackets, one line), caps it (120 words, 10 facts of ≤ 200 characters), merges the facts (new first, case-insensitive dedupe), and writes `npcMemory/{npcId}` with the Admin SDK (`server/src/npc/npcStore.ts`; an in-memory store is used for tests and runs without Firestore).
