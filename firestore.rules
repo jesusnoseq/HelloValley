@@ -1,0 +1,246 @@
+rules_version = '2';
+
+// ===============================================================
+// HelloValley Cloud Firestore Security Rules (prototype, review before launch)
+// ===============================================================
+//
+// Ownership follows docs/architecture.md §8.1 (based on GDD §9.4). The game server writes every
+// server-owned field with the Admin SDK, which bypasses these rules, so "server-only" below
+// means "no client may write it". The zod schemas in packages/shared/src/firestore/schemas.ts
+// describe the same documents; keep the limits here in sync with them.
+//
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// users/{uid}  (created by the server at onboarding)
+//   - name: string (2-16)                  server-only (moderated)
+//   - animal: string (one of 16 ids)       client-writable
+//   - colors: map {fur, shirt, trousers}   client-writable
+//       fur: string (1-32, lowercase id)
+//       shirt/trousers: {swatch: palette id} or {h: [0,360), s: [0.2,0.7], l: [0.6,0.9]}
+//   - apartmentId: string ("1A".."9H")     server-only, immutable for clients
+//   - nativeLang: string (BCP 47, <= 16)   client-writable
+//   - targetLangs: list<string> (1-10)     server-only (POST /api/langs)
+//   - style: string (one of 4 style ids)   client-writable
+//   - createdAt: timestamp                 server-only, immutable
+//
+// users/{uid}/langs/{lang}  (created by the server)
+//   - level, levelEstimate, streak, coins, hearts   server-only
+//   - settings: map {scriptMode?: 'native'|'both'|'romanized'}   client-writable
+//
+// users/{uid}/langs/{lang}/notebook/{entryId}  (owned by the client)
+//   - surface: string (1-200, required)
+//   - lemma, reading, gloss, example: string (<= 500, optional)
+//   - source: string ('npc:<id>', 'object:<labelKey>' or 'chat', required)
+//   - audioHash: string (64 hex chars, optional)
+//   - fsrs: map (<= 16 keys, optional)
+//   - createdAt: timestamp (required, set to request.time on create, immutable)
+//   - updatedAt: timestamp (set to request.time on every update)
+//
+// users/{uid}/langs/{lang}/npcMemory/{npcId}     owner read, server-only write
+// users/{uid}/inventory/{slot}                   owner read, server-only write
+// users/{uid}/apartment/layout                   owner read, server-only write
+// village/{shardId}/events/{eventId}             signed-in read, server-only write
+// cache/{lines|tts|labels}/{id}                  signed-in read, admin-claim write (seeding tool)
+// reports/{id}                                   no client access
+// everything else                                denied
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =============================================================
+    // Helper functions
+    // =============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // The admin seeding tool signs in as a user with the `admin: true` custom claim, which only
+    // the Admin SDK can set (architecture §6.3). Document data never grants admin.
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // Keys that differ between the stored and the proposed document.
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function isStringOfLength(value, minLen, maxLen) {
+      return value is string && value.size() >= minLen && value.size() <= maxLen;
+    }
+
+    function isOptionalStringOfLength(data, field, maxLen) {
+      return !(field in data) || isStringOfLength(data[field], 0, maxLen);
+    }
+
+    // =============================================================
+    // Domain validators
+    // =============================================================
+
+    function isAnimalId(value) {
+      return value in ['fox', 'rabbit', 'cat', 'dog', 'bear', 'red_panda', 'raccoon', 'hedgehog',
+                       'otter', 'capybara', 'koala', 'penguin', 'owl', 'frog', 'sheep', 'deer'];
+    }
+
+    function isSwatchId(value) {
+      return value in ['cream', 'butter', 'peach', 'coral', 'blush', 'lilac', 'lavender',
+                       'periwinkle', 'sky', 'mint', 'sage', 'moss', 'sand', 'terracotta',
+                       'charcoal', 'navy'];
+    }
+
+    function isStyleId(value) {
+      return value in ['european', 'mediterranean', 'arabic', 'japanese'];
+    }
+
+    function isLanguageTag(value) {
+      return isStringOfLength(value, 2, 16) && value.matches('^[a-z]{2,3}(-[A-Za-z]{2,4})?$');
+    }
+
+    // A palette swatch, or a custom colour already clamped to the pastel range (GDD §3.3).
+    function isValidClothingColor(c) {
+      return c is map && (
+        (c.keys().hasAll(['swatch']) && c.keys().hasOnly(['swatch']) && isSwatchId(c.swatch))
+        || (c.keys().hasAll(['h', 's', 'l']) && c.keys().hasOnly(['h', 's', 'l'])
+            && c.h is number && c.h >= 0 && c.h < 360
+            && c.s is number && c.s >= 0.2 && c.s <= 0.7
+            && c.l is number && c.l >= 0.6 && c.l <= 0.9)
+      );
+    }
+
+    function isValidAvatarColors(colors) {
+      return colors is map
+        && colors.keys().hasAll(['fur', 'shirt', 'trousers'])
+        && colors.keys().hasOnly(['fur', 'shirt', 'trousers'])
+        && isStringOfLength(colors.fur, 1, 32) && colors.fur.matches('^[a-z_]+$')
+        && isValidClothingColor(colors.shirt)
+        && isValidClothingColor(colors.trousers);
+    }
+
+    // The whole profile after a client update. Server-owned fields are also checked so a client
+    // update can never leave the document in a shape the server would not write.
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['name', 'animal', 'colors', 'apartmentId', 'nativeLang',
+                                 'targetLangs', 'style', 'createdAt'])
+        && data.keys().hasOnly(['name', 'animal', 'colors', 'apartmentId', 'nativeLang',
+                                'targetLangs', 'style', 'createdAt'])
+        && isStringOfLength(data.name, 2, 16)
+        && isAnimalId(data.animal)
+        && isValidAvatarColors(data.colors)
+        && data.apartmentId is string && data.apartmentId.matches('^[1-9][A-H]$')
+        && isLanguageTag(data.nativeLang)
+        && data.targetLangs is list && data.targetLangs.size() >= 1 && data.targetLangs.size() <= 10
+        && isStyleId(data.style)
+        && data.createdAt is timestamp;
+    }
+
+    // Clients may change only appearance, style and native language (architecture §8.1).
+    function isAllowedProfileUpdate() {
+      return changedKeys().hasOnly(['animal', 'colors', 'nativeLang', 'style']);
+    }
+
+    function isValidLangSettings(settings) {
+      return settings is map
+        && settings.keys().hasOnly(['scriptMode'])
+        && (!('scriptMode' in settings) || settings.scriptMode in ['native', 'both', 'romanized']);
+    }
+
+    function isValidNotebookEntry(data) {
+      return data.keys().hasAll(['surface', 'source', 'createdAt'])
+        && data.keys().hasOnly(['surface', 'lemma', 'reading', 'gloss', 'example', 'source',
+                                'audioHash', 'fsrs', 'createdAt', 'updatedAt'])
+        && isStringOfLength(data.surface, 1, 200)
+        && isOptionalStringOfLength(data, 'lemma', 500)
+        && isOptionalStringOfLength(data, 'reading', 500)
+        && isOptionalStringOfLength(data, 'gloss', 500)
+        && isOptionalStringOfLength(data, 'example', 500)
+        && data.source is string
+        && data.source.matches('^(npc:[a-z0-9_-]{1,64}|object:[a-z0-9_.-]{1,64}|chat)$')
+        && (!('audioHash' in data) || (data.audioHash is string && data.audioHash.matches('^[0-9a-f]{64}$')))
+        // TODO(M25): validate the FSRS card fields once the card schema exists.
+        && (!('fsrs' in data) || (data.fsrs is map && data.fsrs.size() <= 16))
+        && data.createdAt is timestamp
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // =============================================================
+    // users/{uid} and its subcollections
+    // =============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      // Created at onboarding by the server (POST /api/onboarding), never deleted by clients.
+      allow create, delete: if false;
+      allow update: if isOwner(uid)
+        && isAllowedProfileUpdate()
+        && isValidUserProfile(request.resource.data);
+
+      match /langs/{lang} {
+        allow read: if isOwner(uid);
+        // Created by the server (onboarding, POST /api/langs). Progress and economy are server-only.
+        allow create, delete: if false;
+        allow update: if isOwner(uid)
+          && changedKeys().hasOnly(['settings'])
+          && isValidLangSettings(request.resource.data.settings);
+
+        match /notebook/{entryId} {
+          allow read: if isOwner(uid);
+          // Only for a language the player actually learns (the langs doc exists).
+          allow create: if isOwner(uid)
+            && entryId.size() <= 128
+            && exists(/databases/$(database)/documents/users/$(uid)/langs/$(lang))
+            && isValidNotebookEntry(request.resource.data)
+            && request.resource.data.createdAt == request.time
+            && !('updatedAt' in request.resource.data);
+          allow update: if isOwner(uid)
+            && isValidNotebookEntry(request.resource.data)
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.updatedAt == request.time;
+          allow delete: if isOwner(uid);
+        }
+
+        match /npcMemory/{npcId} {
+          allow read: if isOwner(uid);
+          allow write: if false;
+        }
+      }
+
+      match /inventory/{slot} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /apartment/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
+    // =============================================================
+    // Shared, public game data
+    // =============================================================
+
+    // Public game events (GDD §8.2), written by the game server only.
+    match /village/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // Seeded shared content (architecture §6.3). Only the admin seeding tool writes it, so one
+    // player can never poison another player's content.
+    match /cache/{kind}/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && kind in ['lines', 'tts', 'labels'];
+    }
+
+    // reports/{id} and every other path: no rule matches, so all client access is denied.
+  }
+}

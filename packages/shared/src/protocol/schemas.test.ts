@@ -34,8 +34,8 @@ describe("message names", () => {
 });
 
 describe("JoinOptionsSchema", () => {
-  it("accepts empty options and an ID token", () => {
-    expect(JoinOptionsSchema.parse({})).toEqual({});
+  it("requires an ID token", () => {
+    expect(JoinOptionsSchema.safeParse({}).success).toBe(false);
     expect(JoinOptionsSchema.parse({ idToken: "abc.def.ghi" })).toEqual({ idToken: "abc.def.ghi" });
   });
 

@@ -22,7 +22,7 @@ const panel: CSSProperties = {
 
 /** Connection status and ping. TODO(M09): merge into the dev perf HUD (fps, draw calls, tris). */
 export function DebugOverlay({ connection }: { connection: ConnectionState }) {
-  const { status, pingMs, error } = connection;
+  const { status, pingMs, uid, error } = connection;
   return (
     <div style={panel} role="status" aria-live="polite" data-testid="debug-overlay">
       <div>
@@ -32,6 +32,7 @@ export function DebugOverlay({ connection }: { connection: ConnectionState }) {
         server: {status}
         {status === "connected" && pingMs !== null ? ` · ${pingMs} ms` : ""}
       </div>
+      {status === "connected" && uid ? <div style={{ opacity: 0.7 }}>uid: {uid}</div> : null}
       {error && status !== "connected" ? <div style={{ opacity: 0.7 }}>{error}</div> : null}
     </div>
   );

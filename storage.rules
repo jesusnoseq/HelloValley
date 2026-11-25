@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// HelloValley Cloud Storage rules (architecture §8.2, prototype, review before launch).
+//   tts/{hash}.ogg   seeded TTS clips: signed-in read, admin-claim write (seeding tool only)
+//   everything else  denied (style kits ship with the client on Hosting, not in Storage)
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    match /tts/{file} {
+      allow read: if isAuthenticated();
+      // A content-hash name, Ogg/Opus audio, at most 1 MB per clip.
+      allow create, update: if isAdmin()
+        && file.matches('^[0-9a-f]{64}[.]ogg$')
+        && request.resource.size <= 1024 * 1024
+        && request.resource.contentType == 'audio/ogg';
+      allow delete: if isAdmin();
+    }
+  }
+}

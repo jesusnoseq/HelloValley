@@ -20,8 +20,8 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/;
 
 /** Options passed to `client.joinOrCreate(RoomName.Town, options)`. */
 export const JoinOptionsSchema = z.object({
-  // TODO(M03): make the Firebase ID token required and verify it in TownRoom.onAuth.
-  idToken: z.string().min(1).max(ID_TOKEN_MAX_LENGTH).optional(),
+  /** Firebase ID token of the signed-in player. TownRoom.onAuth verifies it with firebase-admin. */
+  idToken: z.string().min(1).max(ID_TOKEN_MAX_LENGTH),
   // TODO(M16): friendUid to join a friend's shard.
 });
 export type JoinOptions = z.infer<typeof JoinOptionsSchema>;
