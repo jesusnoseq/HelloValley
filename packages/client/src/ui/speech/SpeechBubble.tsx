@@ -47,6 +47,8 @@ export interface SpeechBubbleProps {
   onSaveWord?: (draft: SaveWordDraft) => void;
   /** Font loader (tests replace it). */
   loadFont?: (script: ScriptCode) => Promise<void>;
+  /** Voice controls for the newest line (`VoiceControls`, build plan M22), shown in the header. */
+  audio?: ReactNode;
 }
 
 interface LangInfo {
@@ -76,7 +78,7 @@ function langInfo(lang: string): LangInfo {
  * (saved to the notebook), the sentence translation on hover (or the 🌐 button), and the 3-state
  * script toggle (native / both / romanized) for non-Latin scripts, with furigana over kanji in
  * "both" for Japanese. Arabic, Hebrew and Persian lines are laid out right to left.
- * TODO(M22): replay and 0.75× audio buttons. TODO(M23): used by the conversation panel.
+ * The `audio` slot holds the replay and 0.75× buttons (M22). TODO(M23): used by the conversation panel.
  */
 export function SpeechBubble({
   lines,
@@ -87,6 +89,7 @@ export function SpeechBubble({
   maxLines = SPEECH_BUBBLE_LINES,
   onSaveWord,
   loadFont = ensureScriptFont,
+  audio,
 }: SpeechBubbleProps) {
   const { t } = useI18n();
   const info = langInfo(lang);
@@ -105,9 +108,10 @@ export function SpeechBubble({
   };
   return (
     <div className="hv-speech" data-script-mode={mode}>
-      {speaker || toggle ? (
+      {speaker || toggle || audio ? (
         <div className="hv-speech__header">
           {speaker ? <span className="hv-speech__speaker">{speaker}</span> : <span />}
+          {audio ? <span className="hv-speech__audio">{audio}</span> : null}
           {toggle ? (
             <button
               type="button"

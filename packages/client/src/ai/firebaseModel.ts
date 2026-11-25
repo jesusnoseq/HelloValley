@@ -8,11 +8,14 @@ import {
   GoogleAIBackend,
   InferenceMode,
   InferenceSource,
+  ResponseModality,
   type TemplateGenerativeModel,
 } from "firebase/ai";
 import { MODEL_IDS, ROUTING_TABLE, TASK_SCHEMAS } from "@hellovalley/shared";
 import type { ModelPort, ModelRequest } from "./hybrid";
+import { base64ToBytes } from "./pcm";
 import type { TemplateChatPort, TemplateGeneratePort } from "./templates";
+import type { TtsPort } from "./tts";
 
 /** One AI Logic instance per app (Gemini Developer API backend, architecture §3.2). */
 function sharedAi(app: FirebaseApp): () => AI {
@@ -49,6 +52,48 @@ export function createFirebaseTemplatePorts(getAi: () => AI): { chat: TemplateCh
 }
 
 export { sharedAi };
+
+/**
+ * Gemini TTS through AI Logic (build plan M22, architecture §5.4): one `GenerativeModel` per
+ * prebuilt voice with `responseModalities: [AUDIO]`. The NPC's style goes in the text part's
+ * `speechMetadata.style` (npc-runtime.md §10), and the transcript keeps its inline tags. No
+ * `languageCode`: the model detects the language. A unary call; the text is already on screen.
+ * TODO(M36): App Check before AI Logic is enforced.
+ */
+export function createFirebaseTtsPort(getAi: () => AI): TtsPort {
+  const models = new Map<string, GenerativeModel>();
+  const modelFor = (model: string, voiceName: string) => {
+    const id = `${model}:${voiceName}`;
+    let m = models.get(id);
+    if (!m) {
+      m = getGenerativeModel(getAi(), {
+        model,
+        generationConfig: {
+          responseModalities: [ResponseModality.AUDIO],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+        },
+      });
+      models.set(id, m);
+    }
+    return m;
+  };
+  return async (request) => {
+    const result = await modelFor(request.model, request.voiceName).generateContent([
+      { type: "text", text: request.transcript, speechMetadata: { style: request.style } },
+    ]);
+    const parts = result.response.inlineDataParts() ?? [];
+    const audio = parts.filter((p) => p.inlineData.mimeType.toLowerCase().startsWith("audio/"));
+    if (audio.length === 0) throw new Error("tts: no audio in the response");
+    const chunks = audio.map((p) => base64ToBytes(p.inlineData.data));
+    const data = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+    let at = 0;
+    for (const c of chunks) {
+      data.set(c, at);
+      at += c.length;
+    }
+    return { mime: audio[0]!.inlineData.mimeType, data };
+  };
+}
 
 /**
  * The real model port: Firebase AI Logic hybrid inference with the Gemini Developer API backend

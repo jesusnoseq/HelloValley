@@ -35,7 +35,8 @@ import "./onboarding.css";
  * as soon as it is picked (EN/ES catalogues, others fall back to EN).
  * Build plan M20: on mount it asks whether the on-device model is available; the click that opens
  * character creation starts its download (a user gesture is required), and a chip shows progress.
- * TODO(M22): the intro cutscene (the Mayor's cached welcome, the key, the camera pulling out of
+ * TODO(seeding tool, see pending.md M22): the intro cutscene (the Mayor's seeded welcome, voiced
+ * with `VoiceControls`, the key, the camera pulling out of
  * the apartment window) follows the reveal.
  */
 export type SubmitOnboarding = (request: OnboardingRequestInput) => Promise<OnboardingResponse>;

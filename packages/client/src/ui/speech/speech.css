@@ -151,3 +151,41 @@
   opacity: 0.7;
   font-style: italic;
 }
+
+/* Voice controls (build plan M22): replay, 🐢 0.75× replay, or a 🔇 badge. */
+.hv-speech__audio {
+  margin-left: auto;
+}
+
+.hv-voice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.hv-voice--loading {
+  opacity: 0.6;
+}
+
+.hv-voice--muted {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.hv-voice__button {
+  font: inherit;
+  font-size: 12px;
+  min-width: 2.2em;
+  padding: 1px 6px;
+  border: 1px solid rgba(61, 58, 68, 0.25);
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+}
+
+.hv-voice__button:focus-visible {
+  outline: 2px solid #6c8cd5;
+  outline-offset: 1px;
+}

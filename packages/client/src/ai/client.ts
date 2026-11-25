@@ -2,6 +2,7 @@ import { aiStatusStore, refreshOnDeviceStatus } from "./availability";
 import type { NpcAi } from "../net/npcConversation";
 import type { ChatModeration } from "./moderation";
 import type { TranslateResult, Translator } from "./translate";
+import type { TtsResult, TtsSpeaker } from "./tts";
 
 /**
  * Entry-chunk access to the AI module. The runtime (Firebase AI Logic, zod) is a lazy chunk
@@ -71,3 +72,11 @@ export async function loadNpcAi(): Promise<NpcAi> {
     opener: (context, playerName) => r.openers().get(context, playerName),
   };
 }
+
+/** NPC voices from the lazy runtime (build plan M22); a failure leaves the line text only. */
+export const lazyTts: TtsSpeaker = {
+  clip: (line) =>
+    loadAiRuntime()
+      .then((r) => r.tts().clip(line))
+      .catch((): TtsResult => ({ ok: false, reason: "failed" })),
+};

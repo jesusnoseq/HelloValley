@@ -62,16 +62,22 @@ const request = <T>(r: IDBRequest<T>) =>
   });
 
 /**
- * The player's IndexedDB cache (`hv-ai-{uid}`). Entries carry their write time; past
- * `maxEntries` the oldest go first. Without IndexedDB it is a store that never hits.
+ * The player's IndexedDB cache (`hv-ai-{uid}`; TTS clips use their own `hv-tts-{uid}` database
+ * with a smaller cap). Entries carry their write time; past `maxEntries` the oldest go first.
+ * Without IndexedDB it is a store that never hits.
  */
-export function createIdbStore(uid: string, maxEntries: number = IDB_CACHE_MAX_ENTRIES, idb: IDBFactory | undefined = globalThis.indexedDB): PersistentStore {
+export function createIdbStore(
+  uid: string,
+  maxEntries: number = IDB_CACHE_MAX_ENTRIES,
+  idb: IDBFactory | undefined = globalThis.indexedDB,
+  dbPrefix: string = "hv-ai",
+): PersistentStore {
   let db: Promise<IDBDatabase | null> | null = null;
   const open = () => {
     db ??= (async () => {
       if (!idb) return null;
       try {
-        const r = idb.open(`hv-ai-${uid}`, 1);
+        const r = idb.open(`${dbPrefix}-${uid}`, 1);
         r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: "key" }).createIndex("at", "at");
         return await request(r);
       } catch {

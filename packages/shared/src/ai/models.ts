@@ -7,7 +7,7 @@ export const MODEL_IDS = {
   npcTurn: "gemini-3.8-flash",
   /** Cloud fallback for the small hybrid tasks (`inCloudParams.model`). */
   cloudFallback: "gemini-3.5-flash-lite",
-  /** TTS (raw 24 kHz mono 16-bit PCM). TODO(M22). */
+  /** TTS (raw 24 kHz mono 16-bit PCM), called by the client per line (`ai/tts.ts`). */
   tts: "gemini-3.1-flash-tts-preview",
 } as const;
 export type ModelRole = keyof typeof MODEL_IDS;
