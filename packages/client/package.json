@@ -12,10 +12,15 @@
   "dependencies": {
     "@colyseus/sdk": "0.18.10",
     "@hellovalley/shared": "file:../shared",
+    "@react-three/drei": "10.7.9",
+    "@react-three/fiber": "9.8.2",
+    "@react-three/postprocessing": "3.2.2",
     "firebase": "13.4.0",
+    "postprocessing": "6.39.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "three": "0.187.0"
+    "three": "0.187.0",
+    "zustand": "5.1.0"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
