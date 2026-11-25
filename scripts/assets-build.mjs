@@ -7,7 +7,7 @@
 // Without Blender it prints how to install it and exits with status 1. This is deliberately
 // not part of `npm run build`.
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_KITS_DIR, MANIFEST_FILE, findKitDirs, optimizeKit } from "../tools/optimize-assets.mjs";
@@ -52,6 +52,10 @@ export function findBlender() {
 export function buildArgs(argv) {
   const passthrough = argv.filter((a) => a !== "--no-optimize");
   const optimize = !argv.includes("--no-optimize") && !argv.includes("--dry-run");
+  const sheetIndex = argv.findIndex((a) => a === "--contact-sheet" || a.startsWith("--contact-sheet="));
+  const sheetValue =
+    sheetIndex === -1 ? null : argv[sheetIndex].includes("=") ? argv[sheetIndex].split("=")[1] : argv[sheetIndex + 1];
+  const contactSheet = sheetValue ? resolve(ROOT, sheetValue) : null;
   const has = (flag) => passthrough.some((a) => a === flag || a.startsWith(`${flag}=`));
   if (!has("--style")) passthrough.push("--style", "european");
   let outRoot = DEFAULT_KITS_DIR;
@@ -61,7 +65,17 @@ export function buildArgs(argv) {
     const value = passthrough[outIndex].includes("=") ? passthrough[outIndex].split("=")[1] : passthrough[outIndex + 1];
     outRoot = resolve(ROOT, value ?? "");
   }
-  return { passthrough, optimize, outRoot };
+  return { passthrough, optimize, outRoot, contactSheet };
+}
+
+/** Re-encodes Blender's contact-sheet PNG as a palette PNG (a fraction of the size, fine for
+ * docs). */
+export async function shrinkPng(path) {
+  const sharp = (await import("sharp")).default;
+  const before = statSync(path).size;
+  const bytes = await sharp(readFileSync(path)).png({ palette: true, quality: 90, compressionLevel: 9, effort: 10 }).toBuffer();
+  if (bytes.length < before) writeFileSync(path, bytes);
+  return { before, after: Math.min(before, bytes.length) };
 }
 
 async function main() {
@@ -79,7 +93,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  const { passthrough, optimize, outRoot } = buildArgs(process.argv.slice(2));
+  const { passthrough, optimize, outRoot, contactSheet } = buildArgs(process.argv.slice(2));
   const started = Date.now();
   const args = ["--background", "--factory-startup", "--python-exit-code", "1", "--python", BUILD_PY, "--", ...passthrough];
   console.log(`> ${blender} ${args.join(" ")}`);
@@ -87,6 +101,11 @@ async function main() {
   if (r.error || r.status !== 0) {
     console.error(`Blender exited with ${r.error?.message ?? r.status}`);
     process.exitCode = r.status || 1;
+    return;
+  }
+  if (contactSheet && existsSync(contactSheet)) {
+    const { before, after } = await shrinkPng(contactSheet);
+    console.log(`  contact sheet: ${before} -> ${after} bytes`);
     return;
   }
   if (!optimize) return;

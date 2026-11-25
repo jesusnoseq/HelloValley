@@ -37,6 +37,10 @@ def main(argv: list) -> int:
     except ImportError:
         print("[hvkit] bpy is not available: run this script inside Blender (see tools/blender/README.md)")
         return 2
+    if plan.contact_sheet:
+        from hvkit.blender.contact import render
+
+        return render(plan, plan.contact_sheet)
     from hvkit.blender.runner import run
 
     return run(plan)

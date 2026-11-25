@@ -42,7 +42,8 @@ class StyleParams:
     id: str
     english_name: str
     palette: Mapping[str, Tuple[str, ...]]
-    """sRGB hex swatches grouped as walls, roofs, trims, foliage, ground, accents (art.md §2.5)."""
+    """sRGB hex swatches grouped as walls, roofs, trims, foliage, ground, accents (art.md §2.5),
+    plus glass, light and iron for windows, lamps and metalwork."""
     tiles: Tuple[AtlasTile, ...] = ()
     seed: int = DEFAULT_SEED
     wall_thickness_m: float = 0.2
@@ -85,6 +86,11 @@ EUROPEAN = StyleParams(
         "ground": ("#c9c2b4", "#a8a093", "#9dbb7d"),
         # Geranium red, shutter green, lamp brass.
         "accents": ("#d9534f", "#6f9a7a", "#d8b26e"),
+        # Window panes (a cool, slightly dusky blue-grey) and warm lamp light.
+        "glass": ("#8fa9b8", "#a7bcc4"),
+        "light": ("#ffdf9e",),
+        # Wrought iron (signs, railings, lamp posts).
+        "iron": ("#3f4448", "#55524d"),
     },
     tiles=(
         AtlasTile("timber", "planks", 0.12),

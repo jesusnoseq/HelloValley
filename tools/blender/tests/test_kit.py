@@ -72,8 +72,10 @@ class ModuleTest(unittest.TestCase):
             self.assertIn(p["tile"], [t.name for t in style.atlas().tiles])
 
     def test_selection(self):
-        self.assertEqual([m.id for m in select_modules("european")], [])  # test modules are opt-in
-        self.assertEqual([m.id for m in select_modules("european", include_tests=True)], ["test.cube"])
+        default = [m.id for m in select_modules("european")]
+        self.assertNotIn("test.cube", default)  # test modules are opt-in
+        self.assertIn("wall.plain", default)
+        self.assertIn("test.cube", [m.id for m in select_modules("european", include_tests=True)])
         self.assertEqual([m.id for m in select_modules("european", only=["test.cube"])], ["test.cube"])
         self.assertEqual([m.id for m in select_modules("european", only=["test.*"])], ["test.cube"])
         with self.assertRaises(KeyError):
@@ -215,9 +217,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual([m.id for m in plan.modules], ["test.cube"])
         self.assertTrue(plan.manifest_path.endswith("kit-manifest.json"))
         self.assertIn("test.cube", plan.describe())
-        empty = cli.make_plan(cli.parse_args([]), root=REPO)
-        self.assertEqual(empty.modules, [])
+        full = cli.make_plan(cli.parse_args([]), root=REPO)
+        self.assertEqual(len(full.modules), 22)
+        self.assertEqual(full.contact_sheet, "")
+        empty = cli.BuildPlan(style=get_style("european"), out_dir="kits", modules=[])
         self.assertIn("no modules", empty.describe())
+        sheet = cli.make_plan(cli.parse_args(["--contact-sheet", "docs/x.png"]), root=REPO)
+        self.assertEqual(sheet.contact_sheet, os.path.join(REPO, "docs", "x.png"))
+        self.assertIn("contact sheet", sheet.describe())
 
     def test_versions(self):
         self.assertTrue(cli.version_ok((5, 2, 3)))

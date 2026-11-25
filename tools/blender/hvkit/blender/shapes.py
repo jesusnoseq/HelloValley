@@ -19,11 +19,16 @@ from mathutils import Matrix, Vector
 from ..color import RGBA
 from ..grid import Vec3
 from ..shaping import grid_safe_jitter, painted_colour, project_face_uvs
+from ..solids import Solid, seam_planes
 from ..variants import VariantRng
 from .materials import COLOR_ATTRIBUTE, UV_MAP
 
 if TYPE_CHECKING:  # pragma: no cover
     from .runner import BuildContext
+
+
+SHARP_ANGLE = 0.17
+"""Radians (about 10 degrees): flatter edges are not bevelled."""
 
 
 @dataclass(frozen=True)
@@ -71,16 +76,42 @@ class MeshBuilder:
         bevel: Optional[float] = None,
         segments: Optional[int] = None,
         noise: Optional[float] = None,
+        seams: Sequence[str] = (),
     ) -> "MeshBuilder":
-        """An axis-aligned box from ``lo`` to ``hi`` with optional rounded bevel."""
+        """An axis-aligned box from ``lo`` to ``hi`` with optional rounded bevel. ``seams``
+        names footprint planes where the box meets a neighbour module (``"x"`` for
+        both x planes, ``"x+"``/``"x-"`` for one, likewise y and z): edges lying in those planes
+        stay sharp so neighbouring modules join flush (see :func:`hvkit.solids.seam_planes`)."""
         size = [hi[i] - lo[i] for i in range(3)]
         if min(size) <= 0:
             raise ValueError(f"{self.name}: box must have positive size, got {size}")
         center = [(lo[i] + hi[i]) / 2 for i in range(3)]
         bm, col, uv = _new_bmesh()
         bmesh.ops.create_cube(bm, size=1.0, matrix=_scale_matrix(center, size))
-        self._bevel(bm, min(size), bevel, segments)
+        self._bevel(bm, min(size), bevel, segments, seams)
         return self._finish(bm, col, uv, paint, noise, smooth=False)
+
+    def solid(
+        self,
+        solid: Solid,
+        paint: Paint,
+        bevel: Optional[float] = None,
+        segments: Optional[int] = None,
+        noise: Optional[float] = None,
+        seams: Sequence[str] = (),
+        smooth: bool = False,
+    ) -> "MeshBuilder":
+        """Geometry from :mod:`hvkit.solids` (prisms, beams, panels with openings). Only sharp
+        edges are bevelled, so coplanar faces of a grid panel stay flat."""
+        verts, faces = solid
+        bm, col, uv = _new_bmesh()
+        bverts = [bm.verts.new(v) for v in verts]
+        for face in faces:
+            bm.faces.new([bverts[i] for i in face])
+        bm.normal_update()
+        extent = min(max(v[i] for v in verts) - min(v[i] for v in verts) for i in range(3))
+        self._bevel(bm, extent, bevel, segments, seams)
+        return self._finish(bm, col, uv, paint, noise, smooth=smooth)
 
     def rounded_box(self, lo: Sequence[float], hi: Sequence[float], paint: Paint, radius: float, segments: int = 3) -> "MeshBuilder":
         """A box whose edges are rounded with ``radius`` (soft toy-like blocks)."""
@@ -110,7 +141,7 @@ class MeshBuilder:
             depth=height,
             matrix=Matrix.Translation(Vector(center)),
         )
-        self._bevel(bm, min(radius * 2, height), bevel, None)
+        self._bevel(bm, min(radius * 2, height), bevel, None, ())
         return self._finish(bm, col, uv, paint, noise, smooth=False)
 
     def blob(
@@ -134,13 +165,16 @@ class MeshBuilder:
 
     # --- internals -----------------------------------------------------------------------
 
-    def _bevel(self, bm, min_extent: float, bevel: Optional[float], segments: Optional[int]) -> None:
+    def _bevel(self, bm, min_extent: float, bevel: Optional[float], segments: Optional[int], seams: Sequence[str]) -> None:
         width = self.ctx.style.bevel_width_m if bevel is None else bevel
-        if width <= 0:
+        if width <= 0 or min_extent <= 0:
+            return
+        edges = [e for e in bm.edges if self._bevel_edge(e, seams)]
+        if not edges:
             return
         bmesh.ops.bevel(
             bm,
-            geom=list(bm.edges),
+            geom=edges,
             offset=min(width, 0.45 * min_extent),
             offset_type="OFFSET",
             segments=self.ctx.style.bevel_segments if segments is None else max(1, segments),
@@ -148,6 +182,17 @@ class MeshBuilder:
             affect="EDGES",
             clamp_overlap=True,
         )
+
+    def _bevel_edge(self, edge, seams: Sequence[str]) -> bool:
+        """Bevel only sharp edges, and never edges lying in a seam plane of the footprint."""
+        if len(edge.link_faces) == 2 and edge.calc_face_angle(0.0) < SHARP_ANGLE:
+            return False
+        if seams and self.bounds:
+            a, b = edge.verts[0].co, edge.verts[1].co
+            for axis, plane in seam_planes(seams, self.bounds):
+                if abs(a[axis] - plane) <= 1e-4 and abs(b[axis] - plane) <= 1e-4:
+                    return False
+        return True
 
     def _material_index(self, key: str) -> int:
         mat = self.ctx.material(key)

@@ -49,6 +49,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--strict", action="store_true", help="fail on budget or bounds problems")
     p.add_argument("--no-atlas", action="store_true", help="skip writing the style atlas")
     p.add_argument("--dry-run", action="store_true", help="print the plan and exit (no Blender needed)")
+    p.add_argument(
+        "--contact-sheet",
+        default="",
+        metavar="PNG",
+        help="render every selected module and variant to this PNG instead of exporting GLBs",
+    )
     return p
 
 
@@ -65,6 +71,8 @@ class BuildPlan:
     seed: int = DEFAULT_SEED
     strict: bool = False
     write_atlas: bool = True
+    contact_sheet: str = ""
+    """When set, render a contact sheet PNG to this path instead of exporting the kit."""
 
     @property
     def manifest_path(self) -> str:
@@ -75,7 +83,8 @@ class BuildPlan:
         return os.path.join(self.out_dir, ATLAS_FILE)
 
     def describe(self) -> str:
-        lines = [f"style {self.style.id} -> {self.out_dir}"]
+        target = f"contact sheet {self.contact_sheet}" if self.contact_sheet else self.out_dir
+        lines = [f"style {self.style.id} -> {target}"]
         for m in self.modules:
             lines.append(f"  {m.id:<24} {m.variants} variants  -> {m.file_name}")
         if not self.modules:
@@ -95,7 +104,12 @@ def make_plan(ns: argparse.Namespace, root: str = REPO_ROOT) -> BuildPlan:
         seed=ns.seed,
         strict=ns.strict,
         write_atlas=not ns.no_atlas,
+        contact_sheet=_abs(ns.contact_sheet, root) if ns.contact_sheet else "",
     )
+
+
+def _abs(path: str, root: str) -> str:
+    return os.path.normpath(path if os.path.isabs(path) else os.path.join(root, path))
 
 
 def version_ok(version: Sequence[int]) -> bool:

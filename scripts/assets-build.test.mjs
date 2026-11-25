@@ -22,4 +22,12 @@ describe("assets:build arguments", () => {
     expect(buildArgs(["--out=x", "--dry-run"]).optimize).toBe(false);
     expect(buildArgs(["--out=x"]).outRoot).toBe(resolve(ROOT, "x"));
   });
+
+  it("finds the contact sheet path", () => {
+    expect(buildArgs([]).contactSheet).toBeNull();
+    const { passthrough, contactSheet } = buildArgs(["--contact-sheet", "docs/a.png"]);
+    expect(contactSheet).toBe(resolve(ROOT, "docs/a.png"));
+    expect(passthrough).toContain("--contact-sheet");
+    expect(buildArgs(["--contact-sheet=docs/b.png"]).contactSheet).toBe(resolve(ROOT, "docs/b.png"));
+  });
 });

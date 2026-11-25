@@ -1,0 +1,1802 @@
+{
+  "version": 1,
+  "generator": "hellovalley-blender/1",
+  "style": "european",
+  "grid": {
+    "cell": 1,
+    "storey": 3
+  },
+  "atlas": {
+    "file": "atlas.webp",
+    "size": 512,
+    "tiles": {
+      "brick": [
+        0.757812,
+        0.257812,
+        0.992188,
+        0.492188
+      ],
+      "cobble": [
+        0.007812,
+        0.507812,
+        0.242188,
+        0.742188
+      ],
+      "plain": [
+        0.007812,
+        0.007812,
+        0.242188,
+        0.242188
+      ],
+      "plaster": [
+        0.257812,
+        0.007812,
+        0.492188,
+        0.242188
+      ],
+      "roof_clay": [
+        0.257812,
+        0.257812,
+        0.492188,
+        0.492188
+      ],
+      "roof_slate": [
+        0.507812,
+        0.257812,
+        0.742188,
+        0.492188
+      ],
+      "stone": [
+        0.757812,
+        0.007812,
+        0.992188,
+        0.242188
+      ],
+      "timber": [
+        0.007812,
+        0.257812,
+        0.242188,
+        0.492188
+      ],
+      "wood": [
+        0.507812,
+        0.007812,
+        0.742188,
+        0.242188
+      ]
+    }
+  },
+  "modules": [
+    {
+      "id": "awning",
+      "file": "awning.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0241,
+          1.4839,
+          -1
+        ],
+        "max": [
+          0.9758,
+          2.3427,
+          -0.3141
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "valance",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.86,
+            -0.34
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        228,
+        284,
+        216
+      ],
+      "tags": [
+        "attachment",
+        "europe",
+        "fits:wall.shopfront",
+        "fits:wall.door"
+      ]
+    },
+    {
+      "id": "balcony",
+      "file": "balcony.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0198,
+          -0.3989,
+          -1
+        ],
+        "max": [
+          0.9843,
+          0.8557,
+          -0.2947
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "floor",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.65
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        528,
+        584,
+        464
+      ],
+      "tags": [
+        "attachment",
+        "europe",
+        "fits:wall.door",
+        "fits:wall.window"
+      ]
+    },
+    {
+      "id": "bench",
+      "file": "bench.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.1443,
+          0,
+          -0.8153
+        ],
+        "max": [
+          1.8559,
+          0.9057,
+          -0.2743
+        ]
+      },
+      "sockets": [
+        {
+          "name": "seat_left",
+          "kind": "prop",
+          "pos": [
+            0.6,
+            0.45,
+            -0.5
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "seat_right",
+          "kind": "prop",
+          "pos": [
+            1.4,
+            0.45,
+            -0.5
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        388,
+        500,
+        388
+      ],
+      "tags": [
+        "prop",
+        "seat",
+        "europe"
+      ]
+    },
+    {
+      "id": "chimney",
+      "file": "chimney.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.2462,
+          0,
+          -0.7825
+        ],
+        "max": [
+          0.7755,
+          1.8455,
+          -0.2397
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "smoke",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            1.75,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        208,
+        196,
+        232
+      ],
+      "tags": [
+        "roof",
+        "europe"
+      ]
+    },
+    {
+      "id": "corner.inner",
+      "file": "corner.inner.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.0936,
+          0,
+          -0.2052
+        ],
+        "max": [
+          0.2057,
+          3,
+          0.0957
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.1,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "corner",
+          "kind": "attach",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            -0.7071,
+            0,
+            0.7071
+          ]
+        }
+      ],
+      "tris": [
+        224,
+        316,
+        228
+      ],
+      "tags": [
+        "corner",
+        "wall",
+        "europe"
+      ]
+    },
+    {
+      "id": "corner.outer",
+      "file": "corner.outer.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.0408,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          3,
+          0.0406
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "back",
+          "kind": "edge",
+          "pos": [
+            0.1,
+            1.5,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "facade_front",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "facade_left",
+          "kind": "attach",
+          "pos": [
+            0,
+            0,
+            -0.5
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        464,
+        348,
+        360
+      ],
+      "tags": [
+        "corner",
+        "wall",
+        "europe"
+      ]
+    },
+    {
+      "id": "dormer",
+      "file": "dormer.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0743,
+          0,
+          -0.856
+        ],
+        "max": [
+          0.9238,
+          1.0088,
+          0.0853
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "window",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0.3,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        396,
+        372,
+        384
+      ],
+      "tags": [
+        "roof",
+        "window",
+        "europe"
+      ]
+    },
+    {
+      "id": "fence",
+      "file": "fence.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.1448
+        ],
+        "max": [
+          1,
+          0.944,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            0.5,
+            -0.05
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            0.5,
+            -0.05
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        346,
+        168,
+        208
+      ],
+      "tags": [
+        "prop",
+        "fence",
+        "europe"
+      ]
+    },
+    {
+      "id": "flowerbox",
+      "file": "flowerbox.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.1549,
+          0.5943,
+          -1
+        ],
+        "max": [
+          0.8459,
+          1.159,
+          -0.6828
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sill",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        252,
+        252,
+        252
+      ],
+      "tags": [
+        "attachment",
+        "plant",
+        "europe",
+        "fits:wall.window"
+      ]
+    },
+    {
+      "id": "lamp",
+      "file": "lamp.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 2.8
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0381,
+          0,
+          -0.6653
+        ],
+        "max": [
+          0.9654,
+          2.69,
+          -0.3377
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "light",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            2.3,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        304,
+        332,
+        504
+      ],
+      "tags": [
+        "prop",
+        "light",
+        "europe"
+      ]
+    },
+    {
+      "id": "roof.gable",
+      "file": "roof.gable.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 1.5
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.1758,
+          -0.4137,
+          -2.2555
+        ],
+        "max": [
+          2.1755,
+          1.4336,
+          0.2559
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "stack",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "ridge",
+          "kind": "prop",
+          "pos": [
+            1,
+            1.3784,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "chimney",
+          "kind": "prop",
+          "pos": [
+            1.45,
+            1.0209,
+            -1.3
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "dormer",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0.3654,
+            -0.15
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        788,
+        452,
+        564
+      ],
+      "tags": [
+        "roof",
+        "europe"
+      ]
+    },
+    {
+      "id": "roof.hip",
+      "file": "roof.hip.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 1.8
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.246,
+          -0.1856,
+          -2.2469
+        ],
+        "max": [
+          2.2454,
+          1.5547,
+          0.2457
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "stack",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "ridge",
+          "kind": "prop",
+          "pos": [
+            1,
+            1.25,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "chimney",
+          "kind": "prop",
+          "pos": [
+            1.45,
+            0.7568,
+            -1.3
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        200,
+        164,
+        156
+      ],
+      "tags": [
+        "roof",
+        "europe"
+      ]
+    },
+    {
+      "id": "roof.stepped_gable",
+      "file": "roof.stepped_gable.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 2.4418
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.036,
+          -0.2881,
+          -2.2549
+        ],
+        "max": [
+          2.0359,
+          2.4077,
+          0.2554
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "stack",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "ridge",
+          "kind": "prop",
+          "pos": [
+            1,
+            1.3784,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "chimney",
+          "kind": "prop",
+          "pos": [
+            1.45,
+            1.0209,
+            -1.3
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "dormer",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0.3654,
+            -0.15
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        788,
+        788,
+        740
+      ],
+      "tags": [
+        "roof",
+        "europe"
+      ]
+    },
+    {
+      "id": "shutters",
+      "file": "shutters.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0144,
+          0.9743,
+          -1
+        ],
+        "max": [
+          0.9856,
+          2.1258,
+          -0.9142
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "window",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.55,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        480,
+        488,
+        312
+      ],
+      "tags": [
+        "attachment",
+        "window",
+        "europe",
+        "fits:wall.window"
+      ]
+    },
+    {
+      "id": "sign.hanging",
+      "file": "sign.hanging.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.4341,
+          1.9455,
+          -1
+        ],
+        "max": [
+          0.5655,
+          2.6855,
+          -0.3168
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "icon",
+          "kind": "attach",
+          "pos": [
+            0.47,
+            2.175,
+            -0.64
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "icon_back",
+          "kind": "attach",
+          "pos": [
+            0.53,
+            2.175,
+            -0.64
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        192,
+        192,
+        176
+      ],
+      "tags": [
+        "attachment",
+        "sign",
+        "europe",
+        "fits:wall.plain",
+        "fits:wall.door",
+        "fits:wall.shopfront",
+        "fits:wall.timber"
+      ]
+    },
+    {
+      "id": "stair",
+      "file": "stair.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.4
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          1.3214,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "bottom",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.45,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            0,
+            -0.5
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            0,
+            -0.5
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        48,
+        164,
+        120
+      ],
+      "tags": [
+        "prop",
+        "stair",
+        "europe"
+      ]
+    },
+    {
+      "id": "tile.cobble",
+      "file": "tile.cobble.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.0834,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.06,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        324,
+        280,
+        300
+      ],
+      "tags": [
+        "tile",
+        "ground",
+        "europe"
+      ]
+    },
+    {
+      "id": "wall.door",
+      "file": "wall.door.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.206
+        ],
+        "max": [
+          1,
+          3,
+          0.0932
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "door",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "lintel",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            2.32,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        468,
+        492,
+        520
+      ],
+      "tags": [
+        "wall",
+        "door",
+        "europe"
+      ]
+    },
+    {
+      "id": "wall.plain",
+      "file": "wall.plain.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.2057
+        ],
+        "max": [
+          1,
+          3,
+          0.0742
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        280,
+        228,
+        264
+      ],
+      "tags": [
+        "wall",
+        "europe"
+      ]
+    },
+    {
+      "id": "wall.shopfront",
+      "file": "wall.shopfront.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.2835
+        ],
+        "max": [
+          1,
+          3,
+          0.073
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "fascia",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            2.52,
+            0.06
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "awning",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            2.32,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        500,
+        512,
+        480
+      ],
+      "tags": [
+        "wall",
+        "shopfront",
+        "europe"
+      ]
+    },
+    {
+      "id": "wall.timber",
+      "file": "wall.timber.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.2059
+        ],
+        "max": [
+          1,
+          3,
+          0.041
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        396,
+        464,
+        576
+      ],
+      "tags": [
+        "wall",
+        "timber",
+        "europe"
+      ]
+    },
+    {
+      "id": "wall.window",
+      "file": "wall.window.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.206
+        ],
+        "max": [
+          1,
+          3,
+          0.0756
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sill",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "window",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.55,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        416,
+        428,
+        400
+      ],
+      "tags": [
+        "wall",
+        "window",
+        "europe"
+      ]
+    }
+  ]
+}

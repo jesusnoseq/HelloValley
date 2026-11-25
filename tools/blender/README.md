@@ -33,13 +33,18 @@ npm run assets:build -- --modules "wall.*,roof.gable"
 blender --background --factory-startup --python-exit-code 1 \
   --python tools/blender/build.py -- --style europe --out packages/client/public/assets/kits
 
+# Render the contact sheet (every module and variant, labelled) instead of exporting:
+npm run assets:contact-sheet
+#   = npm run assets:build -- --no-optimize --contact-sheet docs/art/european-kit-contact-sheet.png
+
 # Print the plan without Blender:
 python tools/blender/build.py -- --style europe --include-tests --dry-run
 ```
 
 `build.py` options: `--style` (`european`, or the alias `europe`), `--out` (kits root; the kit
 goes to `<out>/<style>/`), `--modules`, `--include-tests`, `--seed`, `--strict` (fail on
-budget or bounds problems), `--no-atlas`, `--dry-run`. The npm wrapper adds `--no-optimize`.
+budget or bounds problems), `--no-atlas`, `--dry-run`, `--contact-sheet PNG` (render the
+selected modules to a PNG with EEVEE instead of exporting; `hvkit/blender/contact.py`). The npm wrapper adds `--no-optimize`.
 
 Partial builds (`--modules`) merge into an existing `kit-manifest.json` and keep the other
 modules. Output is deterministic: the same seed gives byte-identical GLBs and atlas.
@@ -77,6 +82,42 @@ the manifest is updated. `assets:build` runs it on the kits it just wrote.
   tags[]}`. `tris` has one count per variant. The client validates it with
   `KitManifestSchema` from `@hellovalley/shared`.
 
+## Europe kit (M05)
+
+`hvmodules/europe/` generates the Central & Northern European kit into
+`packages/client/public/assets/kits/european/` (committed, about 0.9 MB optimized). 22 modules,
+3 seeded variants each:
+
+| Group | Modules | Footprint | Budget (tris/variant) |
+|---|---|---|---|
+| Walls | `wall.plain`, `wall.window`, `wall.door`, `wall.shopfront`, `wall.timber` | 1 x 1, 3 m | 150-600 |
+| Corners | `corner.outer` (L, rotate for each corner), `corner.inner` (fills the concave corner) | 1 x 1, 3 m | 150-600 |
+| Roofs | `roof.gable`, `roof.hip`, `roof.stepped_gable` | 2 x 2 | <= 2000 |
+| Roof parts | `dormer`, `chimney` | 1 x 1 | <= 2000 |
+| Attachments | `balcony`, `awning`, `flowerbox`, `shutters`, `sign.hanging` | 1 x 1 (cell in front of the wall) | <= 2000 |
+| Props | `stair`, `fence`, `lamp`, `bench` (2 x 1), `tile.cobble` | 1 x 1 | <= 2000 (`tile.*` <= 400) |
+
+Placement conventions (details in `hvmodules/europe/common.py`):
+
+- **Walls** have their facade on the footprint front (y = 0) and are 0.2 m thick; trims stand
+  up to 0.1 m proud. Edges on the x and z footprint planes are never bevelled, so walls tile
+  and stack without grooves. Every wall has `top`, `left`, `right` and `facade` sockets.
+- **Attachments** live in the cell in front of a wall, in the wall's storey frame: their back
+  plane (y = 1) is the wall face. Their `mount` socket (0.5, 1, 0) mates with the wall's
+  `facade` socket, and `fits:<wall id>` tags say which openings they are sized for. Opening
+  sizes are fixed per module so any shutters fit any `wall.window` variant.
+- **Roofs** cover a 2 x 2 building and sit on the wall tops; the M10 assembler scales them to
+  other footprints. `chimney`, `dormer` and `ridge` sockets give roof-part positions.
+- Materials: `atlas` (vertex colour x atlas), `glass` (window panes, extras `hv_glass`) and
+  `glow` (lamp lanterns, emissive, extras `hv_glow`).
+
+Budgets live in `packages/shared/src/assets/budgets.ts` (`kitTriBudget`,
+`kitCompletenessProblems`) and `hvmodules/europe/common.py`. The client test
+`packages/client/src/assets/europeKit.test.ts` validates the committed manifest, the budgets
+and every GLB; `tools/blender/tests/test_europe.py` checks the module definitions and that
+the committed manifest is up to date. The contact sheet is
+`docs/art/european-kit-contact-sheet.png`.
+
 ## Layout
 
 ```
@@ -84,9 +125,12 @@ build.py              entry point (run inside Blender; --dry-run works in plain 
 hvkit/                framework
   grid.py color.py variants.py atlas.py shaping.py styles.py module.py manifest.py cli.py
                       pure Python, no bpy (unit-tested)
-  blender/            bpy-only: scene, materials, shapes (MeshBuilder), export, runner
+  blender/            bpy-only: scene, materials, shapes (MeshBuilder), export, runner, contact
+  solids.py contact.py  pure solids (prisms, panels with openings, hip roofs) and the
+                      contact-sheet layout
 hvmodules/            module definitions; importing the package registers them
   test_cube.py        test.cube (pipeline check)
+  europe/             M05 kit: common.py, walls.py, roofs.py, attachments.py, props.py
 tests/                unittest suite for the pure-Python parts
 ```
 
@@ -116,7 +160,11 @@ class WallPlain(Module):
 
 Import the new file from `hvmodules/__init__.py`. Helpers on `MeshBuilder`: `box` (optional
 bevel and noise), `rounded_box`, `cylinder` (cones and frustums too), `blob` (soft lumps for
-canopies and bushes). `ctx.paint(group, index, tile)` picks a palette swatch and atlas tile.
+canopies and bushes), and `solid` for anything from `hvkit/solids.py` (`prism`, `beam`,
+`grid_panel` for walls with openings, `hip_roof`). `box` and `solid` take `seams` (`"x"`,
+`"x+"`, `"z-"`...): edges lying in those footprint planes stay sharp so neighbouring modules
+join flush; only sharp edges are bevelled. `ctx.paint(group, index, tile, material)` picks a
+palette swatch, atlas tile and material (`atlas`, `glass`, `glow`).
 
 ## Tests and fixtures
 

@@ -81,6 +81,27 @@ def atlas_material(name: str, image: Optional["bpy.types.Image"], roughness: flo
     return mat
 
 
+def vertex_material(
+    name: str,
+    roughness: float,
+    marker: str,
+    emission: Optional[tuple] = None,
+    emission_strength: float = 1.0,
+) -> "bpy.types.Material":
+    """Base colour = vertex colour only (no atlas): window glass and lamp glow. ``marker`` is a
+    custom property (``hv_glass``, ``hv_glow``) the client can use to swap in a night or
+    reflective variant (TODO(M09)). ``emission`` is a linear RGB tuple for glowing parts;
+    strength 1 keeps the exporter on core glTF (no KHR_materials_emissive_strength)."""
+    mat = atlas_material(name, None, roughness)
+    del mat["hv_atlas"]
+    mat[marker] = True
+    if emission is not None:
+        bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        _set_input(bsdf, ("Emission Color", "Emission"), (*emission[:3], 1.0))
+        _set_input(bsdf, ("Emission Strength",), emission_strength)
+    return mat
+
+
 def flat_material(name: str, rgba, roughness: float = 0.9) -> "bpy.types.Material":
     """A plain colour material (no atlas), for emissive lamps or glass later."""
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)

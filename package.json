@@ -33,6 +33,7 @@
     "deps:audit": "npm audit",
     "assets:build": "node scripts/assets-build.mjs",
     "assets:optimize": "node tools/optimize-assets.mjs",
+    "assets:contact-sheet": "node scripts/assets-build.mjs --no-optimize --contact-sheet docs/art/european-kit-contact-sheet.png",
     "assets:fixtures": "node tools/fixtures/make-test-kit.mjs",
     "test:blender": "python -B -m unittest discover -s tools/blender/tests -t tools/blender"
   },

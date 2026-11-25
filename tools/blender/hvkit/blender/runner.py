@@ -37,10 +37,18 @@ class BuildContext:
         self._materials: Dict[str, "bpy.types.Material"] = {}
 
     def material(self, key: str = "atlas") -> "bpy.types.Material":
+        """``atlas`` (vertex colour x atlas), ``glass`` (window panes) or ``glow`` (lamps)."""
         if key not in self._materials:
-            if key != "atlas":
-                raise KeyError(f"unknown material key {key!r}")  # TODO(M05): glass, emissive lamps
-            self._materials[key] = materials.atlas_material(f"hv_{self.style.id}_atlas", self.atlas_image)
+            name = f"hv_{self.style.id}_{key}"
+            if key == "atlas":
+                mat = materials.atlas_material(name, self.atlas_image)
+            elif key == "glass":
+                mat = materials.vertex_material(name, roughness=0.25, marker="hv_glass")
+            elif key == "glow":
+                mat = materials.vertex_material(name, roughness=0.6, marker="hv_glow", emission=self.style.linear("light", 0)[:3])
+            else:
+                raise KeyError(f"unknown material key {key!r}")
+            self._materials[key] = mat
         return self._materials[key]
 
     def paint(self, group: str, index: int = 0, tile: str = "plaster", material: str = "atlas") -> Paint:

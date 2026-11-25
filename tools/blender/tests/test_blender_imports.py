@@ -11,7 +11,7 @@ import unittest
 from unittest import mock
 
 BLENDER_MODULES = ("bpy", "bmesh", "mathutils")
-HVKIT_BLENDER = ("hvkit.blender.scene", "hvkit.blender.materials", "hvkit.blender.shapes", "hvkit.blender.export", "hvkit.blender.runner")
+HVKIT_BLENDER = ("hvkit.blender.scene", "hvkit.blender.materials", "hvkit.blender.shapes", "hvkit.blender.export", "hvkit.blender.runner", "hvkit.blender.contact")
 
 
 class BlenderImportTest(unittest.TestCase):
