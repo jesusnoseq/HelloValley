@@ -4,6 +4,7 @@ import { EMOTE_KEYS } from "../avatar/animation";
 import { FurnitureIdSchema, FurnitureRotationSchema } from "../firestore/schemas";
 import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
+import { NpcActionListSchema } from "../npc/actions";
 import { INTERIOR_IDS } from "../world/interiors";
 import { CHAT_MAX_LENGTH, CHAT_REPORT_REASONS, ClientMessage } from "./messages";
 
@@ -115,6 +116,16 @@ export const ChatReportSchema = z.strictObject({
   reason: z.enum(CHAT_REPORT_REASONS),
 });
 
+/** Server-issued conversation, turn and trade ids (UUIDs). */
+export const NpcTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+
+/** `npc:start` (build plan M21). TODO(M23/M31): range check against the NPC's live position. */
+export const NpcStartSchema = z.strictObject({ npcId: NpcIdSchema });
+/** `npc:reply`: the actions are model output, parsed leniently (unknown ones dropped) and validated by the server. */
+export const NpcReplySchema = z.strictObject({ conversationId: NpcTokenSchema, turnId: NpcTokenSchema, actions: NpcActionListSchema });
+export const NpcConfirmSchema = z.strictObject({ conversationId: NpcTokenSchema, tradeId: NpcTokenSchema, accept: z.boolean() });
+export const NpcEndSchema = z.strictObject({ conversationId: NpcTokenSchema });
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -130,6 +141,10 @@ export const ClientMessageSchemas = {
   [ClientMessage.VisitRequest]: VisitRequestSchema,
   [ClientMessage.VisitAnswer]: VisitAnswerSchema,
   [ClientMessage.FurnitureEdit]: FurnitureEditSchema,
+  [ClientMessage.NpcStart]: NpcStartSchema,
+  [ClientMessage.NpcReply]: NpcReplySchema,
+  [ClientMessage.NpcConfirm]: NpcConfirmSchema,
+  [ClientMessage.NpcEnd]: NpcEndSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

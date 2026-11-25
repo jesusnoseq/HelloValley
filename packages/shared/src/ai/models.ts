@@ -3,7 +3,7 @@
  * Firebase AI Logic; the game server never calls a model.
  */
 export const MODEL_IDS = {
-  /** NPC dialogue turns and seeded text (server prompt template, cloud only). TODO(M21). */
+  /** NPC dialogue turns and openers (server prompt templates `ai/templates/*.prompt`, cloud only). */
   npcTurn: "gemini-3.8-flash",
   /** Cloud fallback for the small hybrid tasks (`inCloudParams.model`). */
   cloudFallback: "gemini-3.5-flash-lite",

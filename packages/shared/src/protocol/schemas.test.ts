@@ -33,7 +33,7 @@ describe("message names", () => {
 
   it("isClientMessage accepts known names only", () => {
     expect(isClientMessage(ClientMessage.Chat)).toBe(true);
-    expect(isClientMessage("npc:reply")).toBe(false);
+    expect(isClientMessage("npc:teleport")).toBe(false);
     expect(isClientMessage(42)).toBe(false);
   });
 

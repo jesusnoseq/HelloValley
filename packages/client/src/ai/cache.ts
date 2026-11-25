@@ -4,8 +4,9 @@
  * Keys are content hashes, `sha256(kind, npcId, lang, level, text)` (shared `contentKeyMaterial`).
  *
  * Play-time answers are never written to the shared Firestore `cache/*`: only the admin seeding
- * tool writes there (architecture §6.3), so one player cannot poison another's content. Reading
- * seeded `cache/lines` openers is TODO(M21).
+ * tool writes there (architecture §6.3), so one player cannot poison another's content. Openers
+ * (`openers.ts`, build plan M21) are cached here too; reading seeded `cache/lines` is an injected
+ * reader that waits for the admin seeding tool.
  *
  * Every IndexedDB access is wrapped: in private mode, or with storage blocked, the cache simply
  * works from memory.

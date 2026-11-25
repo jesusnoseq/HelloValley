@@ -1,7 +1,11 @@
 // Type-only imports: this module stays free of zod so the client's entry chunk can use it.
 import type { FurnitureEdit, FurnitureEditRejection } from "../apartment/layout";
 import type { Emote } from "../avatar/animation";
-import type { Weather } from "../data/world";
+import type { ItemId } from "../data/items";
+import type { NpcId } from "../data/npcs";
+import type { Level } from "../data/difficulty";
+import type { PlaceId, TimeOfDay, Weather } from "../data/world";
+import type { ActionRejectReason, ApprovedAction, NpcActionInput, NpcActionType, TradeFailure, TradeProposal } from "../npc/actions";
 import type { Motion, SpaceId } from "../world/player";
 
 /** Colyseus room names registered by the server (architecture §7.1). */
@@ -43,7 +47,14 @@ export const ClientMessage = {
   VisitAnswer: "visit:answer",
   /** ApartmentRoom, owner only: one placement-mode edit (move, rotate, store, place). */
   FurnitureEdit: "furniture:edit",
-  // TODO(M21): "npc:reply" (the untrusted NPC turn proposal, architecture §5.3).
+  /** Start talking to an NPC (architecture §5.3): the server answers with `npc:context`. */
+  NpcStart: "npc:start",
+  /** The NPC turn the client got from the model: an untrusted proposal of actions (architecture §6.1). */
+  NpcReply: "npc:reply",
+  /** The player's answer to a trade the server accepted (the M23 confirmation card). */
+  NpcConfirm: "npc:confirm",
+  /** The conversation is over (walk-away or goodbye). TODO(M24): carries the compaction summary. */
+  NpcEnd: "npc:end",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -75,6 +86,14 @@ export const ServerMessage = {
   ChatSafety: "chat:safety",
   /** The answer to a `chat:report`. */
   ChatReported: "chat:reported",
+  /** Answer to `npc:start`: what the NPC knows for this conversation, and the first turn id. */
+  NpcContext: "npc:context",
+  /** Answer to `npc:reply`: which proposed actions the server accepted (with its own prices). */
+  NpcApplied: "npc:applied",
+  /** Answer to `npc:confirm`: the trade happened (or why not), with the new coins and items. */
+  NpcTrade: "npc:trade",
+  /** An NPC message was refused (rate or turn limits, unknown turn, store down). */
+  NpcRefused: "npc:refused",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -345,6 +364,132 @@ export interface ChatSafetyMessage {
   muted: string[];
   /** Everyone the player blocked (online or not). */
   blocked: BlockedPlayer[];
+}
+
+// ---------------------------------------------------------------------------------------------
+// NPC conversations (build plan M21, architecture §5.3, §6.1)
+
+/** Payload of `ClientMessage.NpcStart`. */
+export interface NpcStartMessage {
+  npcId: NpcId;
+}
+
+/** An item with the server's price (coins). */
+export interface NpcPriceEntry {
+  itemId: ItemId;
+  price: number;
+}
+
+export interface InventoryEntry {
+  itemId: ItemId;
+  qty: number;
+}
+
+/**
+ * Payload of `ServerMessage.NpcContext`: the context the client fills the `npc-turn` template
+ * with (shared `buildNpcTurnVariables`). Everything here comes from the server's own records.
+ */
+export interface NpcContextMessage {
+  conversationId: string;
+  /** The id the next `npc:reply` must carry (one per turn, issued by the server). */
+  turnId: string;
+  npcId: NpcId;
+  /** Target language of the conversation. */
+  lang: string;
+  nativeLang: string;
+  playerLevel: Level;
+  /** clamp(playerLevel + NPC tier offset) (GDD §6.4). */
+  effectiveLevel: Level;
+  /** The offset went below A1 and was absorbed: simplify further. */
+  simplified: boolean;
+  hearts: number;
+  coins: number;
+  memory: { summary: string; facts: string[] } | null;
+  /** Up to 5 words the player is learning (notebook). */
+  learningWords: string[];
+  /** What the NPC sells, at the server's current price (including this conversation's haggle). */
+  stock: NpcPriceEntry[];
+  /** The player's items this NPC would buy, at the server's price. */
+  buys: NpcPriceEntry[];
+  inventory: InventoryEntry[];
+  /** The NPC's recipes, with the hearts each needs. */
+  recipes: { recipeId: string; heartsRequired: number; known: boolean }[];
+  /** Active quests involving this NPC. TODO(M30). */
+  quests: string[];
+  /** Extra context ("player ate 3 cakes today"). TODO(M28/M29). */
+  flags: string[];
+  /** Village news (Gossip and Elder only). TODO(M31). */
+  news: string[];
+  world: { timeOfDay: TimeOfDay; weather: Weather; location: PlaceId; minutes: number };
+  /** Turns left in this conversation (server limit). */
+  turnsLeft: number;
+}
+
+/** Payload of `ClientMessage.NpcReply`: the model's proposed actions for one turn. */
+export interface NpcReplyMessage {
+  conversationId: string;
+  turnId: string;
+  actions: NpcActionInput[];
+}
+
+/** A trade the server accepted, waiting for the player's confirmation. */
+export interface PendingTrade extends TradeProposal {
+  tradeId: string;
+}
+
+/** Payload of `ServerMessage.NpcApplied`. */
+export interface NpcAppliedMessage {
+  conversationId: string;
+  turnId: string;
+  accepted: ApprovedAction[];
+  rejected: { type: NpcActionType; reason: ActionRejectReason }[];
+  trades: PendingTrade[];
+  /** The id for the next turn, or null when the conversation ended or hit its limit. */
+  nextTurnId: string | null;
+  ended: boolean;
+  hearts: number;
+  /** Prices after this turn (a haggle changes them). */
+  stock: NpcPriceEntry[];
+  /** Items handed over at once (gifts). */
+  inventory: InventoryEntry[];
+}
+
+/** Payload of `ClientMessage.NpcConfirm`. */
+export interface NpcConfirmMessage {
+  conversationId: string;
+  tradeId: string;
+  accept: boolean;
+}
+
+export type NpcTradeFailure = TradeFailure | "unknown_trade" | "declined" | "unavailable";
+
+/** Payload of `ServerMessage.NpcTrade`. */
+export interface NpcTradeMessage {
+  tradeId: string;
+  ok: boolean;
+  reason?: NpcTradeFailure;
+  coins: number;
+  inventory: InventoryEntry[];
+}
+
+/** Payload of `ClientMessage.NpcEnd`. */
+export interface NpcEndMessage {
+  conversationId: string;
+}
+
+/**
+ * Why an NPC message was refused: `rate` (too fast), `daily_limit` / `turn_limit` (turn caps,
+ * architecture §9), `unknown_turn` (no such turn id, or already used), `no_conversation`,
+ * `unavailable` (the server could not read or write the player's records).
+ */
+export type NpcRefusal = "rate" | "daily_limit" | "turn_limit" | "unknown_turn" | "no_conversation" | "unavailable";
+
+/** Payload of `ServerMessage.NpcRefused`. */
+export interface NpcRefusedMessage {
+  reason: NpcRefusal;
+  npcId?: NpcId;
+  conversationId?: string;
+  turnId?: string;
 }
 
 export const CLIENT_MESSAGE_TYPES: readonly ClientMessage[] = Object.values(ClientMessage);

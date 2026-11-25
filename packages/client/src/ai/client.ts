@@ -1,4 +1,5 @@
 import { aiStatusStore, refreshOnDeviceStatus } from "./availability";
+import type { NpcAi } from "../net/npcConversation";
 import type { ChatModeration } from "./moderation";
 import type { TranslateResult, Translator } from "./translate";
 
@@ -59,4 +60,14 @@ export function startWarmUp() {
 export async function checkOnDeviceAtLogin(): Promise<void> {
   const status = await refreshOnDeviceStatus();
   if (status === "downloadable") void loadAiRuntime().catch(() => undefined);
+}
+
+/** NPC turns and openers from the lazy runtime (build plan M21), for `NpcConversation`. TODO(M23): the conversation panel. */
+export async function loadNpcAi(): Promise<NpcAi> {
+  const r = await loadAiRuntime();
+  return {
+    run: (input) => r.npcTurns.run(input),
+    canned: (kind, context) => r.npcTurns.canned(kind, context),
+    opener: (context, playerName) => r.openers().get(context, playerName),
+  };
 }

@@ -30,6 +30,8 @@ import {
   JoinOptionsSchema,
   type MoveCorrectionMessage,
   type MoveTracker,
+  type NpcId,
+  type NpcRefusedMessage,
   parseClientMessage,
   resetMoveTracker,
   ServerMessage,
@@ -54,6 +56,7 @@ import {
 } from "@hellovalley/shared";
 import { type IdTokenVerifier, InvalidIdTokenError, type VerifiedUser } from "../auth/idToken";
 import { type ChatModerator, moderateChat } from "../moderation/chat";
+import { NpcDialogueService } from "../npc/dialogue";
 import type { ProfileStore } from "../profiles/profileStore";
 import type { SafetyStore } from "../safety/safetyStore";
 import { ApartmentRegistry } from "./apartmentRegistry";
@@ -102,6 +105,12 @@ const noSafety: SafetyStore = {
   saveBlocks: () => Promise.resolve(),
   addReport: () => Promise.reject(new Error("no safety store")),
 };
+
+/** Reads nothing: real rooms get the dialogue service through `townRoomWith`. */
+const noNpcs = new NpcDialogueService({
+  load: () => Promise.resolve(null),
+  apply: () => Promise.reject(new Error("no NPC store")),
+});
 
 /** Knows no profiles, so nobody counts as onboarded. */
 const noProfiles: ProfileStore = {
@@ -177,6 +186,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected apartments: ApartmentRegistry = new ApartmentRegistry();
   protected safety: SafetyStore = noSafety;
   protected moderateChat: ChatModerator = moderateChat;
+  protected npc: NpcDialogueService = noNpcs;
   private readonly sessions = new Map<string, Session>();
   private readonly recentChat: RecentLine[] = [];
   private readonly visits = new Map<string, PendingVisit>();
@@ -217,7 +227,14 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.ChatUnblock, (client, { uid }) => this.onChatUnblock(client, uid));
     this.handle(ClientMessage.ChatReport, (client, report) => this.onChatReport(client, report));
     this.handle(ClientMessage.Interact, (_client, _request) => {
-      // TODO(M19/M21): range check and NPC conversation start (turnId issue, architecture §9).
+      // NPC conversations start with `npc:start` (build plan M21). TODO(M23/M26): world objects.
+    });
+    this.handle(ClientMessage.NpcStart, (client, { npcId }) => void this.onNpcStart(client, npcId));
+    this.handle(ClientMessage.NpcReply, (client, reply) => void this.onNpcReply(client, reply));
+    this.handle(ClientMessage.NpcConfirm, (client, confirm) => void this.onNpcConfirm(client, confirm));
+    this.handle(ClientMessage.NpcEnd, (client, { conversationId }) => {
+      const session = this.sessions.get(client.sessionId);
+      if (session) this.npc.end(session.uid, conversationId);
     });
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
     this.handle(ClientMessage.VisitRequest, (client, { sessionId }) => this.onVisitRequest(client, sessionId));
@@ -319,6 +336,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (session) {
       this.registry.unbindSession(session.uid, client.sessionId);
       this.leaveApartment(session);
+      // A replaced tab leaves after its successor joined: the conversation is the new tab's now.
+      if (!this.replaced.has(client.sessionId)) this.npc.end(session.uid);
     }
     for (const visit of [...this.visits.values()]) {
       if (visit.visitor === client.sessionId || visit.owner === client.sessionId) this.closeVisit(visit, "unavailable");
@@ -684,6 +703,39 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     );
   }
 
+  // -------------------------------------------------------------------------------------------
+  // NPC conversations (build plan M21, architecture §5.3, §6.1). The client calls the model; the
+  // room only hands out context and turn ids and validates what comes back.
+
+  private refuseNpc(sessionId: string, message: NpcRefusedMessage): void {
+    this.clientOf(sessionId)?.send(ServerMessage.NpcRefused, message);
+  }
+
+  /** TODO(M23/M31): check that the player stands next to the NPC (live NPC positions). */
+  private async onNpcStart(client: TownClient, npcId: NpcId): Promise<void> {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return;
+    const result = await this.npc.start({ uid: session.uid, npcId, lang: session.targetLang, nativeLang: client.auth!.profile.nativeLang });
+    if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, npcId });
+    this.clientOf(client.sessionId)?.send(ServerMessage.NpcContext, result.context);
+  }
+
+  private async onNpcReply(client: TownClient, reply: ClientMessagePayloads[typeof ClientMessage.NpcReply]): Promise<void> {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return;
+    const result = await this.npc.reply(session.uid, reply);
+    if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: reply.conversationId, turnId: reply.turnId });
+    this.clientOf(client.sessionId)?.send(ServerMessage.NpcApplied, result.applied);
+  }
+
+  private async onNpcConfirm(client: TownClient, confirm: ClientMessagePayloads[typeof ClientMessage.NpcConfirm]): Promise<void> {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return;
+    const result = await this.npc.confirm(session.uid, confirm);
+    if ("reason" in result && !("tradeId" in result)) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: confirm.conversationId });
+    this.clientOf(client.sessionId)?.send(ServerMessage.NpcTrade, result);
+  }
+
   /** Refreshes the clock and weather in the state (wall time: survives restarts, architecture §3.1). */
   private tickWorld(): void {
     const now = Date.now();
@@ -722,6 +774,8 @@ export interface TownRoomDeps {
   moderateChat?: ChatModerator;
   registry?: TownRegistry;
   apartments?: ApartmentRegistry;
+  /** NPC conversations (build plan M21); shared by every shard so the per-day limits hold. */
+  npc?: NpcDialogueService;
 }
 
 export interface TownRoomOptions {
@@ -733,6 +787,7 @@ export interface TownRoomOptions {
 export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}): typeof TownRoom {
   const registry = deps.registry ?? new TownRegistry();
   const apartments = deps.apartments ?? new ApartmentRegistry();
+  const npc = deps.npc ?? noNpcs;
   return class extends TownRoom {
     override maxClients = options.maxClients ?? TOWN_MAX_CLIENTS;
     protected override verifier = deps.verifier;
@@ -741,5 +796,6 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override apartments = apartments;
     protected override safety = deps.safety;
     protected override moderateChat = deps.moderateChat ?? moderateChat;
+    protected override npc = npc;
   };
 }

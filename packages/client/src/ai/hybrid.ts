@@ -40,7 +40,7 @@ import type { ContentCache } from "./cache";
  *
  * The model is injected (`ModelPort`), so this file has no Firebase dependency and is tested with
  * a mocked model; `firebaseModel.ts` is the real port and `runtime.ts` wires the game's instance.
- * NPC dialogue turns (server prompt templates, cloud only) are not here: TODO(M21) `templates.ts`.
+ * NPC dialogue turns (server prompt templates, cloud only) are in `templates.ts`.
  */
 
 export type InferenceSourceName = "on-device" | "cloud";
