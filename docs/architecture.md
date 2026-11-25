@@ -1,0 +1,3 @@
+1. **Your Colyseus Server** acts as the traffic controller: it enforces rate limits, checks your audio/text cache, and keeps game state authoritative.
+2. **Google's Cloud Gemini API** does the heavy lifting: generating smart, multilingual NPC dialogue (`gemini-3-flash`) and expressive voices (`gemini-3.8-flash-lite-tts`) for fractions of a cent without taxing your server's CPU.
+3. **Firebase Storage / Firestore** saves generated voice clips and translations so repeat lines cost **$0** and load instantly.
