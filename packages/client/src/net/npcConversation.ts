@@ -1,6 +1,16 @@
 import {
   ClientMessage,
+  type CompactionPromptInput,
+  type CompactionResponse,
+  type ConversationTelemetry,
+  getNpc,
+  type ItemId,
   type NpcAppliedMessage,
+  type NpcGiftedMessage,
+  type NpcGiftMessage,
+  type NpcMemoryMessage,
+  type NpcRememberedMessage,
+  type TranscriptTurn,
   type NpcConfirmMessage,
   type NpcContextMessage,
   type NpcEndMessage,
@@ -46,6 +56,11 @@ export interface NpcAi {
   }): Promise<NpcTurnResult>;
   canned(kind: "retry" | "busy", context: Pick<NpcContextMessage, "lang" | "nativeLang">): NpcLine | null;
   opener?(context: NpcContextMessage, playerName: string): Promise<OpenerResult | null>;
+  /**
+   * Conversation compaction (npc-runtime.md §7, build plan M24): the hybrid `compactConversation`
+   * task, on-device first with the AI Logic cloud fallback. Null: keep the previous memory.
+   */
+  compact?(input: CompactionPromptInput): Promise<CompactionResponse | null>;
 }
 
 /** How long to wait for a server answer (ms). */
@@ -162,10 +177,57 @@ export class NpcConversation {
     return trade;
   }
 
-  /** Goodbye or walk-away. TODO(M24): on-device compaction, then the summary goes with npc:end. */
+  /** Player lines the server accepted a turn for. */
+  get playerTurns(): number {
+    return this.history.filter((t) => t.player.trim() !== "").length;
+  }
+
+  /** The conversation as a transcript for the compaction (opener included). */
+  transcript(): TranscriptTurn[] {
+    return this.history.flatMap((t): TranscriptTurn[] => [...(t.player.trim() ? [{ speaker: "player" as const, text: t.player }] : []), { speaker: "npc", text: t.npc }]);
+  }
+
+  /** Gives the NPC one item from the inventory (build plan M24); the server decides how it lands. */
+  async gift(itemId: ItemId): Promise<NpcGiftedMessage> {
+    const id = this.context.conversationId;
+    const answer = waitFor<NpcGiftedMessage>(this.room, ServerMessage.NpcGifted, (m) => m.conversationId === id && m.itemId === itemId, (m) => m.conversationId === id && !m.turnId);
+    const message: NpcGiftMessage = { conversationId: id, itemId };
+    this.room.send(ClientMessage.NpcGift, message);
+    const gifted = await answer;
+    this.context = { ...this.context, hearts: gifted.hearts, inventory: gifted.inventory, giftedToday: this.context.giftedToday || gifted.ok || gifted.reason === "gift_cap" };
+    return gifted;
+  }
+
+  /** Goodbye or walk-away: `npc:end` goes at once; `remember` sends the compaction after it. */
   end(): void {
     const message: NpcEndMessage = { conversationId: this.context.conversationId };
     this.room.send(ClientMessage.NpcEnd, message);
     this.turnId = null;
+  }
+
+  /**
+   * After `end`: compacts the conversation (on-device first, AI Logic cloud fallback; architecture
+   * §5.2) and sends it as `npc:memory`. Null when there is nothing to remember (no player turn),
+   * no compaction (the previous memory stays), or no answer from the server.
+   */
+  async remember(telemetry: ConversationTelemetry, nativeLang = this.context.nativeLang): Promise<NpcRememberedMessage | null> {
+    if (this.playerTurns === 0 || !this.ai.compact) return null;
+    const ctx = this.context;
+    const compacted = await this.ai
+      .compact({
+        npcName: getNpc(ctx.npcId).englishName,
+        playerName: this.player.name,
+        nativeLang,
+        targetLang: ctx.lang,
+        memorySummary: ctx.memory?.summary ?? "",
+        turns: this.transcript(),
+      })
+      .catch(() => null);
+    if (!compacted) return null;
+    const id = ctx.conversationId;
+    const message: NpcMemoryMessage = { conversationId: id, ...compacted, telemetry };
+    const answer = waitFor<NpcRememberedMessage>(this.room, ServerMessage.NpcRemembered, (m) => m.conversationId === id, (m) => m.conversationId === id && !m.turnId);
+    this.room.send(ClientMessage.NpcMemory, message);
+    return answer.catch(() => null);
   }
 }

@@ -28,7 +28,7 @@ describe("NpcDialogueService", () => {
   it("talks to the Baker in Spanish at A1 and buys bread through an offer (acceptance)", async () => {
     const { store, npc } = setup();
     const ctx = await startOk(npc, "lia", "es");
-    expect(ctx).toMatchObject({ npcId: "baker", lang: "es", playerLevel: "A1", effectiveLevel: "A1", simplified: true, coins: 50, hearts: 0 });
+    expect(ctx).toMatchObject({ npcId: "baker", lang: "es", playerLevel: "A1", effectiveLevel: "A1", simplified: true, coins: 50, hearts: 0.25, contact: { greeting: 0.25, decay: 0 }, lastSeen: null });
     expect(ctx.stock).toContainEqual({ itemId: "bread", price: 5 });
 
     // The client's validated reply proposes bread at 1 coin; the server charges its own 5.
@@ -58,8 +58,9 @@ describe("NpcDialogueService", () => {
     const r = await npc.reply("kenji", { conversationId: ctx.conversationId, turnId: ctx.turnId, actions: reply.reply.actions }, T0 + 1000);
     if (!r.ok) throw new Error(r.reason);
     expect(r.applied.accepted.map((a) => a.type)).toEqual(["offer", "friendshipDelta"]);
-    expect(r.applied.hearts).toBe(0.5);
-    expect(store.players.get("kenji/ja")!.hearts.baker).toBe(0.5);
+    // The daily greeting (+¼) at npc:start, then the friendship point (+½).
+    expect(r.applied.hearts).toBe(0.75);
+    expect(store.players.get("kenji/ja")!.hearts.baker).toBe(0.75);
   });
 
   it("rejects forged and out-of-rule actions without changing anything", async () => {
@@ -76,7 +77,7 @@ describe("NpcDialogueService", () => {
     if (!r.ok) throw new Error(r.reason);
     expect(r.applied.accepted).toEqual([]);
     expect(r.applied.rejected.map((x) => x.reason).sort()).toEqual(["conditions_not_met", "hearts_required", "not_in_gift_table", "not_shopkeeper", "not_sold_here"]);
-    expect(store.players.get("lia/es")).toMatchObject({ coins: 50, slots: [], hearts: {} });
+    expect(store.players.get("lia/es")).toMatchObject({ coins: 50, slots: [], hearts: { baker: 0.25 } });
   });
 
   it("does not let the player pay with coins they do not have", async () => {
@@ -151,6 +152,9 @@ describe("NpcDialogueService", () => {
     const store: NpcStore = {
       load: (...args) => (down ? Promise.reject(new Error("offline")) : memory.load(...args)),
       apply: (...args) => memory.apply(...args),
+      contact: (...args) => memory.contact(...args),
+      gift: (...args) => memory.gift(...args),
+      remember: (...args) => memory.remember(...args),
     };
     const npc = new NpcDialogueService(store);
     const ctx = await startOk(npc, "lia", "es");

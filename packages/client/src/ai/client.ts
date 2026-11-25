@@ -72,6 +72,9 @@ export async function loadNpcAi(): Promise<NpcAi> {
     run: (input) => r.npcTurns.run(input),
     canned: (kind, context) => r.npcTurns.canned(kind, context),
     opener: (context, playerName) => r.openers().get(context, playerName),
+    // Build plan M24: PREFER_ON_DEVICE, so the SDK falls back to the cloud model itself when
+    // Gemini Nano is unavailable (the "cloud fallback" of GDD §9.2; the server never calls a model).
+    compact: (input) => r.hybrid().compactConversation(input).then((res) => (res.ok ? res.value : null)),
   };
 }
 

@@ -212,3 +212,26 @@ describe("apartment and visit messages (M17)", () => {
     }
   });
 });
+
+describe("NPC memory and gifts (build plan M24)", () => {
+  const memory = {
+    conversationId: "conv-1",
+    summary: "Lia likes rye bread.",
+    facts: ["Lia likes rye bread"],
+    signals: { comprehension: 1.4, expression: 0.5, usedNativeLanguage: false, struggles: ["numbers"] },
+    telemetry: { suggested: 1, free: 3, npcLines: 5, translationsShown: 2, corrections: 0 },
+  };
+
+  it("parses npc:memory leniently (clamped scores and counts) but rejects the wrong shape", () => {
+    const parsed = parseClientMessage(ClientMessage.NpcMemory, memory);
+    expect(parsed.ok && parsed.value.signals.comprehension).toBe(1);
+    expect(parseClientMessage(ClientMessage.NpcMemory, { ...memory, telemetry: undefined }).ok).toBe(false);
+    expect(parseClientMessage(ClientMessage.NpcMemory, { ...memory, conversationId: "../x" }).ok).toBe(false);
+    expect(parseClientMessage(ClientMessage.NpcMemory, { ...memory, facts: "all of them" }).ok).toBe(false);
+  });
+
+  it("parses npc:gift with a known item id only", () => {
+    expect(parseClientMessage(ClientMessage.NpcGift, { conversationId: "conv-1", itemId: "butter" }).ok).toBe(true);
+    expect(parseClientMessage(ClientMessage.NpcGift, { conversationId: "conv-1", itemId: "gold_bar" }).ok).toBe(false);
+  });
+});

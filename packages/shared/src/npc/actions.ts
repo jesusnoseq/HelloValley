@@ -3,6 +3,7 @@ import { getItem, type ItemId, isItemId, npcBuys, npcSells, SHOPS } from "../dat
 import type { NpcId } from "../data/npcs";
 import { getRecipe } from "../data/recipes";
 import { MAX_HEARTS } from "../firestore/schemas";
+import { clampHearts, QUEST_COMPLETION_HEARTS } from "./friendship";
 
 /**
  * NPC turn actions (GDD §8.1, docs/prompts/npc-runtime.md §1.3) and the game server's check of
@@ -14,7 +15,7 @@ import { MAX_HEARTS } from "../firestore/schemas";
  * | `priceAdjustment` | Shopkeeper only, clamped to −30..+10 %, discounts scaled by friendship, once per item per conversation |
  * | `friendshipDelta` | clamped to −1..+1; at most +1 per conversation and +2 per NPC per in-game day |
  * | `give` | only from the NPC's gift table, at most one gift per NPC per in-game day |
- * | `giveQuest` / `completeQuest` | only quests the server offers / whose conditions hold (TODO(M30)) |
+ * | `giveQuest` / `completeQuest` | only quests the server offers / whose conditions hold (TODO(M30)); a completed one adds QUEST_COMPLETION_HEARTS |
  * | `teachRecipe` | only the NPC's own recipes, at or above their heart threshold |
  * | `endConversation` | always |
  *
@@ -48,13 +49,13 @@ export const MAX_TRADES_PER_TURN = 3;
 export const FRIENDSHIP_UP_PER_CONVERSATION = 1;
 export const FRIENDSHIP_UP_PER_DAY = 2;
 export const FRIENDSHIP_DOWN_PER_CONVERSATION = 1;
-/** Hearts per friendship point (my number; GDD §8.2 gives 0–10 hearts). TODO(M24): tune with gifts and greetings. */
+/** Hearts per friendship point (my number; GDD §8.2 gives 0–10 hearts). The other heart sources are in npc/friendship.ts. */
 export const HEARTS_PER_FRIENDSHIP_POINT = 0.5;
 /** Gifts per NPC per in-game day (architecture §6.1). */
 export const GIFTS_PER_DAY = 1;
 /**
  * The default gift table (my rule until per-NPC tables exist): an NPC may give one of the cheap
- * things it sells (base price ≤ this). TODO(M24/M26): real gift tables, including the residents.
+ * things it sells (base price ≤ this). TODO(M26): real gift tables, including the residents. (Gifts from the player are npc/friendship.ts.)
  */
 export const GIFT_MAX_BASE_PRICE = 5;
 /** What NPCs pay for what they buy, as a fraction of the base price. TODO(M26): tune, haggling on sales. */
@@ -429,6 +430,10 @@ export function validateNpcActions(actions: readonly NpcAction[], ctx: ActionCon
           break;
         }
         effects.questsCompleted.push(action.questId);
+        // GDD §8.2: completed requests raise friendship (not capped by the friendshipDelta limits).
+        const next = clampHearts(hearts + QUEST_COMPLETION_HEARTS);
+        effects.hearts += next - hearts;
+        hearts = next;
         accepted.push({ type: "completeQuest", questId: action.questId });
         break;
       }

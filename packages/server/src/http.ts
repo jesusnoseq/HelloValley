@@ -34,7 +34,7 @@ export function registerHttpRoutes(app: Application, deps: HttpDeps): void {
     appearanceRouter({ profiles: deps.profiles, onSaved: (uid, profile) => deps.registry.applyProfile(uid, profile) }),
   );
   app.use("/api", shardsRouter({ registry: deps.registry }));
-  // TODO(M24/M37): POST /api/langs (add a target language).
+  // TODO(M37): POST /api/langs (add a target language).
 
   // Malformed JSON, oversized bodies and anything else thrown on /api answer with JSON.
   app.use("/api", (err: unknown, _req: Request, res: Response, next: NextFunction) => {

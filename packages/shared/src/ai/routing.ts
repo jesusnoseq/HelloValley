@@ -72,7 +72,9 @@ export const ROUTING_TABLE: Readonly<Record<HybridTask, TaskRoute>> = {
   // Rows 4–5: the sender may use the cloud; the reader checks on-device only (cost: every reader).
   moderateOutgoing: { mode: M.PREFER_ON_DEVICE, fallback: "server-blocklist", cache: "memory", temperature: 0 },
   moderateIncoming: { mode: M.ONLY_ON_DEVICE, fallback: "server-blocklist", cache: "memory", temperature: 0 },
-  // Row 6: background, after a conversation.
+  // Row 6: background, after a conversation. GDD §9.2's "server does it in cloud" fallback is
+  // the SDK's own PREFER_ON_DEVICE → cloud fallback (the game server never calls a model,
+  // architecture §1); the server only validates and caps the result (`npc:memory`, build plan M24).
   compactConversation: { mode: M.PREFER_ON_DEVICE, fallback: "keep-previous", cache: "none", temperature: 0.3 },
   // Row 7: optional polish over a cached opener.
   personaliseOpener: { mode: M.ONLY_ON_DEVICE, fallback: "cached-opener", cache: "none", temperature: 0.5 },

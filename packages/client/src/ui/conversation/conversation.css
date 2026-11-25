@@ -184,3 +184,70 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* NPC profile card (build plan M24). */
+.hv-convo__hearts {
+  border: 1px solid rgba(196, 72, 96, 0.35);
+  border-radius: 999px;
+  background: #fff5f7;
+  color: #a3324c;
+  padding: 2px 10px;
+}
+
+.hv-profile {
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(61, 58, 68, 0.2);
+  background: #fffdf8;
+}
+
+.hv-profile__title {
+  margin: 0;
+  font-size: 15px;
+}
+
+.hv-profile__role {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.hv-profile__hearts,
+.hv-profile__note {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.hv-profile__gifts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.hv-hearts {
+  display: inline-flex;
+  gap: 1px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.hv-heart--full {
+  color: #d6405f;
+}
+
+.hv-heart--empty {
+  color: rgba(61, 58, 68, 0.22);
+}
+
+.hv-heart--part {
+  background: linear-gradient(90deg, #d6405f var(--fill, 50%), rgba(61, 58, 68, 0.22) var(--fill, 50%));
+  background-clip: text;
+  color: transparent;
+}

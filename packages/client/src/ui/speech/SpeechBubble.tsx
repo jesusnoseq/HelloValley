@@ -49,6 +49,8 @@ export interface SpeechBubbleProps {
   loadFont?: (script: ScriptCode) => Promise<void>;
   /** Voice controls for the newest line (`VoiceControls`, build plan M22), shown in the header. */
   audio?: ReactNode;
+  /** A line's translation was opened (hover or 🌐): level telemetry (build plan M24). */
+  onTranslationShown?: (line: TokenizedLine) => void;
 }
 
 interface LangInfo {
@@ -90,6 +92,7 @@ export function SpeechBubble({
   onSaveWord,
   loadFont = ensureScriptFont,
   audio,
+  onTranslationShown,
 }: SpeechBubbleProps) {
   const { t } = useI18n();
   const info = langInfo(lang);
@@ -126,7 +129,7 @@ export function SpeechBubble({
         </div>
       ) : null}
       {lines.slice(first).map((line, i) => (
-        <SpeechLine key={first + i} line={line} info={info} mode={mode} nativeLang={nativeLang} source={source} onSave={save} />
+        <SpeechLine key={first + i} line={line} info={info} mode={mode} nativeLang={nativeLang} source={source} onSave={save} {...(onTranslationShown ? { onTranslationShown } : {})} />
       ))}
     </div>
   );
@@ -139,9 +142,10 @@ interface LineProps {
   nativeLang: string;
   source: string;
   onSave: (draft: SaveWordDraft) => void;
+  onTranslationShown?: (line: TokenizedLine) => void;
 }
 
-function SpeechLine({ line, info, mode, nativeLang, source, onSave }: LineProps) {
+function SpeechLine({ line, info, mode, nativeLang, source, onSave, onTranslationShown }: LineProps) {
   const { t } = useI18n();
   const id = useId();
   const [hoverLine, setHoverLine] = useState(false);
@@ -151,6 +155,9 @@ function SpeechLine({ line, info, mode, nativeLang, source, onSave }: LineProps)
   const native = mode !== "romanized";
   const pieces = native ? linePieces(line, info.script) : romanizedPieces(line, info.script);
   const showTranslation = (hoverLine || globe) && line.translation !== "";
+  useEffect(() => {
+    if (showTranslation) onTranslationShown?.(line);
+  }, [showTranslation, line, onTranslationShown]);
 
   const save = (index: number) => {
     const draft = saveWordDraft(line, index, info.lang, info.script, source);

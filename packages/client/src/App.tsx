@@ -114,7 +114,7 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       <FadeOverlay />
       <MirrorLayer save={saveAppearance} />
       <ApartmentHud />
-      {/* Build plan M18: proximity chat, read in the first target language (TODO(M24/M37): a switcher). */}
+      {/* Build plan M18: proximity chat, read in the first target language (TODO(M37): a switcher). */}
       <ChatHud targetLang={profile.targetLangs[0] ?? profile.nativeLang} nativeLang={profile.nativeLang} />
       <Suspense fallback={null}>
         <ConversationLayer />

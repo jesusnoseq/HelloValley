@@ -4,7 +4,9 @@ import { EMOTE_KEYS } from "../avatar/animation";
 import { FurnitureIdSchema, FurnitureRotationSchema } from "../firestore/schemas";
 import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
+import { ItemIdSchema } from "../data/items";
 import { NpcActionListSchema } from "../npc/actions";
+import { ConversationTelemetrySchema, NpcMemoryPayloadSchema } from "../npc/memory";
 import { INTERIOR_IDS } from "../world/interiors";
 import { CHAT_MAX_LENGTH, CHAT_REPORT_REASONS, ClientMessage } from "./messages";
 
@@ -125,6 +127,16 @@ export const NpcStartSchema = z.strictObject({ npcId: NpcIdSchema });
 export const NpcReplySchema = z.strictObject({ conversationId: NpcTokenSchema, turnId: NpcTokenSchema, actions: NpcActionListSchema });
 export const NpcConfirmSchema = z.strictObject({ conversationId: NpcTokenSchema, tradeId: NpcTokenSchema, accept: z.boolean() });
 export const NpcEndSchema = z.strictObject({ conversationId: NpcTokenSchema });
+/**
+ * `npc:memory` (build plan M24): the compaction answer, through the same lenient zod schema the
+ * client validated it with (it trims and clamps), plus bounded telemetry. The server sanitises again.
+ */
+export const NpcMemoryMessageSchema = NpcMemoryPayloadSchema.extend({
+  conversationId: NpcTokenSchema,
+  telemetry: ConversationTelemetrySchema,
+});
+/** `npc:gift`: any item id; the server checks it is giftable and held. */
+export const NpcGiftSchema = z.strictObject({ conversationId: NpcTokenSchema, itemId: ItemIdSchema });
 
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
@@ -145,6 +157,8 @@ export const ClientMessageSchemas = {
   [ClientMessage.NpcReply]: NpcReplySchema,
   [ClientMessage.NpcConfirm]: NpcConfirmSchema,
   [ClientMessage.NpcEnd]: NpcEndSchema,
+  [ClientMessage.NpcMemory]: NpcMemoryMessageSchema,
+  [ClientMessage.NpcGift]: NpcGiftSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

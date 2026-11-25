@@ -1,4 +1,4 @@
-import { ClientMessage, parseNpcTurnReply, ServerMessage, type NpcAppliedMessage, type NpcReplyMessage, type NpcTradeMessage } from "@hellovalley/shared";
+import { ClientMessage, parseNpcTurnReply, ServerMessage, type NpcAppliedMessage, type NpcRememberedMessage, type NpcReplyMessage, type NpcTradeMessage } from "@hellovalley/shared";
 import { describe, expect, it, vi } from "vitest";
 import { BAKER_ES_A1_REPLY, npcContextFixture } from "../../../shared/src/npc/fixtures";
 import type { NpcTurnResult } from "../ai/templates";
@@ -103,5 +103,45 @@ describe("NpcConversation", () => {
     const refused = NpcConversation.start(f.room, ai([okTurn]), player, "baker");
     f.emit(ServerMessage.NpcRefused, { reason: "daily_limit", npcId: "baker" });
     await expect(refused).rejects.toMatchObject({ reason: "daily_limit" });
+  });
+});
+
+describe("NpcConversation memory (build plan M24)", () => {
+  const compacted = { summary: "Lia wants bread.", facts: ["Lia wants bread"], signals: { comprehension: 0.9, expression: 0.7, usedNativeLanguage: false, struggles: [] } };
+  const telemetry = { suggested: 0, free: 1, npcLines: 1, translationsShown: 0, corrections: 0 };
+  const appliedFor = (turnId: string): NpcAppliedMessage => ({ conversationId: ctx.conversationId, turnId, accepted: [], rejected: [], trades: [], nextTurnId: "turn-2", ended: false, hearts: 0, stock: ctx.stock, inventory: [] });
+
+  it("compacts the transcript after the end and sends it as npc:memory", async () => {
+    const compact = vi.fn(async () => compacted);
+    const { conversation, sent, emit } = await started({ ...ai([okTurn]), compact });
+    // Nothing to remember before a player turn.
+    expect(await conversation.remember(telemetry)).toBeNull();
+    const said = conversation.say("Quiero pan", "typed");
+    await flush();
+    emit(ServerMessage.NpcApplied, appliedFor(ctx.turnId));
+    await said;
+    conversation.end();
+    const remembered = conversation.remember(telemetry);
+    await flush();
+    expect(compact).toHaveBeenCalledWith(expect.objectContaining({ npcName: "Baker", playerName: "Lia", nativeLang: "en", targetLang: "es", memorySummary: "" }));
+    expect((compact.mock.calls[0] as unknown as [{ turns: unknown[] }])[0].turns).toEqual([
+      { speaker: "player", text: "Quiero pan" },
+      { speaker: "npc", text: "¡Sí, cariño! Pan, cinco monedas." },
+    ]);
+    expect(sent.at(-1)).toEqual({ type: ClientMessage.NpcMemory, payload: { conversationId: ctx.conversationId, ...compacted, telemetry } });
+    const answer: NpcRememberedMessage = { conversationId: ctx.conversationId, npcId: "baker", level: "A1+", levelChange: 1 };
+    emit(ServerMessage.NpcRemembered, answer);
+    expect(await remembered).toEqual(answer);
+  });
+
+  it("keeps the previous memory when the compaction gives nothing", async () => {
+    const { conversation, sent, emit } = await started({ ...ai([okTurn]), compact: async () => null });
+    const said = conversation.say("Quiero pan", "typed");
+    await flush();
+    emit(ServerMessage.NpcApplied, appliedFor(ctx.turnId));
+    await said;
+    conversation.end();
+    expect(await conversation.remember(telemetry)).toBeNull();
+    expect(sent.at(-1)?.type).toBe(ClientMessage.NpcEnd);
   });
 });

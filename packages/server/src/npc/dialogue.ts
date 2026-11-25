@@ -3,7 +3,9 @@ import {
   adjustedUnitPrice,
   adjustmentFor,
   type ApprovedAction,
+  conversationPerformance,
   type ConversationLedger,
+  type ConversationTelemetry,
   createTokenBucket,
   type DailyLedger,
   effectiveLevelInfo,
@@ -18,6 +20,10 @@ import {
   npcBuys,
   npcBuyUnitPrice,
   type NpcContextMessage,
+  type NpcGiftedMessage,
+  type NpcGiftMessage,
+  type NpcMemoryMessage,
+  type NpcRememberedMessage,
   type NpcId,
   type NpcPriceEntry,
   type NpcRefusal,
@@ -36,8 +42,9 @@ import {
   WORLD_WEATHER_SEED,
   weatherAt,
   worldClockAt,
+  worldDayAt,
 } from "@hellovalley/shared";
-import type { NpcPlayerRecord, NpcStore } from "./npcStore";
+import type { ContactOutcome, NpcPlayerRecord, NpcStore } from "./npcStore";
 
 /**
  * The game server's half of an NPC conversation (build plan M21 mapped onto architecture §5.3,
@@ -49,7 +56,11 @@ import type { NpcPlayerRecord, NpcStore } from "./npcStore";
  * - checks each `npc:reply` against that turn id, the rate and turn limits, and the shared action
  *   rules (`validateNpcActions`), applies the immediate effects (hearts, gifts) in one store
  *   transaction and keeps trades pending until the player confirms them (`npc:confirm`);
- * - recomputes every price itself.
+ * - recomputes every price itself;
+ * - (build plan M24) applies the contact rules at `npc:start` (decay after a week away, the daily
+ *   greeting), takes gifts (`npc:gift`), and stores the client's compaction after `npc:end`
+ *   (`npc:memory`: summary, facts, lastSeen, and the level estimate), all through the shared
+ *   pure rules in npc/friendship.ts, npc/memory.ts and npc/levelAdaptation.ts.
  *
  * Calling the model without a turn id costs the player's AI Logic quota but has no game effect
  * (architecture §9). Limits and ledgers live in memory: there is one server process (§3.1), so a
@@ -66,6 +77,13 @@ export const NPC_REPLY_RATE: RateLimit = { burst: 3, perSecond: 1 / 3 };
 export const NPC_START_RATE: RateLimit = { burst: 4, perSecond: 1 / 10 };
 /** A conversation with no message for this long is forgotten (pending trades go with it). */
 export const NPC_CONVERSATION_IDLE_MS = 10 * 60_000;
+/**
+ * After `npc:end` the client compacts the conversation (on-device, or the AI Logic cloud fallback)
+ * and sends `npc:memory`; it is accepted for this long (build plan M24).
+ */
+export const NPC_MEMORY_WINDOW_MS = 3 * 60_000;
+/** Ended conversations kept per player waiting for their memory (walking from NPC to NPC). */
+export const NPC_CLOSED_KEPT = 3;
 
 interface Conversation {
   id: string;
@@ -83,6 +101,8 @@ interface Conversation {
 
 interface PlayerState {
   conversation: Conversation | null;
+  /** Ended conversations whose `npc:memory` may still come (newest last). */
+  closed: { conversation: Conversation; endedAt: number }[];
   replyBucket: TokenBucket;
   startBucket: TokenBucket;
   /** UTC day (`YYYY-MM-DD`) and turns used on it. */
@@ -113,15 +133,26 @@ export class NpcDialogueService {
   private player(uid: string, now: number): PlayerState {
     let p = this.players.get(uid);
     if (!p) {
-      p = { conversation: null, replyBucket: createTokenBucket(NPC_REPLY_RATE, now), startBucket: createTokenBucket(NPC_START_RATE, now), day: utcDay(now), turnsToday: 0 };
+      p = { conversation: null, closed: [], replyBucket: createTokenBucket(NPC_REPLY_RATE, now), startBucket: createTokenBucket(NPC_START_RATE, now), day: utcDay(now), turnsToday: 0 };
       this.players.set(uid, p);
     }
     if (p.day !== utcDay(now)) {
       p.day = utcDay(now);
       p.turnsToday = 0;
     }
-    if (p.conversation && now - p.conversation.lastActivity > NPC_CONVERSATION_IDLE_MS) p.conversation = null;
+    if (p.conversation && now - p.conversation.lastActivity > NPC_CONVERSATION_IDLE_MS) this.close(p, now);
+    p.closed = p.closed.filter((c) => now - c.endedAt <= NPC_MEMORY_WINDOW_MS);
     return p;
+  }
+
+  /** The active conversation ends; it waits for its memory (only one that had a turn is worth remembering). */
+  private close(p: PlayerState, now: number): void {
+    const c = p.conversation;
+    p.conversation = null;
+    if (!c) return;
+    c.turnId = null;
+    c.trades.clear();
+    if (c.turnsUsed > 0) p.closed = [...p.closed, { conversation: c, endedAt: now }].slice(-NPC_CLOSED_KEPT);
   }
 
   private dailyKey(uid: string, c: Pick<Conversation, "lang" | "npcId">, now: number): string {
@@ -148,13 +179,18 @@ export class NpcDialogueService {
     if (!takeToken(p.startBucket, NPC_START_RATE, now)) return { ok: false, reason: "rate" };
     if (p.turnsToday >= NPC_TURNS_PER_DAY) return { ok: false, reason: "daily_limit" };
     let record: NpcPlayerRecord | null;
+    let contact: ContactOutcome | null;
     try {
-      record = await this.store.load(req.uid, req.lang, req.npcId);
+      // The contact first (decay since the last visit, the daily greeting, lastSeen), then the records.
+      contact = await this.store.contact(req.uid, req.lang, req.npcId, now, worldDayAt(now));
+      record = contact ? await this.store.load(req.uid, req.lang, req.npcId) : null;
     } catch (err) {
       console.error(`[npc] loading ${req.uid}/${req.lang} for ${req.npcId} failed:`, err);
       return { ok: false, reason: "unavailable" };
     }
-    if (!record) return { ok: false, reason: "unavailable" };
+    if (!record || !contact) return { ok: false, reason: "unavailable" };
+    // A conversation still open (another NPC) ends here and waits for its memory.
+    this.close(p, now);
     const conversation: Conversation = {
       id: randomUUID(),
       npcId: req.npcId,
@@ -181,6 +217,9 @@ export class NpcDialogueService {
       effectiveLevel: eff.level,
       simplified: eff.simplified,
       hearts: record.hearts,
+      contact: { greeting: contact.greeting, decay: contact.decay },
+      giftedToday: contact.giftedToday,
+      lastSeen: contact.previousLastSeen,
       coins: record.coins,
       memory: record.memory,
       learningWords: record.learningWords,
@@ -323,9 +362,73 @@ export class NpcDialogueService {
     }
   }
 
-  /** `npc:end` (or the player left): the conversation and its pending trades are dropped. TODO(M24): compaction summary. */
-  end(uid: string, conversationId?: string): void {
+  /**
+   * `npc:end` (or the player walked away or left): the conversation and its pending trades are
+   * dropped, and it waits NPC_MEMORY_WINDOW_MS for its `npc:memory`.
+   */
+  end(uid: string, conversationId?: string, now = Date.now()): void {
     const p = this.players.get(uid);
-    if (p?.conversation && (conversationId === undefined || p.conversation.id === conversationId)) p.conversation = null;
+    if (p?.conversation && (conversationId === undefined || p.conversation.id === conversationId)) this.close(p, now);
+  }
+
+  /**
+   * `npc:memory` (build plan M24, architecture §5.3, §6.1): the client's compaction of a conversation
+   * that ended. Accepted once per conversation, only for one that had at least one turn, and only
+   * within NPC_MEMORY_WINDOW_MS. The store sanitises and merges the memory; the level estimate uses
+   * the turns the server counted, so a forged message moves the level no faster than ½ step per
+   * in-game day.
+   */
+  async remember(uid: string, msg: MemoryInput, now = Date.now()): Promise<{ ok: true; remembered: NpcRememberedMessage } | Refused> {
+    const p = this.player(uid, now);
+    if (p.conversation?.id === msg.conversationId) this.close(p, now);
+    const at = p.closed.findIndex((e) => e.conversation.id === msg.conversationId);
+    if (at < 0) return { ok: false, reason: "no_conversation" };
+    const [entry] = p.closed.splice(at, 1);
+    const c = entry!.conversation;
+    const performance = conversationPerformance(msg.signals, msg.telemetry, c.turnsUsed);
+    try {
+      const result = await this.store.remember(uid, c.lang, c.npcId, {
+        memory: { summary: msg.summary, facts: msg.facts },
+        performance,
+        playerTurns: c.turnsUsed,
+        nowMs: now,
+        today: worldDayAt(now),
+      });
+      if (!result) return { ok: false, reason: "unavailable" };
+      return { ok: true, remembered: { conversationId: c.id, npcId: c.npcId, level: result.level, levelChange: result.change } };
+    } catch (err) {
+      console.error(`[npc] storing the memory of ${uid}/${c.lang}/${c.npcId} failed:`, err);
+      // The client may send it again while the window is open.
+      p.closed.push(entry!);
+      return { ok: false, reason: "unavailable" };
+    }
+  }
+
+  /** `npc:gift` (build plan M24): the player gives the NPC one item; liked, neutral or disliked (shared `applyGift`). */
+  async gift(uid: string, msg: NpcGiftMessage, now = Date.now()): Promise<{ ok: true; gifted: NpcGiftedMessage } | Refused> {
+    const p = this.player(uid, now);
+    const c = p.conversation;
+    if (!c || c.id !== msg.conversationId) return { ok: false, reason: "no_conversation" };
+    if (!takeToken(p.replyBucket, NPC_REPLY_RATE, now)) return { ok: false, reason: "rate" };
+    c.lastActivity = now;
+    try {
+      const r = await this.store.gift(uid, c.lang, c.npcId, msg.itemId, worldDayAt(now));
+      const gifted: NpcGiftedMessage = {
+        conversationId: c.id,
+        itemId: msg.itemId,
+        ok: r.ok,
+        ...(r.ok ? { reaction: r.reaction } : { reason: r.reason }),
+        delta: r.ok ? r.delta : 0,
+        hearts: r.hearts,
+        inventory: entries(r.slots),
+      };
+      return { ok: true, gifted };
+    } catch (err) {
+      console.error(`[npc] a gift from ${uid} failed:`, err);
+      return { ok: false, reason: "unavailable" };
+    }
   }
 }
+
+/** `npc:memory` as the shared schema parsed it. */
+export type MemoryInput = Omit<NpcMemoryMessage, "telemetry"> & { telemetry: ConversationTelemetry };

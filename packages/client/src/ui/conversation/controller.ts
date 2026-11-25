@@ -1,7 +1,10 @@
 import {
   type ApprovedAction,
   canTalkTo,
+  type ConversationTelemetry,
+  emptyTelemetry,
   getNpc,
+  type ItemId,
   type InputMethod,
   type NpcAppliedMessage,
   type NpcId,
@@ -19,6 +22,7 @@ import { type InputHelpers, loadInputHelpers, loadNpcAi } from "../../ai/client"
 import { type NpcAi, NpcConversation, NpcRefusedError, type NpcRoom } from "../../net/npcConversation";
 import { townSession } from "../../net/townSession";
 import { avatarStore } from "../../state/avatarStore";
+import { type Toast, toastStore } from "../../state/toastStore";
 import {
   type Card,
   conversationStore,
@@ -40,8 +44,11 @@ import {
  *   silently when on-device AI is unavailable or slow;
  * - the model turn, the server's verdict (`npc:applied`) and its cards: trades wait for Buy / No
  *   (`npc:confirm`, the server settles them), gifts, quests and recipes are shown;
- * - goodbye, or walking away (`updatePosition`), sends `npc:end`.
- *   TODO(M24): the on-device compaction summary goes with `npc:end`.
+ * - gifts from the NPC profile card (`npc:gift`, build plan M24);
+ * - goodbye, or walking away (`updatePosition`), sends `npc:end` at once; then, in the
+ *   background, the compaction (on-device first, AI Logic cloud fallback) goes to the server as
+ *   `npc:memory` with the panel's telemetry (suggested vs free replies, translations opened,
+ *   corrections), and a ½-step level change shows a toast (GDD §6.4, build plan M24).
  */
 
 export interface ConversationDeps {
@@ -52,6 +59,8 @@ export interface ConversationDeps {
   player(): NpcPlayerInfo | null;
   /** How long the pre-send check may take before the line goes out unchecked (ms). */
   checkTimeoutMs?: number;
+  /** Shows a toast (defaults to the game's toast store). */
+  toast?: (toast: Omit<Toast, "id">) => void;
 }
 
 /** The pre-send check never holds a line longer than this (my number: it must feel instant). */
@@ -82,6 +91,9 @@ export class ConversationController {
   /** Bumped on every start and end, so late answers of an old conversation are dropped. */
   private generation = 0;
   private nextId = 1;
+  /** This conversation's level telemetry (GDD §6.4), sent with its memory. */
+  private telemetry: ConversationTelemetry = emptyTelemetry();
+  private translations = new Set<string>();
 
   constructor(
     private readonly deps: ConversationDeps,
@@ -109,6 +121,8 @@ export class ConversationController {
     if (this.active && this.state.npcId === npcId) return;
     if (this.active) this.end();
     const generation = ++this.generation;
+    this.telemetry = emptyTelemetry();
+    this.translations = new Set();
     this.set({ ...IDLE_CONVERSATION, phase: "starting", npcId, pendingTalk: null });
     const room = this.deps.room();
     const player = this.deps.player();
@@ -141,6 +155,7 @@ export class ConversationController {
     });
     const opener = await conversation.opener();
     if (generation !== this.generation) return;
+    if (opener) this.telemetry.npcLines++;
     this.set({
       phase: "open",
       log: opener ? [{ id: this.id(), kind: "npc", line: opener, seeded: true }] : [],
@@ -189,6 +204,7 @@ export class ConversationController {
     const verdict = await this.check(text);
     if (generation !== this.generation || this.state.phase !== "open") return "ignored";
     if (verdict.feedback) {
+      this.telemetry.corrections++;
       this.set({ check: { status: "suggest", text, method, better: verdict.feedback.better, ...(verdict.feedback.note ? { note: verdict.feedback.note } : {}) } });
       return "checked";
     }
@@ -249,6 +265,8 @@ export class ConversationController {
     if (!conversation || this.state.phase !== "open") return;
     const generation = this.generation;
     const entry: LogEntry = { id: this.id(), kind: "player", text, method, ...(native ? { native: true } : {}) };
+    if (method === "suggested") this.telemetry.suggested++;
+    else this.telemetry.free++;
     this.set({ phase: "thinking", log: [...this.state.log, entry], streaming: [], notice: native ? { kind: "native" } : null, hintShown: false });
     const result = await conversation.say(text, method, (lines) => {
       if (generation === this.generation) this.set({ streaming: lines });
@@ -270,6 +288,8 @@ export class ConversationController {
 
   private applyTurn(reply: NpcTurnReply, applied: NpcAppliedMessage, playerEntryId: number, canTalk: boolean): void {
     const ctx = this.state.context!;
+    this.telemetry.npcLines += reply.lines.length;
+    if (reply.correction?.better) this.telemetry.corrections++;
     const log = this.state.log.map((e) => (e.id === playerEntryId && e.kind === "player" && reply.correction ? { ...e, correction: reply.correction } : e));
     reply.lines.forEach((line, i) => {
       // The phrase the NPC teaches goes with its last line.
@@ -322,12 +342,50 @@ export class ConversationController {
     }
   }
 
+  /** The player opened the translation of an NPC line (hover or 🌐): counted once per line. */
+  noteTranslation(text: string): void {
+    if (!this.conversation || this.translations.has(text)) return;
+    this.translations.add(text);
+    this.telemetry.translationsShown++;
+  }
+
+  /** The profile card's Give (build plan M24): one item to the NPC; the server rules on it. */
+  async gift(itemId: ItemId): Promise<void> {
+    const conversation = this.conversation;
+    if (!conversation || this.state.gifting) return;
+    const generation = this.generation;
+    this.set({ gifting: itemId });
+    let card: Card;
+    try {
+      const gifted = await conversation.gift(itemId);
+      if (generation !== this.generation) return;
+      card = gifted.ok && gifted.reaction
+        ? { id: this.id(), kind: "given", itemId, reaction: gifted.reaction, delta: gifted.delta }
+        : { id: this.id(), kind: "giftFailed", itemId, reason: gifted.reason ?? "unavailable" };
+    } catch {
+      if (generation !== this.generation) return;
+      card = { id: this.id(), kind: "giftFailed", itemId, reason: "unavailable" };
+    }
+    this.set({ gifting: null, cards: [...this.state.cards, card], context: conversation.context });
+  }
+
   /** Goodbye, Escape, walking away, or the panel's Close: the conversation is over. */
   end(): void {
     this.generation++;
-    this.conversation?.end();
+    const conversation = this.conversation;
+    const telemetry = { ...this.telemetry };
+    conversation?.end();
     this.conversation = null;
     this.set({ ...IDLE_CONVERSATION });
+    if (conversation) void this.remember(conversation, telemetry);
+  }
+
+  /** In the background after the end: the compaction and the level toast. */
+  private async remember(conversation: NpcConversation, telemetry: ConversationTelemetry): Promise<void> {
+    const result = await conversation.remember(telemetry).catch(() => null);
+    if (!result || result.levelChange === 0) return;
+    const toast = this.deps.toast ?? ((t: Omit<Toast, "id">) => void toastStore.push(t));
+    toast({ kind: "level", npcId: result.npcId, direction: result.levelChange });
   }
 }
 

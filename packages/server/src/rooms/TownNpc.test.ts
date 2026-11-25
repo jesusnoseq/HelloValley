@@ -6,6 +6,8 @@ import {
   NPC_POSTS,
   type NpcAppliedMessage,
   type NpcContextMessage,
+  type NpcGiftedMessage,
+  type NpcRememberedMessage,
   type NpcRefusedMessage,
   type NpcTradeMessage,
   PlayerController,
@@ -146,5 +148,40 @@ describe("TownRoom NPC conversations", () => {
       room.send(ClientMessage.PlayerMove, move);
     }
     await until(() => self(room)?.talkingTo === "", "talkingTo cleared on walking away");
+  });
+});
+
+describe("TownRoom NPC memory and gifts (build plan M24)", () => {
+  it("stores the compaction after npc:end and takes a gift", async () => {
+    const store = createMemoryNpcStore({ "kenji/ja": { level: "B2", coins: 20, hearts: {}, slots: [{ slot: 0, itemId: "butter", qty: 1 }] } });
+    const room = await start(store);
+    const contextP = next<NpcContextMessage>(room, ServerMessage.NpcContext);
+    room.send(ClientMessage.NpcStart, { npcId: "baker" });
+    const ctx = await contextP;
+    expect(ctx).toMatchObject({ hearts: 0.25, contact: { greeting: 0.25 }, giftedToday: false, lastSeen: null, memory: null });
+
+    const giftedP = next<NpcGiftedMessage>(room, ServerMessage.NpcGifted);
+    room.send(ClientMessage.NpcGift, { conversationId: ctx.conversationId, itemId: "butter" });
+    expect(await giftedP).toMatchObject({ ok: true, reaction: "liked", delta: 1, hearts: 1.25, inventory: [] });
+
+    const appliedP = next<NpcAppliedMessage>(room, ServerMessage.NpcApplied);
+    room.send(ClientMessage.NpcReply, { conversationId: ctx.conversationId, turnId: ctx.turnId, actions: [] });
+    await appliedP;
+    room.send(ClientMessage.NpcEnd, { conversationId: ctx.conversationId });
+    const rememberedP = next<NpcRememberedMessage>(room, ServerMessage.NpcRemembered);
+    room.send(ClientMessage.NpcMemory, {
+      conversationId: ctx.conversationId,
+      summary: "Kenji loves butter.",
+      facts: ["Kenji gave me butter"],
+      signals: { comprehension: 0.8, expression: 0.7, usedNativeLanguage: false, struggles: [] },
+      telemetry: { suggested: 0, free: 1, npcLines: 2, translationsShown: 0, corrections: 0 },
+    });
+    expect(await rememberedP).toMatchObject({ conversationId: ctx.conversationId, npcId: "baker", level: "B2", levelChange: 0 });
+    expect(store.players.get("kenji/ja")!.memory?.baker).toEqual({ summary: "Kenji loves butter.", facts: ["Kenji gave me butter"] });
+
+    // The next conversation knows it.
+    const againP = next<NpcContextMessage>(room, ServerMessage.NpcContext);
+    room.send(ClientMessage.NpcStart, { npcId: "baker" });
+    expect((await againP).memory?.facts).toEqual(["Kenji gave me butter"]);
   });
 });

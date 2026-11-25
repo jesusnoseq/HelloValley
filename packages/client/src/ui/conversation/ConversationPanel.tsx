@@ -9,6 +9,7 @@ import { SpeechBubble } from "../speech/SpeechBubble";
 import { VoiceControls } from "../speech/VoiceControls";
 import type { VoicePlayer } from "../speech/voicePlayer";
 import type { ConversationController } from "./controller";
+import { formatHearts, formatHeartsDelta, itemName, NpcProfileCard } from "./NpcProfileCard";
 import type { SpeechInput, SpeechSession } from "./speechInput";
 import "./conversation.css";
 
@@ -23,11 +24,7 @@ export interface ConversationPanelProps {
   loadFont?: (script: ScriptCode) => Promise<void>;
 }
 
-/** An item id as a readable name. TODO(M25): the item's world label in the target language. */
-export function itemName(id: string): string {
-  const words = id.replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
+export { itemName };
 
 export function npcNameKey(npcId: NpcId): MessageKey {
   return `npc.name.${npcId}` as MessageKey;
@@ -43,7 +40,8 @@ function findLast<T>(list: readonly T[], test: (item: T) => boolean): T | undefi
  * the screen: the NPC's speech bubble (M19: word glosses, translation, script toggle) with its
  * voice (M22: replay, 0.75×), the full log, cards for what the server accepted (trades wait for
  * Buy / No), suggested replies by level with hover (and focus) translations, the reply box with
- * an optional mic, and the soft grammar chip before sending.
+ * an optional mic, and the soft grammar chip before sending. The ♥ button in the header opens the
+ * NPC profile card (build plan M24: hearts, friendship band, gifts).
  *
  * Keyboard: focus starts in the reply box; Enter sends; ↑ from an empty reply box goes to the
  * suggestions, where ← → ↑ ↓ move and Enter or Space picks; a new trade card takes focus (Enter
@@ -60,6 +58,8 @@ export function ConversationPanel({ controller, tts, voice, speech, loadFont }: 
   const panel = useRef<HTMLElement>(null);
   const [text, setText] = useState("");
   const [method, setMethod] = useState<InputMethod>("typed");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileId = useId();
   /** The suggestion text that was put into the box (starter / hint), to tell "suggested" from "typed". */
   const filledFrom = useRef<string | null>(null);
 
@@ -141,11 +141,29 @@ export function ConversationPanel({ controller, tts, voice, speech, loadFont }: 
         <h2 id={titleId} className="hv-convo__title">
           {t("convo.title", { name })}
         </h2>
+        {context ? (
+          <button
+            type="button"
+            className="hv-convo__hearts"
+            aria-expanded={profileOpen}
+            aria-controls={profileId}
+            aria-label={t("convo.profile.open", { name, hearts: formatHearts(context.hearts, locale) })}
+            onClick={() => setProfileOpen((o) => !o)}
+          >
+            ♥ {formatHearts(context.hearts, locale)}
+          </button>
+        ) : null}
         {state.coins !== null ? <span className="hv-convo__coins">🪙 {t("convo.coins", { coins: String(state.coins) })}</span> : null}
         <button type="button" onClick={() => controller.end()} aria-keyshortcuts="Escape">
           {t(phase === "unavailable" || phase === "ended" ? "convo.close" : "convo.goodbye")} <kbd>Esc</kbd>
         </button>
       </header>
+
+      {context && profileOpen ? (
+        <div id={profileId}>
+          <NpcProfileCard context={context} name={name} controller={controller} gifting={state.gifting} canGive={phase === "open" || phase === "thinking" || phase === "ended"} />
+        </div>
+      ) : null}
 
       {phase === "unavailable" ? (
         <p role="alert" className="hv-convo__note">
@@ -166,6 +184,7 @@ export function ConversationPanel({ controller, tts, voice, speech, loadFont }: 
           nativeLang={context.nativeLang}
           source={`npc:${npcId}`}
           speaker={name}
+          onTranslationShown={(line) => controller.noteTranslation(line.text ?? line.tokens.map((tok) => tok.surface).join(""))}
           {...(loadFont ? { loadFont } : {})}
           audio={
             newest && newest.kind === "npc" ? (
@@ -399,7 +418,7 @@ function Cards({ state, name, controller, onDone }: { state: ConversationState; 
 }
 
 function CardView({ card, name, coins, controller, onDone }: { card: Card; name: string; coins: number | null; controller: ConversationController; onDone: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const accept = useRef<HTMLButtonElement>(null);
   const open = card.kind === "trade" && card.status === "open";
   // A new trade card takes focus, so a keyboard player can answer it at once.
@@ -409,6 +428,21 @@ function CardView({ card, name, coins, controller, onDone }: { card: Card; name:
   if (card.kind === "gift") return <p className="hv-card">🎁 {t("convo.card.gift", { name, item: itemName(card.itemId) })}</p>;
   if (card.kind === "quest") return <p className="hv-card">📜 {t("convo.card.quest", { name, quest: itemName(card.questId) })}</p>;
   if (card.kind === "recipe") return <p className="hv-card">📖 {t("convo.card.recipe", { name, recipe: itemName(card.recipeId) })}</p>;
+  if (card.kind === "given") {
+    return (
+      <p className="hv-card" role="status">
+        🎁 {t(`convo.gift.${card.reaction}` as MessageKey, { name, item: itemName(card.itemId) })}
+        {card.delta !== 0 ? ` ${formatHeartsDelta(card.delta, locale)} ♥` : ""}
+      </p>
+    );
+  }
+  if (card.kind === "giftFailed") {
+    return (
+      <p className="hv-card" role="status">
+        🎁 {t(`convo.gift.failed.${card.reason}` as MessageKey, { name, item: itemName(card.itemId) })}
+      </p>
+    );
+  }
   const { trade } = card;
   const kind = trade.kind;
   const answer = async (yes: boolean) => {

@@ -145,6 +145,8 @@ export const LangProgressSchema = z.strictObject({
   coins: z.number().int().min(0),
   hearts: z.partialRecord(NpcIdSchema, z.number().min(0).max(MAX_HEARTS)),
   settings: LangSettingsSchema,
+  /** In-game day of the last level change (build plan M24: at most ½ step per in-game day). */
+  levelChangedDay: z.number().int().optional(),
 });
 export type LangProgress = z.infer<typeof LangProgressSchema>;
 
@@ -182,6 +184,10 @@ export const NpcMemorySchema = z.strictObject({
     }),
   facts: z.array(z.string().max(NPC_MEMORY_FACT_MAX_LENGTH)).max(NPC_MEMORY_MAX_FACTS),
   lastSeen: TimestampSchema,
+  /** In-game day of the last daily greeting (build plan M24, npc/friendship.ts). */
+  greetedDay: z.number().int().optional(),
+  /** In-game day of the last gift the NPC accepted. */
+  giftedDay: z.number().int().optional(),
 });
 export type NpcMemory = z.infer<typeof NpcMemorySchema>;
 

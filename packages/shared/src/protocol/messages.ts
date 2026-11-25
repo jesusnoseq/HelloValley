@@ -6,6 +6,8 @@ import type { NpcId } from "../data/npcs";
 import type { Level } from "../data/difficulty";
 import type { PlaceId, TimeOfDay, Weather } from "../data/world";
 import type { ActionRejectReason, ApprovedAction, NpcActionInput, NpcActionType, TradeFailure, TradeProposal } from "../npc/actions";
+import type { GiftReaction, GiftRefusal } from "../npc/friendship";
+import type { ConversationTelemetryInput } from "../npc/memory";
 import type { Motion, SpaceId } from "../world/player";
 
 /** Colyseus room names registered by the server (architecture §7.1). */
@@ -53,8 +55,16 @@ export const ClientMessage = {
   NpcReply: "npc:reply",
   /** The player's answer to a trade the server accepted (the M23 confirmation card). */
   NpcConfirm: "npc:confirm",
-  /** The conversation is over (walk-away or goodbye). TODO(M24): carries the compaction summary. */
+  /**
+   * The conversation is over (walk-away or goodbye). Sent at once; the compaction follows as
+   * `npc:memory` (build plan M24), so the chatting indicator and the next conversation never
+   * wait for the model.
+   */
   NpcEnd: "npc:end",
+  /** After `npc:end`: the client's compaction of the conversation (summary, facts, level signals, telemetry). */
+  NpcMemory: "npc:memory",
+  /** During a conversation: give the NPC one item from the inventory (build plan M24). */
+  NpcGift: "npc:gift",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -94,6 +104,10 @@ export const ServerMessage = {
   NpcTrade: "npc:trade",
   /** An NPC message was refused (rate or turn limits, unknown turn, store down). */
   NpcRefused: "npc:refused",
+  /** Answer to `npc:memory`: the memory was stored; the new hearts and level (with a ½-step change, if any). */
+  NpcRemembered: "npc:remembered",
+  /** Answer to `npc:gift`: how the NPC took it, or why not. */
+  NpcGifted: "npc:gifted",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -408,7 +422,14 @@ export interface NpcContextMessage {
   effectiveLevel: Level;
   /** The offset went below A1 and was absorbed: simplify further. */
   simplified: boolean;
+  /** Hearts with this NPC, after this contact's decay and daily greeting (build plan M24). */
   hearts: number;
+  /** What this contact did to the hearts: the daily greeting (≥ 0) and decay after 7 days away (≤ 0). */
+  contact: { greeting: number; decay: number };
+  /** The NPC already accepted a gift from the player this in-game day. */
+  giftedToday: boolean;
+  /** When the player last talked to this NPC before now (ms), or null for a first meeting. */
+  lastSeen: number | null;
   coins: number;
   memory: { summary: string; facts: string[] } | null;
   /** Up to 5 words the player is learning (notebook). */
@@ -481,6 +502,50 @@ export interface NpcTradeMessage {
 /** Payload of `ClientMessage.NpcEnd`. */
 export interface NpcEndMessage {
   conversationId: string;
+}
+
+/**
+ * Payload of `ClientMessage.NpcMemory` (build plan M24, architecture §5.3, §6.1): the compaction
+ * (npc-runtime.md §7) of a conversation that just ended, plus the panel's telemetry. Model output
+ * relayed by the client: the server sanitises and caps it, and counts the turns itself.
+ */
+export interface NpcMemoryMessage {
+  conversationId: string;
+  summary: string;
+  facts: string[];
+  signals: { comprehension: number; expression: number; usedNativeLanguage: boolean; struggles: string[] };
+  telemetry: ConversationTelemetryInput;
+}
+
+/** Payload of `ServerMessage.NpcRemembered`. */
+export interface NpcRememberedMessage {
+  conversationId: string;
+  npcId: NpcId;
+  /** The player's level after this conversation. */
+  level: Level;
+  /** +1 / −1 when the level moved ½ step (the client shows a toast), else 0. */
+  levelChange: -1 | 0 | 1;
+}
+
+/** Payload of `ClientMessage.NpcGift`. */
+export interface NpcGiftMessage {
+  conversationId: string;
+  itemId: ItemId;
+}
+
+export type NpcGiftFailure = GiftRefusal | "not_owned";
+
+/** Payload of `ServerMessage.NpcGifted`. */
+export interface NpcGiftedMessage {
+  conversationId: string;
+  itemId: ItemId;
+  ok: boolean;
+  reason?: NpcGiftFailure;
+  reaction?: GiftReaction;
+  /** Hearts change from this gift (0 when refused). */
+  delta: number;
+  hearts: number;
+  inventory: InventoryEntry[];
 }
 
 /**

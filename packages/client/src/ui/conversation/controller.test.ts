@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { ClientMessage, NPC_POSTS, NPC_WALK_AWAY_M } from "@hellovalley/shared";
+import { ClientMessage, NPC_POSTS, NPC_WALK_AWAY_M, type NpcContextMessage, type NpcMemoryMessage } from "@hellovalley/shared";
 import { npcContextFixture } from "../../../../shared/src/npc/fixtures";
 import type { InputHelpers } from "../../ai/client";
 import { createConversationStore } from "../../state/conversationStore";
+import type { Toast } from "../../state/toastStore";
 import { ConversationController, type ConversationDeps } from "./controller";
 import { fakeNpcAi, fakeNpcServer } from "./fakeNpc";
 
 const flush = () => new Promise((r) => setTimeout(r, 5));
 const player = { name: "Lia", animal: "fox", apartmentId: "3B" };
 
-function make(o: { level?: "A1" | "B1" | "C1"; helpers?: InputHelpers | null; refuse?: boolean; checkTimeoutMs?: number; room?: boolean } = {}) {
-  const ctx = npcContextFixture({ lang: "es", playerLevel: o.level ?? "A1" });
-  const server = fakeNpcServer(ctx, o.refuse ? { refuse: "baker" } : {});
+function make(
+  o: { level?: "A1" | "B1" | "C1"; helpers?: InputHelpers | null; refuse?: boolean; checkTimeoutMs?: number; room?: boolean; levelChange?: -1 | 0 | 1; inventory?: NpcContextMessage["inventory"] } = {},
+) {
+  const ctx = { ...npcContextFixture({ lang: "es", playerLevel: o.level ?? "A1" }), inventory: o.inventory ?? [] };
+  const server = fakeNpcServer(ctx, { ...(o.refuse ? { refuse: "baker" as const } : {}), levelChange: o.levelChange ?? 0 });
+  const toasts: Omit<Toast, "id">[] = [];
   const ai = fakeNpcAi();
   const deps: ConversationDeps = {
     room: () => (o.room === false ? null : server.room),
@@ -19,9 +23,10 @@ function make(o: { level?: "A1" | "B1" | "C1"; helpers?: InputHelpers | null; re
     helpers: async () => o.helpers ?? null,
     player: () => player,
     checkTimeoutMs: o.checkTimeoutMs ?? 50,
+    toast: (t) => void toasts.push(t),
   };
   const store = createConversationStore();
-  return { controller: new ConversationController(deps, store), store, server, ai };
+  return { controller: new ConversationController(deps, store), store, server, ai, toasts };
 }
 
 describe("ConversationController", () => {
@@ -125,6 +130,53 @@ describe("ConversationController", () => {
     controller.end();
     await flush();
     expect(store.getState()).toMatchObject({ phase: "idle", log: [], cards: [] });
-    expect(server.sent.at(-1)?.type).toBe(ClientMessage.NpcEnd);
+    // npc:end at once, then the compaction of the finished turn (build plan M24).
+    expect(server.sent.slice(-2).map((m) => m.type)).toEqual([ClientMessage.NpcEnd, ClientMessage.NpcMemory]);
+  });
+
+  it("sends the compaction with the telemetry after goodbye, and toasts a level change (M24)", async () => {
+    const { controller, server, toasts } = make({ levelChange: 1 });
+    await controller.open("baker");
+    controller.noteTranslation("¡Hola, cariño! ¿Qué quieres hoy?");
+    controller.noteTranslation("¡Hola, cariño! ¿Qué quieres hoy?");
+    await controller.submit("Quiero pan", "suggested");
+    await flush();
+    await controller.submit("¿Tienes pan?", "typed");
+    await flush();
+    controller.end();
+    await flush();
+    const memory = server.sent.find((m) => m.type === ClientMessage.NpcMemory)?.payload as NpcMemoryMessage;
+    expect(memory).toMatchObject({ conversationId: "conv-1", summary: "Lia likes bread.", facts: ["Lia likes bread"] });
+    expect(memory.telemetry).toEqual({ suggested: 1, free: 1, npcLines: 3, translationsShown: 1, corrections: 0 });
+    expect(toasts).toEqual([{ kind: "level", npcId: "baker", direction: 1 }]);
+  });
+
+  it("sends no memory for a conversation without a player turn, and no toast without a level change", async () => {
+    const silent = make({ levelChange: 1 });
+    await silent.controller.open("baker");
+    silent.controller.end();
+    await flush();
+    expect(silent.server.sent.map((m) => m.type)).toEqual([ClientMessage.NpcStart, ClientMessage.NpcEnd]);
+    expect(silent.toasts).toEqual([]);
+
+    const steady = make();
+    await steady.controller.open("baker");
+    await steady.controller.submit("Quiero pan", "suggested");
+    await flush();
+    steady.controller.end();
+    await flush();
+    expect(steady.server.sent.at(-1)?.type).toBe(ClientMessage.NpcMemory);
+    expect(steady.toasts).toEqual([]);
+  });
+
+  it("gives a gift from the profile card and shows how the NPC took it (M24)", async () => {
+    const { controller, store } = make({ inventory: [{ itemId: "butter", qty: 1 }, { itemId: "carp", qty: 1 }] });
+    await controller.open("baker");
+    await controller.gift("butter");
+    expect(store.getState().cards.at(-1)).toMatchObject({ kind: "given", itemId: "butter", reaction: "liked", delta: 1 });
+    expect(store.getState().context).toMatchObject({ hearts: 1, giftedToday: true, inventory: [{ itemId: "carp", qty: 1 }] });
+    expect(store.getState().gifting).toBeNull();
+    await controller.gift("carp");
+    expect(store.getState().cards.at(-1)).toMatchObject({ kind: "giftFailed", itemId: "carp", reason: "gift_cap" });
   });
 });

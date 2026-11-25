@@ -3,10 +3,12 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 // Type-only: importing values from shared here would pull zod into the entry chunk.
 import type {
   Correction,
+  GiftReaction,
   InputMethod,
   ItemId,
   NpcContextMessage,
   NpcId,
+  NpcGiftFailure,
   NpcLine,
   NpcRefusal,
   PendingTrade,
@@ -62,7 +64,10 @@ export type Card =
   | { id: number; kind: "trade"; trade: PendingTrade; status: TradeStatus; reason?: string }
   | { id: number; kind: "gift"; itemId: ItemId }
   | { id: number; kind: "quest"; questId: string }
-  | { id: number; kind: "recipe"; recipeId: string };
+  | { id: number; kind: "recipe"; recipeId: string }
+  /** The player gave the NPC an item (build plan M24): how the NPC took it. */
+  | { id: number; kind: "given"; itemId: ItemId; reaction: GiftReaction; delta: number }
+  | { id: number; kind: "giftFailed"; itemId: ItemId; reason: NpcGiftFailure | "unavailable" };
 
 /** The grammar check before sending (GDD §6.2): soft, never blocking. */
 export type CheckState =
@@ -97,6 +102,8 @@ export interface ConversationState {
   notice: ConversationNotice | null;
   /** The player's coins as the server last said. */
   coins: number | null;
+  /** A gift on its way to the server (build plan M24). */
+  gifting: ItemId | null;
   /** A clicked NPC the player is walking to; the conversation starts on arrival. */
   pendingTalk: NpcId | null;
 }
@@ -114,6 +121,7 @@ export const IDLE_CONVERSATION: Omit<ConversationState, "pendingTalk"> = {
   cards: [],
   notice: null,
   coins: null,
+  gifting: null,
 };
 
 export type ConversationStore = StoreApi<ConversationState>;

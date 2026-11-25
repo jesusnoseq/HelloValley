@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ClientMessage, type NpcId } from "@hellovalley/shared";
+import { ClientMessage, type NpcContextMessage, type NpcId } from "@hellovalley/shared";
 import { npcContextFixture } from "../../../../shared/src/npc/fixtures";
 import type { InputHelpers } from "../../ai/client";
 import type { TtsClip, TtsSpeaker } from "../../ai/tts";
@@ -29,8 +29,8 @@ const clip: TtsClip = { mime: "audio/wav", data: new ArrayBuffer(100), durationM
 const noFont = () => Promise.resolve();
 const noSpeech: SpeechInput = { supported: false, listen: () => null };
 
-function setup(helpers: InputHelpers | null = null, level: "A1" | "B1" | "C1" = "A1", npcId: NpcId = "baker") {
-  const ctx = npcContextFixture({ npcId, lang: "es", playerLevel: level });
+function setup(helpers: InputHelpers | null = null, level: "A1" | "B1" | "C1" = "A1", npcId: NpcId = "baker", over: Partial<NpcContextMessage> = {}) {
+  const ctx = { ...npcContextFixture({ npcId, lang: "es", playerLevel: level }), ...over };
   const server = fakeNpcServer(ctx);
   const ai = fakeNpcAi();
   const store = createConversationStore();
@@ -138,13 +138,14 @@ describe("conversation panel: a full shop conversation", () => {
     // Past the last one, focus returns to the reply box.
     expect(active()).toBe(input);
 
-    // Goodbye in Spanish: the NPC ends the conversation; Escape closes the panel and sends npc:end.
+    // Goodbye in Spanish: the NPC ends the conversation; Escape closes the panel and sends npc:end,
+    // then the conversation's compaction (build plan M24).
     await type("Adiós");
     await press("Enter");
     await screen.findByText("The conversation is over.");
     await press("Escape");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(sentTypes(server)).toEqual([ClientMessage.NpcStart, ClientMessage.NpcReply, ClientMessage.NpcConfirm, ClientMessage.NpcReply, ClientMessage.NpcEnd]);
+    expect(sentTypes(server)).toEqual([ClientMessage.NpcStart, ClientMessage.NpcReply, ClientMessage.NpcConfirm, ClientMessage.NpcReply, ClientMessage.NpcEnd, ClientMessage.NpcMemory]);
   });
 
   it("is playable by mouse only", async () => {
@@ -183,7 +184,7 @@ describe("conversation panel: a full shop conversation", () => {
     // Goodbye closes the panel.
     fireEvent.click(screen.getByRole("button", { name: /Goodbye/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(sentTypes(server).at(-1)).toBe(ClientMessage.NpcEnd);
+    expect(sentTypes(server).slice(-2)).toEqual([ClientMessage.NpcEnd, ClientMessage.NpcMemory]);
   });
 
   it("redirects a native-language line gently and shows how to say it", async () => {
@@ -228,5 +229,30 @@ describe("conversation panel: a full shop conversation", () => {
     fireEvent.click(hint);
     fireEvent.click(within(screen.getByRole("group", { name: "Finish this sentence" })).getByRole("button", { name: "¡Hola!" }));
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("¡Hola!");
+  });
+});
+
+describe("NPC profile card (build plan M24)", () => {
+  it("shows the hearts and takes a gift", async () => {
+    const { server } = setup(null, "A1", "baker", { hearts: 2.25, contact: { greeting: 0.25, decay: 0 }, lastSeen: Date.UTC(2026, 10, 20), inventory: [{ itemId: "butter", qty: 2 }, { itemId: "fishing_rod", qty: 1 }] });
+    standAtBaker();
+    fireEvent.click(await screen.findByRole("button", { name: /Talk to the Baker/ }));
+    const toggle = await screen.findByRole("button", { name: "About the Baker: 2.25 hearts" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const card = screen.getByRole("region", { name: /Baker/ });
+    expect(within(card).getByRole("img", { name: "2.25 of 10 hearts" })).toBeTruthy();
+    expect(card.textContent).toContain("Just met");
+    expect(card.textContent).toContain("+0.25 ♥ for saying hello today");
+    expect(card.textContent).toContain("Last talked:");
+    // Tools are not offered as gifts.
+    const gifts = within(card).getByRole("group", { name: "Give a gift" });
+    expect(within(gifts).queryByRole("button", { name: /Fishing rod/ })).toBeNull();
+    fireEvent.click(within(gifts).getByRole("button", { name: /Butter ×2/ }));
+    await waitFor(() => expect(document.querySelector(".hv-convo__cards")?.textContent).toContain("The Baker loves the Butter! +1 ♥"));
+    expect(server.sent.find((m) => m.type === ClientMessage.NpcGift)?.payload).toEqual({ conversationId: "conv-1", itemId: "butter" });
+    expect(screen.getByRole("button", { name: "About the Baker: 3.25 hearts" })).toBeTruthy();
+    expect(card.textContent).toContain("The Baker already got a gift today.");
   });
 });

@@ -113,6 +113,9 @@ const noSafety: SafetyStore = {
 const noNpcs = new NpcDialogueService({
   load: () => Promise.resolve(null),
   apply: () => Promise.reject(new Error("no NPC store")),
+  contact: () => Promise.resolve(null),
+  gift: () => Promise.reject(new Error("no NPC store")),
+  remember: () => Promise.resolve(null),
 });
 
 /** Knows no profiles, so nobody counts as onboarded. */
@@ -246,6 +249,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       this.npc.end(session.uid, conversationId);
       if (session.conversationId === conversationId) this.stopTalking(client.sessionId, session);
     });
+    this.handle(ClientMessage.NpcMemory, (client, memory) => void this.onNpcMemory(client, memory));
+    this.handle(ClientMessage.NpcGift, (client, gift) => void this.onNpcGift(client, gift));
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
     this.handle(ClientMessage.VisitRequest, (client, { sessionId }) => this.onVisitRequest(client, sessionId));
     this.handle(ClientMessage.VisitAnswer, (client, { requestId, accept }) => this.onVisitAnswer(client, requestId, accept));
@@ -776,6 +781,24 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     const result = await this.npc.confirm(session.uid, confirm);
     if ("reason" in result && !("tradeId" in result)) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: confirm.conversationId });
     this.clientOf(client.sessionId)?.send(ServerMessage.NpcTrade, result);
+  }
+
+  /** `npc:memory` (build plan M24): the compaction of a conversation that ended; the server stores it and adapts the level. */
+  private async onNpcMemory(client: TownClient, memory: ClientMessagePayloads[typeof ClientMessage.NpcMemory]): Promise<void> {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return;
+    const result = await this.npc.remember(session.uid, memory);
+    if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: memory.conversationId });
+    this.clientOf(client.sessionId)?.send(ServerMessage.NpcRemembered, result.remembered);
+  }
+
+  /** `npc:gift` (build plan M24): one item from the inventory to the NPC the player is talking to. */
+  private async onNpcGift(client: TownClient, gift: ClientMessagePayloads[typeof ClientMessage.NpcGift]): Promise<void> {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return;
+    const result = await this.npc.gift(session.uid, gift);
+    if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: gift.conversationId });
+    this.clientOf(client.sessionId)?.send(ServerMessage.NpcGifted, result.gifted);
   }
 
   /** Refreshes the clock and weather in the state (wall time: survives restarts, architecture §3.1). */

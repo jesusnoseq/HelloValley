@@ -28,7 +28,7 @@ export const ApiRoute = {
   Appearance: "/api/profile/appearance",
   /** `GET`: the TownRoom shards and a friend's shard (`?friend=<uid>`, build plan M16, protocol/schemas.ts). */
   Shards: "/api/shards",
-  // TODO(M24/M37): Langs: "/api/langs" (add a target language).
+  // TODO(M37): Langs: "/api/langs" (add a target language).
 } as const;
 
 /** GDD §2.1 step 4: five friendly self-assessments, each mapped to a starting CEFR level. */
@@ -128,7 +128,7 @@ export function buildOnboardingRecords(
   });
   const progress = LangProgressSchema.parse({
     level,
-    // Gameplay adjusts the level silently from here (GDD §6.4, TODO(M24)).
+    // Gameplay adjusts the level from here (GDD §6.4, npc/levelAdaptation.ts).
     levelEstimate: levelToStep(level),
     streak: 0,
     coins: STARTING_COINS,

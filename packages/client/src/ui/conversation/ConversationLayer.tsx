@@ -9,6 +9,7 @@ import { useConversation } from "../../state/conversationStore";
 import { placementStore } from "../../state/placementStore";
 import { useWorld, worldStore } from "../../state/worldStore";
 import type { VoicePlayer } from "../speech/voicePlayer";
+import { Toasts } from "../toast/Toasts";
 import { conversation as gameConversation, type ConversationController } from "./controller";
 import { ConversationPanel, npcNameKey } from "./ConversationPanel";
 import { type SpeechInput, speechInput } from "./speechInput";
@@ -35,7 +36,8 @@ export interface ConversationLayerProps {
 /**
  * NPC conversations on screen (build plan M23, GDD §8.1 step 1): next to an NPC a "Talk to …"
  * button appears (click it, or press F, or click the NPC in the scene), and the conversation
- * panel opens. Escape outside a text box also says goodbye.
+ * panel opens. Escape outside a text box also says goodbye. The level toasts (build plan M24)
+ * show here too: they arrive after a conversation ended.
  */
 export function ConversationLayer({ controller = gameConversation, tts, voice, speech = speechInput(), loadFont }: ConversationLayerProps) {
   const { t } = useI18n();
@@ -70,6 +72,7 @@ export function ConversationLayer({ controller = gameConversation, tts, voice, s
           💬 {t("convo.talkHint", { name: t(npcNameKey(npcId)) })} <kbd>F</kbd>
         </button>
       ) : null}
+      <Toasts />
       <ConversationPanel controller={controller} {...(tts ? { tts } : {})} {...(voice ? { voice } : {})} speech={speech} {...(loadFont ? { loadFont } : {})} />
     </>
   );
