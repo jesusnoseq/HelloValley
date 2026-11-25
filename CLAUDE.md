@@ -40,9 +40,9 @@ Current state: scaffold only. The client renders a placeholder and `shared` expo
 
 ## Commands
 
-`npm run dev`, `npm run typecheck`, `npm test` (Vitest, run from the root), `npm run build`, `npm run deps:check`, `npm run deps:audit`.
+`npm run dev`, `npm run lint` (ESLint flat config in `eslint.config.js`: typescript-eslint recommended for all packages, plus react-hooks for the client), `npm run typecheck`, `npm test` (Vitest, run from the root), `npm run build`, `npm run deps:check`, `npm run deps:audit`.
 
-Before finishing a task, `npm run typecheck`, `npm test` and `npm run build` must pass.
+Before finishing a task, `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` must pass.
 
 ## Dependencies
 
