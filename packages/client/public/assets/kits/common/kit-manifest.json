@@ -1,0 +1,1694 @@
+{
+  "version": 1,
+  "generator": "hellovalley-blender/1",
+  "style": "common",
+  "grid": {
+    "cell": 1,
+    "storey": 3
+  },
+  "atlas": {
+    "file": "atlas.webp",
+    "size": 512,
+    "tiles": {
+      "bark": [
+        0.007812,
+        0.507812,
+        0.242188,
+        0.742188
+      ],
+      "cobble": [
+        0.757812,
+        0.257812,
+        0.992188,
+        0.492188
+      ],
+      "dirt": [
+        0.257812,
+        0.257812,
+        0.492188,
+        0.492188
+      ],
+      "grass": [
+        0.007812,
+        0.257812,
+        0.242188,
+        0.492188
+      ],
+      "leaves": [
+        0.257812,
+        0.507812,
+        0.492188,
+        0.742188
+      ],
+      "pebbles": [
+        0.507812,
+        0.507812,
+        0.742188,
+        0.742188
+      ],
+      "plain": [
+        0.007812,
+        0.007812,
+        0.242188,
+        0.242188
+      ],
+      "plaster": [
+        0.257812,
+        0.007812,
+        0.492188,
+        0.242188
+      ],
+      "sand": [
+        0.507812,
+        0.257812,
+        0.742188,
+        0.492188
+      ],
+      "stone": [
+        0.757812,
+        0.007812,
+        0.992188,
+        0.242188
+      ],
+      "wood": [
+        0.507812,
+        0.007812,
+        0.742188,
+        0.242188
+      ]
+    }
+  },
+  "modules": [
+    {
+      "id": "bank.curve_inner",
+      "file": "bank.curve_inner.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.45,
+          -2
+        ],
+        "max": [
+          2,
+          0.3255,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        1068,
+        1108,
+        948
+      ],
+      "tags": [
+        "water",
+        "river",
+        "bank",
+        "curve_inner"
+      ]
+    },
+    {
+      "id": "bank.curve_outer",
+      "file": "bank.curve_outer.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.45,
+          -2
+        ],
+        "max": [
+          2,
+          0.2922,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        994,
+        1034,
+        874
+      ],
+      "tags": [
+        "water",
+        "river",
+        "bank",
+        "curve_outer"
+      ]
+    },
+    {
+      "id": "bank.inner",
+      "file": "bank.inner.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.45,
+          -1
+        ],
+        "max": [
+          1,
+          0.3718,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        360,
+        352,
+        300
+      ],
+      "tags": [
+        "water",
+        "river",
+        "bank",
+        "inner"
+      ]
+    },
+    {
+      "id": "bank.outer",
+      "file": "bank.outer.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.45,
+          -1
+        ],
+        "max": [
+          1,
+          0.2494,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        278,
+        270,
+        218
+      ],
+      "tags": [
+        "water",
+        "river",
+        "bank",
+        "outer"
+      ]
+    },
+    {
+      "id": "bank.straight",
+      "file": "bank.straight.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.45,
+          -1
+        ],
+        "max": [
+          1,
+          0.3276,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        312,
+        332,
+        252
+      ],
+      "tags": [
+        "water",
+        "river",
+        "bank",
+        "straight"
+      ]
+    },
+    {
+      "id": "bank.water",
+      "file": "bank.water.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.45,
+          -1
+        ],
+        "max": [
+          1,
+          -0.0039,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        376,
+        388,
+        296
+      ],
+      "tags": [
+        "water",
+        "river",
+        "bank",
+        "water"
+      ]
+    },
+    {
+      "id": "barrel",
+      "file": "barrel.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.1447,
+          0,
+          -0.813
+        ],
+        "max": [
+          0.8537,
+          0.9254,
+          -0.187
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.8,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        204,
+        348,
+        256
+      ],
+      "tags": [
+        "prop",
+        "container",
+        "market"
+      ]
+    },
+    {
+      "id": "basket",
+      "file": "basket.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.7
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.2377,
+          0,
+          -0.7745
+        ],
+        "max": [
+          0.7624,
+          0.4768,
+          -0.2258
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        260,
+        260,
+        260
+      ],
+      "tags": [
+        "prop",
+        "container",
+        "market"
+      ]
+    },
+    {
+      "id": "bridge.stone",
+      "file": "bridge.stone.glb",
+      "footprint": {
+        "w": 2,
+        "d": 4,
+        "h": 1.2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          -0.4558,
+          -4
+        ],
+        "max": [
+          2,
+          1.1536,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "front",
+          "kind": "edge",
+          "pos": [
+            1,
+            0.1,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "back",
+          "kind": "edge",
+          "pos": [
+            1,
+            0.1,
+            -4
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "crown",
+          "kind": "prop",
+          "pos": [
+            1,
+            0.65,
+            -2
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        1020,
+        1548,
+        1100
+      ],
+      "tags": [
+        "water",
+        "bridge",
+        "walkable"
+      ]
+    },
+    {
+      "id": "bush",
+      "file": "bush.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0871,
+          0.0068,
+          -0.9032
+        ],
+        "max": [
+          0.8933,
+          0.6318,
+          -0.0935
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        320,
+        580,
+        460
+      ],
+      "tags": [
+        "vegetation",
+        "bush",
+        "canopy"
+      ]
+    },
+    {
+      "id": "crate",
+      "file": "crate.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.1901,
+          0,
+          -0.813
+        ],
+        "max": [
+          0.8109,
+          0.9555,
+          -0.1891
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.55,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        308,
+        616,
+        488
+      ],
+      "tags": [
+        "prop",
+        "container",
+        "market"
+      ]
+    },
+    {
+      "id": "dock.fishing",
+      "file": "dock.fishing.glb",
+      "footprint": {
+        "w": 2,
+        "d": 3,
+        "h": 1.3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.017,
+          -0.456,
+          -3
+        ],
+        "max": [
+          1.9833,
+          1.2057,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "land",
+          "kind": "edge",
+          "pos": [
+            1,
+            0.1,
+            -3
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "fish",
+          "kind": "prop",
+          "pos": [
+            1,
+            0.2,
+            -0.25
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "seat",
+          "kind": "prop",
+          "pos": [
+            0.35,
+            0.2,
+            -0.3
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        824,
+        804,
+        848
+      ],
+      "tags": [
+        "water",
+        "dock",
+        "walkable",
+        "fishing"
+      ]
+    },
+    {
+      "id": "flowers",
+      "file": "flowers.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.6
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.4308,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        544,
+        768,
+        764
+      ],
+      "tags": [
+        "vegetation",
+        "flowers",
+        "canopy"
+      ]
+    },
+    {
+      "id": "fountain",
+      "file": "fountain.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0507,
+          0,
+          -1.9503
+        ],
+        "max": [
+          1.9513,
+          1.764,
+          -0.0475
+        ]
+      },
+      "sockets": [
+        {
+          "name": "center",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "rim_front",
+          "kind": "prop",
+          "pos": [
+            1,
+            0.45,
+            -0.12
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        928,
+        536,
+        864
+      ],
+      "tags": [
+        "prop",
+        "water",
+        "square"
+      ]
+    },
+    {
+      "id": "market_stall",
+      "file": "market_stall.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 2.6
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0446,
+          0,
+          -1.9559
+        ],
+        "max": [
+          1.9552,
+          2.4354,
+          -0.044
+        ]
+      },
+      "sockets": [
+        {
+          "name": "vendor",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1.3
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "counter",
+          "kind": "prop",
+          "pos": [
+            1,
+            0.9,
+            -0.25
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        1152,
+        1152,
+        1152
+      ],
+      "tags": [
+        "prop",
+        "market",
+        "interactive"
+      ]
+    },
+    {
+      "id": "notice_board",
+      "file": "notice_board.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 2.4
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0941,
+          0,
+          -0.8014
+        ],
+        "max": [
+          1.9038,
+          2.348,
+          -0.1957
+        ]
+      },
+      "sockets": [
+        {
+          "name": "board",
+          "kind": "attach",
+          "pos": [
+            1,
+            1.3,
+            -0.43
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "stand",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        436,
+        392,
+        280
+      ],
+      "tags": [
+        "prop",
+        "square",
+        "interactive"
+      ]
+    },
+    {
+      "id": "rock",
+      "file": "rock.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.8
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0511,
+          0,
+          -0.8975
+        ],
+        "max": [
+          0.9262,
+          0.4988,
+          -0.1398
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        100,
+        60,
+        100
+      ],
+      "tags": [
+        "prop",
+        "rock",
+        "nature"
+      ]
+    },
+    {
+      "id": "terrain.cobble",
+      "file": "terrain.cobble.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.1189,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.095,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        192,
+        236,
+        280
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "cobble"
+      ]
+    },
+    {
+      "id": "terrain.cobble.edge",
+      "file": "terrain.cobble.edge.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.219,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        262,
+        274,
+        326
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "cobble",
+        "edge",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.cobble.inner",
+      "file": "terrain.cobble.inner.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.2036,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        284,
+        280,
+        308
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "cobble",
+        "inner",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.cobble.outer",
+      "file": "terrain.cobble.outer.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.2166,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        284,
+        280,
+        328
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "cobble",
+        "outer",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.grass",
+      "file": "terrain.grass.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.2194,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.1,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        104,
+        148,
+        192
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.path",
+      "file": "terrain.path.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.1078,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.085,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        100,
+        140,
+        180
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "path"
+      ]
+    },
+    {
+      "id": "terrain.path.edge",
+      "file": "terrain.path.edge.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.2195,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        170,
+        182,
+        254
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "path",
+        "edge",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.path.inner",
+      "file": "terrain.path.inner.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.211,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        172,
+        188,
+        296
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "path",
+        "inner",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.path.outer",
+      "file": "terrain.path.outer.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.2149,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        192,
+        228,
+        256
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "path",
+        "outer",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.sand",
+      "file": "terrain.sand.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.1014,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.08,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        100,
+        140,
+        180
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "sand"
+      ]
+    },
+    {
+      "id": "terrain.sand.edge",
+      "file": "terrain.sand.edge.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.2146,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        150,
+        202,
+        214
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "sand",
+        "edge",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.sand.inner",
+      "file": "terrain.sand.inner.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.2061,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        172,
+        208,
+        256
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "sand",
+        "inner",
+        "grass"
+      ]
+    },
+    {
+      "id": "terrain.sand.outer",
+      "file": "terrain.sand.outer.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.25
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.212,
+          0
+        ]
+      },
+      "sockets": [],
+      "tris": [
+        172,
+        188,
+        256
+      ],
+      "tags": [
+        "tile",
+        "terrain",
+        "sand",
+        "outer",
+        "grass"
+      ]
+    },
+    {
+      "id": "tree.conifer",
+      "file": "tree.conifer.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 4.2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.2169,
+          0,
+          -1.8162
+        ],
+        "max": [
+          1.8249,
+          3.7265,
+          -0.2294
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        392,
+        300,
+        484
+      ],
+      "tags": [
+        "vegetation",
+        "tree",
+        "canopy"
+      ]
+    },
+    {
+      "id": "tree.cypress",
+      "file": "tree.cypress.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3.8
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.1425,
+          0,
+          -0.8911
+        ],
+        "max": [
+          0.8955,
+          3.5051,
+          -0.1145
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        260,
+        260,
+        260
+      ],
+      "tags": [
+        "vegetation",
+        "tree",
+        "canopy"
+      ]
+    },
+    {
+      "id": "tree.deciduous",
+      "file": "tree.deciduous.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 4
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0191,
+          -0.0089,
+          -2.065
+        ],
+        "max": [
+          2.0517,
+          3.4725,
+          -0.1257
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        604,
+        604,
+        684
+      ],
+      "tags": [
+        "vegetation",
+        "tree",
+        "canopy"
+      ]
+    },
+    {
+      "id": "tree.olive",
+      "file": "tree.olive.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0904,
+          -0.0644,
+          -1.8687
+        ],
+        "max": [
+          1.9298,
+          1.9207,
+          -0.1268
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        592,
+        512,
+        672
+      ],
+      "tags": [
+        "vegetation",
+        "tree",
+        "canopy"
+      ]
+    },
+    {
+      "id": "tree.palm",
+      "file": "tree.palm.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 4.4
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.0964,
+          -0.0061,
+          -2.0298
+        ],
+        "max": [
+          1.9666,
+          3.9806,
+          0.1296
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        512,
+        416,
+        548
+      ],
+      "tags": [
+        "vegetation",
+        "tree",
+        "canopy"
+      ]
+    },
+    {
+      "id": "tree.sakura",
+      "file": "tree.sakura.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 3.6
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.1814,
+          -0.0116,
+          -1.8574
+        ],
+        "max": [
+          1.8335,
+          2.237,
+          -0.1624
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        612,
+        516,
+        708
+      ],
+      "tags": [
+        "vegetation",
+        "tree",
+        "canopy"
+      ]
+    }
+  ]
+}

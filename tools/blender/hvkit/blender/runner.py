@@ -37,11 +37,18 @@ class BuildContext:
         self._materials: Dict[str, "bpy.types.Material"] = {}
 
     def material(self, key: str = "atlas") -> "bpy.types.Material":
-        """``atlas`` (vertex colour x atlas), ``glass`` (window panes) or ``glow`` (lamps)."""
+        """``atlas`` (vertex colour x atlas), ``canopy`` (the atlas material in its own slot,
+        for wind-swayed foliage), ``glass`` (window panes), ``glow`` (lamps) or ``water``
+        (river and fountain surfaces the client shades itself)."""
         if key not in self._materials:
             name = f"hv_{self.style.id}_{key}"
             if key == "atlas":
                 mat = materials.atlas_material(name, self.atlas_image)
+            elif key == "canopy":
+                mat = materials.atlas_material(name, self.atlas_image)
+                mat["hv_canopy"] = True
+            elif key == "water":
+                mat = materials.vertex_material(name, roughness=0.15, marker="hv_water")
             elif key == "glass":
                 mat = materials.vertex_material(name, roughness=0.25, marker="hv_glass")
             elif key == "glow":
@@ -53,6 +60,13 @@ class BuildContext:
 
     def paint(self, group: str, index: int = 0, tile: str = "plaster", material: str = "atlas") -> Paint:
         return Paint(color=self.style.linear(group, index), tile=tile, material=material)
+
+    def material_key(self, mat: "bpy.types.Material") -> str:
+        """The key a material was created with (``atlas``, ``canopy``...)."""
+        for key, value in self._materials.items():
+            if value == mat:
+                return key
+        return mat.name if mat is not None else ""
 
     def builder(self, module: Module, variant: int, rng: VariantRng, part: str = "mesh") -> MeshBuilder:
         return MeshBuilder(self, f"{module.id}.v{variant}.{part}", rng, bounds=module.nominal_bounds())
@@ -95,6 +109,8 @@ def _build_module(ctx: BuildContext, module: Module, plan: BuildPlan) -> tuple:
             tris = export.count_tris(meshes)
             results.append(mf.VariantResult(lo, hi, tris))
             problems += module.bounds_errors(lo, hi)
+            parts = [(str(o.get("hv_part", "")), [ctx.material_key(m) for m in o.data.materials]) for o in meshes]
+            problems += [f"v{i}: {e}" for e in module.part_errors(parts)]
             roots.append(root)
         problems += mf.budget_errors(module, [r.tris for r in results])
         everything = [o for r in roots for o in scene.hierarchy(r)]

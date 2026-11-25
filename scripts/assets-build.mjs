@@ -48,14 +48,34 @@ export function findBlender() {
   return null;
 }
 
-/** Splits wrapper flags from build.py flags and fills in the default style and output. */
+const STYLE_ALIASES = { europe: "european", eu: "european", med: "mediterranean", arab: "arabic", japan: "japanese", jp: "japanese", shared: "common", neutral: "common" };
+
+function flagValue(args, flag) {
+  const i = args.findIndex((a) => a === flag || a.startsWith(`${flag}=`));
+  if (i === -1) return { index: -1, value: null };
+  return { index: i, value: args[i].includes("=") ? args[i].split("=")[1] : (args[i + 1] ?? null) };
+}
+
+/** The kit id a style argument names (`europe` -> `european`). */
+export function kitId(style) {
+  const key = (style ?? "european").trim().toLowerCase();
+  return STYLE_ALIASES[key] ?? key;
+}
+
+/** Splits wrapper flags from build.py flags and fills in the default style and output.
+ * `--contact-sheet auto` writes docs/art/<kit>-kit-contact-sheet.png. */
 export function buildArgs(argv) {
   const passthrough = argv.filter((a) => a !== "--no-optimize");
   const optimize = !argv.includes("--no-optimize") && !argv.includes("--dry-run");
-  const sheetIndex = argv.findIndex((a) => a === "--contact-sheet" || a.startsWith("--contact-sheet="));
-  const sheetValue =
-    sheetIndex === -1 ? null : argv[sheetIndex].includes("=") ? argv[sheetIndex].split("=")[1] : argv[sheetIndex + 1];
-  const contactSheet = sheetValue ? resolve(ROOT, sheetValue) : null;
+  const style = kitId(flagValue(passthrough, "--style").value ?? "european");
+  const sheet = flagValue(passthrough, "--contact-sheet");
+  if (sheet.value === "auto") {
+    const path = `docs/art/${style}-kit-contact-sheet.png`;
+    if (passthrough[sheet.index].includes("=")) passthrough[sheet.index] = `--contact-sheet=${path}`;
+    else passthrough[sheet.index + 1] = path;
+    sheet.value = path;
+  }
+  const contactSheet = sheet.value ? resolve(ROOT, sheet.value) : null;
   const has = (flag) => passthrough.some((a) => a === flag || a.startsWith(`${flag}=`));
   if (!has("--style")) passthrough.push("--style", "european");
   let outRoot = DEFAULT_KITS_DIR;

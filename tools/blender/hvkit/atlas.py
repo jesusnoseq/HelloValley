@@ -24,7 +24,7 @@ from typing import Dict, List, Sequence, Tuple
 
 from .variants import VariantRng
 
-PATTERNS = ("plain", "plaster", "planks", "bricks", "tiles", "cobble")
+PATTERNS = ("plain", "plaster", "planks", "bricks", "tiles", "cobble", "speckle", "streaks")
 
 
 @dataclass(frozen=True)
@@ -173,6 +173,15 @@ def tile_value(tile: AtlasTile, octaves: Sequence[_PeriodicNoise], x: float, y: 
         return 1.0
     if tile.pattern == "plaster":
         return base + tile.strength * 0.5 + detail
+    if tile.pattern == "speckle":
+        # Grass, dirt, sand and leaves: soft blotches plus small darker flecks.
+        fine = octaves[-1].sample(x, y)
+        fleck = max(0.0, fine - 0.72) / 0.28
+        return base + tile.strength * 0.55 + detail * 0.8 - fleck * tile.strength * 1.1
+    if tile.pattern == "streaks":
+        # Bark: vertical grain (varies with x only, so it stays seamless) plus a little noise.
+        grain = sum(o.sample(x, 0.37) for o in octaves) / len(octaves) - 0.5
+        return base + tile.strength * 0.5 + grain * tile.strength * 1.6 + detail * 0.3
     rows = 4
     if tile.pattern == "planks":
         band = math.floor(y * rows)

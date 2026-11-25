@@ -35,7 +35,7 @@ class StylesTest(unittest.TestCase):
         for style in ("mediterranean", "arabic", "japanese"):
             with self.assertRaises(NotImplementedError):
                 get_style(style)
-        self.assertEqual(available_styles(), ("european",))
+        self.assertEqual(available_styles(), ("common", "european"))
 
     def test_european_palette_and_atlas(self):
         style = get_style("europe")

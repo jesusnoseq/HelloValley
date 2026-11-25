@@ -2,7 +2,9 @@ import { Box3, Mesh, type Object3D } from "three";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { type GLTF, GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import {
+  isKitPartExtras,
   isKitVariantExtras,
+  KIT_CANOPY_PART,
   KIT_MANIFEST_FILE,
   type KitManifest,
   type KitModule,
@@ -36,6 +38,33 @@ export function kitVariants(root: Object3D): Map<number, Object3D> {
     }
   });
   return variants;
+}
+
+/** The meshes of a variant grouped by their `hv_part` extras (`canopy`, `trunk`, `water`...);
+ * meshes without one are listed under "". A multi-material node becomes a group of meshes in
+ * three.js, so the part is read from the nearest tagged ancestor. */
+export function kitParts(variant: Object3D): Map<string, Mesh[]> {
+  const parts = new Map<string, Mesh[]>();
+  variant.traverse((node) => {
+    if (!(node instanceof Mesh)) return;
+    let part = "";
+    for (let n: Object3D | null = node; n && n !== variant; n = n.parent) {
+      if (isKitPartExtras(n.userData)) {
+        part = n.userData.hv_part;
+        break;
+      }
+    }
+    const list = parts.get(part) ?? [];
+    list.push(node);
+    parts.set(part, list);
+  });
+  return parts;
+}
+
+/** The canopy meshes of a tree or plant variant: the client sways these in a vertex shader
+ * around their node origin (the top of the trunk). TODO(M12): the sway material. */
+export function canopyMeshes(variant: Object3D): Mesh[] {
+  return kitParts(variant).get(KIT_CANOPY_PART) ?? [];
 }
 
 /** Triangles in an object's meshes (indexed or not). */

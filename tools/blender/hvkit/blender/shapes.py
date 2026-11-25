@@ -100,18 +100,29 @@ class MeshBuilder:
         noise: Optional[float] = None,
         seams: Sequence[str] = (),
         smooth: bool = False,
+        colors: Optional[Sequence[RGBA]] = None,
+        recalc_normals: bool = False,
     ) -> "MeshBuilder":
         """Geometry from :mod:`hvkit.solids` (prisms, beams, panels with openings). Only sharp
-        edges are bevelled, so coplanar faces of a grid panel stay flat."""
+        edges are bevelled, so coplanar faces of a grid panel stay flat. ``colors`` gives one
+        linear colour per vertex instead of ``paint.color`` (height-tinted terrain); it needs
+        ``bevel=0``. ``recalc_normals`` makes the normals point outwards whatever the winding."""
         verts, faces = solid
+        if colors is not None and len(colors) != len(verts):
+            raise ValueError(f"{self.name}: need one colour per vertex")
         bm, col, uv = _new_bmesh()
         bverts = [bm.verts.new(v) for v in verts]
         for face in faces:
             bm.faces.new([bverts[i] for i in face])
+        if recalc_normals:
+            bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
         bm.normal_update()
         extent = min(max(v[i] for v in verts) - min(v[i] for v in verts) for i in range(3))
-        self._bevel(bm, extent, bevel, segments, seams)
-        return self._finish(bm, col, uv, paint, noise, smooth=smooth)
+        if colors is None:
+            self._bevel(bm, extent, bevel, segments, seams)
+        elif bevel:
+            raise ValueError(f"{self.name}: per-vertex colours cannot be bevelled")
+        return self._finish(bm, col, uv, paint, noise, smooth=smooth, colors=colors)
 
     def rounded_box(self, lo: Sequence[float], hi: Sequence[float], paint: Paint, radius: float, segments: int = 3) -> "MeshBuilder":
         """A box whose edges are rounded with ``radius`` (soft toy-like blocks)."""
@@ -127,6 +138,7 @@ class MeshBuilder:
         radius_top: Optional[float] = None,
         bevel: Optional[float] = None,
         noise: Optional[float] = None,
+        segments: Optional[int] = None,
     ) -> "MeshBuilder":
         """A low-poly cylinder (or cone/frustum with ``radius_top``) standing on ``base``."""
         bm, col, uv = _new_bmesh()
@@ -141,7 +153,7 @@ class MeshBuilder:
             depth=height,
             matrix=Matrix.Translation(Vector(center)),
         )
-        self._bevel(bm, min(radius * 2, height), bevel, None, ())
+        self._bevel(bm, min(radius * 2, height), bevel, segments, ())
         return self._finish(bm, col, uv, paint, noise, smooth=False)
 
     def blob(
@@ -152,8 +164,13 @@ class MeshBuilder:
         scale: Sequence[float] = (1.0, 1.0, 1.0),
         subdivisions: int = 1,
         wobble: float = 0.08,
+        smooth: bool = True,
+        flatten_below: Optional[float] = None,
     ) -> "MeshBuilder":
-        """A soft rounded lump (icosphere with radial wobble): canopies, bushes, rocks."""
+        """A soft rounded lump (icosphere with radial wobble): canopies, bushes, rocks.
+        ``subdivisions`` 1 is an icosahedron (20 faces), 2 has 80. ``smooth=False`` keeps the
+        facets (rocks). ``flatten_below`` clamps vertices below that height onto it (a lump
+        resting flat on the ground)."""
         bm, col, uv = _new_bmesh()
         bmesh.ops.create_icosphere(bm, subdivisions=max(1, subdivisions), radius=1.0, matrix=_scale_matrix(center, [radius * s for s in scale]))
         if wobble > 0:
@@ -161,7 +178,11 @@ class MeshBuilder:
             for v in bm.verts:
                 d = v.co - c
                 v.co = c + d * (1.0 + self.rng.jitter(wobble))
-        return self._finish(bm, col, uv, paint, noise=0.0, smooth=True)
+        if flatten_below is not None:
+            for v in bm.verts:
+                if v.co.z < flatten_below:
+                    v.co.z = flatten_below
+        return self._finish(bm, col, uv, paint, noise=0.0, smooth=smooth)
 
     # --- internals -----------------------------------------------------------------------
 
@@ -200,7 +221,9 @@ class MeshBuilder:
             self._materials.append(mat)
         return self._materials.index(mat)
 
-    def _finish(self, bm, col, uv, paint: Paint, noise: Optional[float], smooth: bool) -> "MeshBuilder":
+    def _finish(
+        self, bm, col, uv, paint: Paint, noise: Optional[float], smooth: bool, colors: Optional[Sequence[RGBA]] = None
+    ) -> "MeshBuilder":
         rng = self.rng.fork(f"part{len(self._parts)}")
         amount = self.ctx.style.vertex_noise_m if noise is None else noise
         lo, hi = self.bounds if self.bounds else (None, None)
@@ -211,7 +234,9 @@ class MeshBuilder:
         bm.normal_update()
         bm.verts.index_update()
         jitter = self.ctx.style.colour_jitter if paint.jitter is None else paint.jitter
-        vert_colour = {v.index: painted_colour(paint.color, jitter, rng) for v in bm.verts}
+        vert_colour = {
+            v.index: painted_colour(paint.color if colors is None else colors[v.index], jitter, rng) for v in bm.verts
+        }
         rect = self.ctx.atlas.uv_rect(paint.tile)
         mat_index = self._material_index(paint.material)
         for face in bm.faces:
@@ -227,18 +252,27 @@ class MeshBuilder:
         self._parts.append(mesh)
         return self
 
-    def to_object(self, collection: "bpy.types.Collection", parent: Optional["bpy.types.Object"] = None) -> "bpy.types.Object":
-        """Join all shapes into one mesh object (one draw call per material slot)."""
+    def to_object(
+        self,
+        collection: "bpy.types.Collection",
+        parent: Optional["bpy.types.Object"] = None,
+        part: Optional[str] = None,
+        origin: Optional[Sequence[float]] = None,
+    ) -> "bpy.types.Object":
+        """Join all shapes into one mesh object (one draw call per material slot). ``part``
+        is written as the ``hv_part`` extras (``canopy``, ``trunk``, ``water``...) so the
+        client can find the mesh. ``origin`` moves the object origin there without moving
+        the geometry (a canopy pivots at the top of its trunk)."""
         if not self._parts:
             raise ValueError(f"{self.name}: no shapes were added")
         bm = bmesh.new()
-        for part in self._parts:
-            bm.from_mesh(part)  # repeated calls append; layers match by name
+        for piece in self._parts:
+            bm.from_mesh(piece)  # repeated calls append; layers match by name
         mesh = bpy.data.meshes.new(self.name)
         bm.to_mesh(mesh)
         bm.free()
-        for part in self._parts:
-            bpy.data.meshes.remove(part)
+        for piece in self._parts:
+            bpy.data.meshes.remove(piece)
         self._parts.clear()
         for mat in self._materials:
             mesh.materials.append(mat)
@@ -249,7 +283,13 @@ class MeshBuilder:
                 attrs.render_color_index = list(attrs).index(attrs[COLOR_ATTRIBUTE])
             except (AttributeError, ValueError):  # pragma: no cover - older API
                 pass
+        if origin is not None:
+            mesh.transform(Matrix.Translation(-Vector(origin)))
         obj = bpy.data.objects.new(self.name, mesh)
+        if origin is not None:
+            obj.location = Vector(origin)
+        if part:
+            obj["hv_part"] = part
         collection.objects.link(obj)
         if parent is not None:
             obj.parent = parent

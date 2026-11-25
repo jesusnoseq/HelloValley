@@ -4,6 +4,11 @@ overhang, bevel and noise amounts, seeded variation).
 Style ids match ``STYLE_IDS`` in ``packages/shared/src/data/styles.ts`` (a unit test checks
 this). The kit folder is named after the id: ``kits/european/``. The build plan's
 ``--style europe`` is accepted as an alias.
+
+``common`` is not a town style but the kit of style-neutral modules (terrain, river banks,
+bridge, dock, fountain, vegetation and generic props, M06), built into ``kits/common/`` with
+its own neutral palette and atlas. The client loads it next to whichever style kit the player
+uses (``COMMON_KIT_ID`` in ``packages/shared/src/assets/kit.ts``).
 """
 
 from __future__ import annotations
@@ -16,6 +21,9 @@ from .color import RGBA, hex_to_linear_rgba
 from .variants import DEFAULT_SEED
 
 STYLE_IDS: Tuple[str, ...] = ("european", "mediterranean", "arabic", "japanese")
+COMMON_KIT_ID = "common"
+"""The style-neutral kit (M06). Not a player-selectable style."""
+KIT_IDS: Tuple[str, ...] = STYLE_IDS + (COMMON_KIT_ID,)
 
 STYLE_ALIASES: Mapping[str, str] = {
     "europe": "european",
@@ -25,6 +33,8 @@ STYLE_ALIASES: Mapping[str, str] = {
     "arab": "arabic",
     "japan": "japanese",
     "jp": "japanese",
+    "shared": COMMON_KIT_ID,
+    "neutral": COMMON_KIT_ID,
 }
 
 # Tiles every style atlas has, in this order, so shared (style-neutral) modules can always
@@ -108,7 +118,55 @@ EUROPEAN = StyleParams(
     colour_jitter=0.06,
 )
 
-_STYLES: Dict[str, StyleParams] = {"european": EUROPEAN}
+COMMON = StyleParams(
+    id=COMMON_KIT_ID,
+    english_name="Style-neutral modules",
+    palette={
+        # Terrain (art.md §2: soft, sunny pastels that sit under every style).
+        "grass": ("#9dc27a", "#8db86c", "#aacd84"),
+        "path": ("#d8c196", "#cdb185", "#e0cda6"),
+        "sand": ("#efdcab", "#e6cf98"),
+        "cobble": ("#bdb6a8", "#a8a194", "#cbc4b5"),
+        "earth": ("#b08f6a", "#987a5b"),
+        "bed": ("#8b9a8c", "#77887c"),
+        "water": ("#86c0cf", "#73b1c4"),
+        # Vegetation.
+        "foliage": ("#8fbf6e", "#76a95d", "#a7cf7e", "#6a9c5c"),
+        "conifer": ("#56876a", "#4b7a5e", "#659674"),
+        "blossom": ("#f6c3d0", "#f9d6df", "#eeaabd"),
+        "olive": ("#a8b590", "#93a37f", "#b9c4a2"),
+        "palm": ("#82b462", "#97c46f", "#6fa257"),
+        "bark": ("#7d5d47", "#6b503e", "#917059"),
+        "flowers": ("#f28c8c", "#f6d36b", "#b9a2e8", "#f7f3ea", "#f2a65e", "#8fb9e8"),
+        # Built things: stone, timber, metal, cloth, paper.
+        "stone": ("#d3ccbd", "#bdb5a6", "#a9a194"),
+        "wood": ("#c69c6d", "#b0875c", "#d8b385"),
+        "darkwood": ("#7b5b45", "#5f4636"),
+        "iron": ("#4a4e52", "#5b5852"),
+        "fabric": ("#f7f3ea", "#e98b7d", "#8fbad8", "#f2cf7a", "#a9cf8f"),
+        "paper": ("#f8f2e2", "#efe3c6", "#e6eef3"),
+        "produce": ("#e0584f", "#f0a73c", "#8cc063", "#e9c46a", "#b5694a"),
+        "light": ("#ffdf9e",),
+    },
+    tiles=(
+        AtlasTile("grass", "speckle", 0.12),
+        AtlasTile("dirt", "speckle", 0.10),
+        AtlasTile("sand", "speckle", 0.07),
+        AtlasTile("cobble", "cobble", 0.14),
+        AtlasTile("bark", "streaks", 0.14),
+        AtlasTile("leaves", "speckle", 0.16),
+        AtlasTile("pebbles", "cobble", 0.08),
+    ),
+    wall_thickness_m=0.2,
+    roof_pitch_deg=35.0,
+    eave_overhang_m=0.1,
+    bevel_width_m=0.03,
+    bevel_segments=2,
+    vertex_noise_m=0.006,
+    colour_jitter=0.07,
+)
+
+_STYLES: Dict[str, StyleParams] = {"european": EUROPEAN, COMMON_KIT_ID: COMMON}
 
 _PENDING = {"mediterranean": "M32", "arabic": "M33", "japanese": "M34"}
 
@@ -116,8 +174,8 @@ _PENDING = {"mediterranean": "M32", "arabic": "M33", "japanese": "M34"}
 def resolve_style_id(name: str) -> str:
     key = name.strip().lower()
     key = STYLE_ALIASES.get(key, key)
-    if key not in STYLE_IDS:
-        raise ValueError(f"unknown style {name!r}; expected one of {', '.join(STYLE_IDS)} (or 'europe')")
+    if key not in KIT_IDS:
+        raise ValueError(f"unknown style {name!r}; expected one of {', '.join(KIT_IDS)} (or 'europe')")
     return key
 
 

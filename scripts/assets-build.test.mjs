@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_KITS_DIR } from "../tools/optimize-assets.mjs";
-import { buildArgs } from "./assets-build.mjs";
+import { buildArgs, kitId } from "./assets-build.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -29,5 +29,15 @@ describe("assets:build arguments", () => {
     expect(contactSheet).toBe(resolve(ROOT, "docs/a.png"));
     expect(passthrough).toContain("--contact-sheet");
     expect(buildArgs(["--contact-sheet=docs/b.png"]).contactSheet).toBe(resolve(ROOT, "docs/b.png"));
+  });
+
+  it("names the contact sheet after the kit with --contact-sheet auto", () => {
+    expect(buildArgs(["--contact-sheet", "auto"]).contactSheet).toBe(resolve(ROOT, "docs/art/european-kit-contact-sheet.png"));
+    const common = buildArgs(["--no-optimize", "--contact-sheet", "auto", "--style", "common"]);
+    expect(common.contactSheet).toBe(resolve(ROOT, "docs/art/common-kit-contact-sheet.png"));
+    expect(common.passthrough).toContain("docs/art/common-kit-contact-sheet.png");
+    expect(buildArgs(["--style=europe", "--contact-sheet=auto"]).passthrough).toContain("--contact-sheet=docs/art/european-kit-contact-sheet.png");
+    expect(kitId("Europe")).toBe("european");
+    expect(kitId("shared")).toBe("common");
   });
 });

@@ -27,6 +27,10 @@ if TYPE_CHECKING:  # pragma: no cover
 MODULE_ID_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$")
 SOCKET_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 SOCKET_KINDS = ("stack", "attach", "edge", "prop")
+CANOPY_PART = "canopy"
+"""``hv_part`` extras value of a canopy mesh (``KIT_CANOPY_PART`` in packages/shared)."""
+CANOPY_MATERIAL = "canopy"
+"""BuildContext material key of the canopy slot (extras ``hv_atlas`` + ``hv_canopy``)."""
 """stack: another storey/roof sits here; attach: wall-mounted parts (signs, flowerboxes);
 edge: neighbour modules snap side by side; prop: free props (lamps, benches)."""
 
@@ -55,7 +59,8 @@ class Module:
     sockets: Tuple[Socket, ...] = ()
     variants: int = DEFAULT_VARIANTS
     styles: Optional[Tuple[str, ...]] = None
-    """Style ids this module is generated for; ``None`` = style-neutral (every style)."""
+    """Kit ids this module is generated for (a style id, or ``common`` for the style-neutral
+    kit); ``None`` = every kit (test modules)."""
     tags: Tuple[str, ...] = ()
     test: bool = False
     """Test modules are built only when asked for (``--modules`` or ``--include-tests``)."""
@@ -63,6 +68,14 @@ class Module:
     """(min, max) triangles per variant, checked after export (GDD §7.2 budgets)."""
     max_overhang_m: float = 0.0
     """How far geometry may stick out past the footprint box (eaves, awnings)."""
+    sink_m: float = 0.0
+    """How far geometry may go below the pivot (river beds, bridge footings, dock posts). The
+    pivot stays at ground level; the footprint box starts at ``z = -sink_m``."""
+    canopy: bool = False
+    """The module has a wind-swayed canopy: meshes whose ``hv_part`` is ``canopy`` use only the
+    ``canopy`` material and no other mesh uses it (checked after every build)."""
+    trunk: bool = False
+    """With ``canopy``: the module also needs at least one non-canopy mesh (a tree trunk)."""
 
     # --- metadata ------------------------------------------------------------------------
 
@@ -77,8 +90,9 @@ class Module:
         return VariantRng.for_variant(style_id, self.id, variant, base_seed)
 
     def nominal_bounds(self) -> Tuple[Vec3, Vec3]:
-        """Blender-space footprint box (pivot at the origin)."""
-        return grid.footprint_bounds_blender(self.footprint)
+        """Blender-space footprint box (pivot at the origin), extended down by ``sink_m``."""
+        lo, hi = grid.footprint_bounds_blender(self.footprint)
+        return (lo[0], lo[1], lo[2] - self.sink_m), hi
 
     def definition_errors(self) -> List[str]:
         """Static checks on the declaration (no Blender needed)."""
@@ -92,6 +106,12 @@ class Module:
             lo, hi = self.tri_budget
             if lo < 0 or hi < lo:
                 errors.append(f"{label}: invalid tri budget {self.tri_budget}")
+        if self.sink_m < 0:
+            errors.append(f"{label}: sink_m must be >= 0")
+        if self.trunk and not self.canopy:
+            errors.append(f"{label}: trunk needs canopy")
+        if self.canopy and "canopy" not in self.tags:
+            errors.append(f"{label}: canopy modules need the 'canopy' tag")
         names = [s.name for s in self.sockets]
         if len(set(names)) != len(names):
             errors.append(f"{label}: socket names must be unique")
@@ -119,6 +139,27 @@ class Module:
                 errors.append(f"{self.id}: geometry starts at {name}={lo[axis]:.4f}, before the pivot")
             if hi[axis] > nhi[axis] + slack:
                 errors.append(f"{self.id}: geometry ends at {name}={hi[axis]:.4f}, past the footprint")
+        return errors
+
+    def part_errors(self, parts: Sequence[Tuple[str, Sequence[str]]]) -> List[str]:
+        """Check one built variant's meshes, given as ``(hv_part, material keys)`` pairs:
+        canopy modules keep the canopy in its own mesh and material slot (M06) so the client
+        can sway it in a vertex shader; no other module uses the canopy material."""
+        errors: List[str] = []
+        canopy = [mats for part, mats in parts if part == CANOPY_PART]
+        others = [mats for part, mats in parts if part != CANOPY_PART]
+        if self.canopy and not canopy:
+            errors.append(f"{self.id}: no '{CANOPY_PART}' mesh")
+        if not self.canopy and canopy:
+            errors.append(f"{self.id}: has a '{CANOPY_PART}' mesh but is not a canopy module")
+        for mats in canopy:
+            if list(mats) != [CANOPY_MATERIAL]:
+                errors.append(f"{self.id}: canopy mesh must use only the {CANOPY_MATERIAL!r} material, has {list(mats)}")
+        for mats in others:
+            if CANOPY_MATERIAL in mats:
+                errors.append(f"{self.id}: the {CANOPY_MATERIAL!r} material is used outside the canopy mesh")
+        if self.trunk and not others:
+            errors.append(f"{self.id}: no trunk mesh next to the canopy")
         return errors
 
     # --- generation ----------------------------------------------------------------------

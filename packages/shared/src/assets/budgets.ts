@@ -2,12 +2,14 @@ import type { KitManifest, KitModule } from "./kit";
 
 /**
  * Triangle budgets per kit module (GDD §7.2): a wall module is 150–600 triangles (corners
- * count as walls), hero props stay at or under 2k, and ground tiles, which repeat hundreds of
- * times, get a tighter cap. Mirrored by `budget_for` in tools/blender/hvmodules/europe/common.py.
+ * count as walls), hero props stay at or under 2k, and ground tiles (`tile.*`, `terrain.*`),
+ * which repeat hundreds of times, get a tighter cap, as do instanced plants (trees, bushes,
+ * flowers). Mirrored by tools/blender/hvkit/budgets.py.
  */
 export const KIT_TRI_BUDGETS = {
   wall: { min: 150, max: 600 },
   tile: { min: 12, max: 400 },
+  plant: { min: 12, max: 1000 },
   prop: { min: 12, max: 2000 },
 } as const;
 
@@ -42,11 +44,66 @@ export const KIT_BUILDING_MODULE_IDS = [
   "tile.cobble",
 ] as const;
 
+/**
+ * Style-neutral modules of the common kit (build plan M06). Terrain edges and river banks
+ * follow the marching-squares convention in tools/blender/hvmodules/common/base.py.
+ */
+export const KIT_COMMON_MODULE_IDS = [
+  "terrain.grass",
+  "terrain.path",
+  "terrain.cobble",
+  "terrain.sand",
+  "terrain.path.edge",
+  "terrain.path.outer",
+  "terrain.path.inner",
+  "terrain.cobble.edge",
+  "terrain.cobble.outer",
+  "terrain.cobble.inner",
+  "terrain.sand.edge",
+  "terrain.sand.outer",
+  "terrain.sand.inner",
+  "bank.straight",
+  "bank.outer",
+  "bank.inner",
+  "bank.curve_outer",
+  "bank.curve_inner",
+  "bank.water",
+  "bridge.stone",
+  "dock.fishing",
+  "fountain",
+  "tree.deciduous",
+  "tree.conifer",
+  "tree.cypress",
+  "tree.palm",
+  "tree.sakura",
+  "tree.olive",
+  "bush",
+  "flowers",
+  "rock",
+  "crate",
+  "barrel",
+  "basket",
+  "notice_board",
+  "market_stall",
+] as const;
+
+/** Tree modules: each variant has a trunk mesh plus a separate canopy mesh and material. */
+export function isTreeModuleId(moduleId: string): boolean {
+  return moduleId.startsWith("tree.");
+}
+
+const FAMILY_CLASS: Record<string, KitBudgetClass> = {
+  wall: "wall",
+  corner: "wall",
+  tile: "tile",
+  terrain: "tile",
+  tree: "plant",
+  bush: "plant",
+  flowers: "plant",
+};
+
 export function kitBudgetClass(moduleId: string): KitBudgetClass {
-  const family = moduleId.split(".", 1)[0];
-  if (family === "wall" || family === "corner") return "wall";
-  if (family === "tile") return "tile";
-  return "prop";
+  return FAMILY_CLASS[moduleId.split(".", 1)[0] ?? ""] ?? "prop";
 }
 
 export function kitTriBudget(moduleId: string): { min: number; max: number } {
@@ -61,12 +118,17 @@ export function kitBudgetViolations(module: Pick<KitModule, "id" | "tris">): str
   );
 }
 
-/** Problems that keep a manifest from being a complete style kit: missing building modules,
- * too few variants, and budget violations. Empty means the kit is complete. */
-export function kitCompletenessProblems(manifest: Pick<KitManifest, "modules">, minVariants = 3): string[] {
+/** Problems that keep a manifest from being a complete kit: missing modules (the building
+ * modules of a style kit by default, or `KIT_COMMON_MODULE_IDS` for the common kit), too few
+ * variants, and budget violations. Empty means the kit is complete. */
+export function kitCompletenessProblems(
+  manifest: Pick<KitManifest, "modules">,
+  minVariants = 3,
+  requiredIds: readonly string[] = KIT_BUILDING_MODULE_IDS,
+): string[] {
   const byId = new Map(manifest.modules.map((m) => [m.id, m]));
   const problems: string[] = [];
-  for (const id of KIT_BUILDING_MODULE_IDS) {
+  for (const id of requiredIds) {
     const module = byId.get(id);
     if (!module) problems.push(`${id}: missing`);
     else if (module.variants < minVariants) problems.push(`${id}: ${module.variants} variants, expected ${minVariants}`);

@@ -65,7 +65,8 @@ def layout(
             for v in range(m.variants):
                 px = x + v * sw + m.max_overhang_m + GAP_M / 2
                 py = y + LABEL_DEPTH_M + m.max_overhang_m + GAP_M / 2
-                slots.append(Slot(m.id, v, (px, py, 0.0)))
+                # Sunk modules (river pieces) are lifted so their bed sits on the sheet.
+                slots.append(Slot(m.id, v, (px, py, m.sink_m)))
             groups.append(Group(m.id, (x, y), group_w, sd + LABEL_DEPTH_M))
             x += group_w + GAP_M
             row_depth = max(row_depth, sd + LABEL_DEPTH_M)

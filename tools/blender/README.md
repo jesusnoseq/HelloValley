@@ -33,16 +33,20 @@ npm run assets:build -- --modules "wall.*,roof.gable"
 blender --background --factory-startup --python-exit-code 1 \
   --python tools/blender/build.py -- --style europe --out packages/client/public/assets/kits
 
+# The style-neutral kit (terrain, river, vegetation, props) into kits/common/:
+npm run assets:build -- --style common
+
 # Render the contact sheet (every module and variant, labelled) instead of exporting:
-npm run assets:contact-sheet
-#   = npm run assets:build -- --no-optimize --contact-sheet docs/art/european-kit-contact-sheet.png
+npm run assets:contact-sheet                       # docs/art/european-kit-contact-sheet.png
+npm run assets:contact-sheet -- --style common     # docs/art/common-kit-contact-sheet.png
+#   = npm run assets:build -- --no-optimize --contact-sheet auto [--style ...]
 
 # Print the plan without Blender:
 python tools/blender/build.py -- --style europe --include-tests --dry-run
 ```
 
-`build.py` options: `--style` (`european`, or the alias `europe`), `--out` (kits root; the kit
-goes to `<out>/<style>/`), `--modules`, `--include-tests`, `--seed`, `--strict` (fail on
+`build.py` options: `--style` (`european`, or the alias `europe`; `common` for the
+style-neutral kit), `--out` (kits root; the kit goes to `<out>/<style>/`), `--modules`, `--include-tests`, `--seed`, `--strict` (fail on
 budget or bounds problems), `--no-atlas`, `--dry-run`, `--contact-sheet PNG` (render the
 selected modules to a PNG with EEVEE instead of exporting; `hvkit/blender/contact.py`). The npm wrapper adds `--no-optimize`.
 
@@ -112,11 +116,49 @@ Placement conventions (details in `hvmodules/europe/common.py`):
   `glow` (lamp lanterns, emissive, extras `hv_glow`).
 
 Budgets live in `packages/shared/src/assets/budgets.ts` (`kitTriBudget`,
-`kitCompletenessProblems`) and `hvmodules/europe/common.py`. The client test
+`kitCompletenessProblems`) and `hvkit/budgets.py`. The client test
 `packages/client/src/assets/europeKit.test.ts` validates the committed manifest, the budgets
 and every GLB; `tools/blender/tests/test_europe.py` checks the module definitions and that
 the committed manifest is up to date. The contact sheet is
 `docs/art/european-kit-contact-sheet.png`.
+
+## Common kit (M06)
+
+Style-neutral modules live in their own kit, `kits/common/` (kit id `common`, `COMMON_KIT_ID`
+in `packages/shared/src/assets/kit.ts`), with a neutral palette and atlas (grass, dirt, sand,
+cobble, bark, leaves...). The client loads it next to the player's style kit; modules declare
+`styles = ("common",)`. `hvmodules/common/` generates 36 modules, 3 variants each (about
+1.9 MB optimized, committed):
+
+| Group | Modules | Footprint | Budget (tris/variant) |
+|---|---|---|---|
+| Terrain | `terrain.grass`, `.path`, `.cobble`, `.sand`; `terrain.{path,cobble,sand}.{edge,outer,inner}` | 1 x 1 | <= 400 |
+| River | `bank.straight`, `bank.outer`, `bank.inner`, `bank.water` (1 x 1), `bank.curve_outer`, `bank.curve_inner` (2 x 2) | | <= 2000 |
+| Water props | `bridge.stone` (2 x 4), `dock.fishing` (2 x 3), `fountain` (2 x 2) | | <= 2000 |
+| Vegetation | `tree.deciduous`, `.conifer`, `.cypress` (1 x 1), `.palm`, `.sakura`, `.olive`; `bush`, `flowers` | 2 x 2 | <= 1000 |
+| Props | `rock`, `crate`, `barrel`, `basket` (1 x 1), `notice_board` (2 x 1), `market_stall` (2 x 2) | | <= 2000 |
+
+Conventions (details in `hvmodules/common/base.py`):
+
+- **Ground**: terrain tiles are slabs on the pivot plane; grass tops out at 0.1 m, path and
+  sand slightly lower. Edge pieces are marching squares: every transition crosses a cell side
+  at its midpoint. `edge` has the feature (path, cobble, sand, or water for banks) on the
+  front half, `outer` only in a quarter disc at the front-left corner, `inner` everywhere but
+  a quarter disc of grass/land at the back-right corner. Rotate in 90-degree steps.
+- **River**: pieces dig below the pivot (`Module.sink_m`, 0.5 m): bed at -0.45 m, water
+  surface at -0.15 m. Banks are height fields with one shared resolution so neighbours share
+  seam vertices (a test checks every seam profile). Water surfaces are separate meshes
+  (`hv_part: water`, material extras `hv_water`) for the river shader (TODO(M12)).
+- **Canopies**: trees build a `trunk` mesh and a `canopy` mesh (node extras `hv_part`), the
+  canopy with the `canopy` material (extras `hv_atlas` + `hv_canopy`) and its node origin at
+  the top of the trunk, the sway pivot. `Module.canopy`/`trunk` make the runner check this on
+  every build (`Module.part_errors`, a `--strict` failure); `packages/client/src/assets/commonKit.test.ts`
+  checks the committed GLBs. Bushes and flowers are canopy-only.
+- `MeshBuilder` gained `tube` and `leaf` solids (branches, palm fronds), per-vertex colours
+  for height fields, `blob(smooth=False, flatten_below=...)` and `to_object(part=, origin=)`.
+
+The contact sheet is `docs/art/common-kit-contact-sheet.png`; `tools/blender/tests/test_common.py`
+checks the definitions and that the committed manifest is up to date.
 
 ## Layout
 
@@ -131,6 +173,7 @@ hvkit/                framework
 hvmodules/            module definitions; importing the package registers them
   test_cube.py        test.cube (pipeline check)
   europe/             M05 kit: common.py, walls.py, roofs.py, attachments.py, props.py
+  common/             M06 style-neutral kit: base.py, ground.py, water.py, vegetation.py, props.py
 tests/                unittest suite for the pure-Python parts
 ```
 

@@ -331,3 +331,126 @@ def _weld(verts: Sequence[Vec3], faces: Sequence[Sequence[int]], eps: float = 1e
         if len(g) >= 3:
             new_faces.append(g)
     return out, new_faces
+
+
+# --- organic shapes (M06: vegetation, props, terrain) ---------------------------------------
+
+
+def _sub(a: Sequence[float], b: Sequence[float]) -> Vec3:
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+
+def _cross(a: Sequence[float], b: Sequence[float]) -> Vec3:
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def _norm(a: Sequence[float]) -> Vec3:
+    n = math.sqrt(sum(c * c for c in a))
+    if n == 0:
+        raise ValueError("zero-length vector")
+    return (a[0] / n, a[1] / n, a[2] / n)
+
+
+def frame(direction: Sequence[float]) -> Tuple[Vec3, Vec3, Vec3]:
+    """An orthonormal (u, v, w) frame with w along ``direction``: u stays horizontal when it
+    can, so tubes and leaves keep a stable roll."""
+    w = _norm(direction)
+    up = (0.0, 0.0, 1.0) if abs(w[2]) < 0.95 else (1.0, 0.0, 0.0)
+    u = _norm(_cross(up, w))
+    v = _cross(w, u)
+    return u, v, w
+
+
+def tube(
+    points: Sequence[Sequence[float]], radii: Sequence[float], sides: int = 6, caps: bool = True
+) -> Solid:
+    """A closed tube through 3D ``points`` with one radius per point (branches, curved palm
+    trunks, stems, reeds, handles). Each ring is perpendicular to the local direction."""
+    if len(points) < 2 or len(points) != len(radii):
+        raise ValueError("a tube needs at least two points and one radius per point")
+    if sides < 3:
+        raise ValueError("a tube needs at least three sides")
+    n = len(points)
+    verts: List[Vec3] = []
+    for i, p in enumerate(points):
+        a = points[max(0, i - 1)]
+        b = points[min(n - 1, i + 1)]
+        u, v, _ = frame(_sub(b, a))
+        r = radii[i]
+        for k in range(sides):
+            t = 2.0 * math.pi * k / sides
+            c, s = math.cos(t) * r, math.sin(t) * r
+            verts.append((p[0] + u[0] * c + v[0] * s, p[1] + u[1] * c + v[1] * s, p[2] + u[2] * c + v[2] * s))
+    faces: List[List[int]] = []
+    for i in range(n - 1):
+        a, b = i * sides, (i + 1) * sides
+        for k in range(sides):
+            j = (k + 1) % sides
+            faces.append([a + k, a + j, b + j, b + k])
+    if caps:
+        faces.append(list(reversed(range(sides))))
+        faces.append([(n - 1) * sides + k for k in range(sides)])
+    return verts, faces
+
+
+def leaf(
+    points: Sequence[Sequence[float]], widths: Sequence[float], thickness: float = 0.02, side: Sequence[float] = (0.0, 0.0, 1.0)
+) -> Solid:
+    """A thin closed ribbon along a 3D spine (palm fronds, grass blades, flower leaves). The
+    width is measured across the spine, perpendicular to it and to ``side`` (the ribbon's
+    normal hint, usually up). Use ``MeshBuilder.solid(..., recalc_normals=True)``."""
+    if len(points) < 2 or len(points) != len(widths):
+        raise ValueError("a leaf needs at least two points and one width per point")
+    n = len(points)
+    verts: List[Vec3] = []
+    for i, p in enumerate(points):
+        a = points[max(0, i - 1)]
+        b = points[min(n - 1, i + 1)]
+        d = _sub(b, a)
+        across = _norm(_cross(d, side))
+        normal = _norm(_cross(across, d))
+        hw = widths[i] / 2
+        ht = thickness / 2
+        for sx, sz in ((-1, 1), (1, 1), (1, -1), (-1, -1)):
+            verts.append(tuple(p[k] + across[k] * hw * sx + normal[k] * ht * sz for k in range(3)))  # type: ignore[misc]
+    faces: List[List[int]] = []
+    for i in range(n - 1):
+        a, b = i * 4, (i + 1) * 4
+        for k in range(4):
+            j = (k + 1) % 4
+            faces.append([a + k, a + j, b + j, b + k])
+    faces.append([3, 2, 1, 0])
+    faces.append([(n - 1) * 4 + k for k in range(4)])
+    return verts, faces
+
+
+def heightfield(
+    xs: Sequence[float], ys: Sequence[float], height, keep=None
+) -> Tuple[List[Vec3], List[List[int]], List[Tuple[int, int]]]:
+    """A ground surface on the grid ``xs`` x ``ys`` with ``z = height(x, y)`` (river banks).
+    ``keep(i, j)`` filters cells. Returns (verts, faces, grid index of every vertex). Quads
+    are split along the diagonal that follows the slope best (shorter in 3D)."""
+    if len(xs) < 2 or len(ys) < 2:
+        raise ValueError("heightfield needs at least two lines per axis")
+    index: Dict[Tuple[int, int], int] = {}
+    verts: List[Vec3] = []
+    cells: List[Tuple[int, int]] = []
+
+    def v(i: int, j: int) -> int:
+        if (i, j) not in index:
+            index[(i, j)] = len(verts)
+            verts.append((xs[i], ys[j], float(height(xs[i], ys[j]))))
+            cells.append((i, j))
+        return index[(i, j)]
+
+    faces: List[List[int]] = []
+    for j in range(len(ys) - 1):
+        for i in range(len(xs) - 1):
+            if keep is not None and not keep(i, j):
+                continue
+            a, b, c, d = v(i, j), v(i + 1, j), v(i + 1, j + 1), v(i, j + 1)
+            if abs(verts[a][2] - verts[c][2]) <= abs(verts[b][2] - verts[d][2]):
+                faces += [[a, b, c], [a, c, d]]
+            else:
+                faces += [[a, b, d], [b, c, d]]
+    return verts, faces, cells

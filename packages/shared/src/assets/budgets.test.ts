@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  isTreeModuleId,
   KIT_BUILDING_MODULE_IDS,
+  KIT_COMMON_MODULE_IDS,
   kitBudgetClass,
   kitBudgetViolations,
   kitCompletenessProblems,
   kitTriBudget,
 } from "./budgets";
-import { ModuleIdSchema } from "./kit";
+import { COMMON_KIT_ID, KIT_IDS, KitIdSchema, ModuleIdSchema } from "./kit";
 
 describe("kit triangle budgets", () => {
   it("follows GDD §7.2", () => {
@@ -22,6 +24,13 @@ describe("kit triangle budgets", () => {
     expect(kitBudgetClass("tile.cobble")).toBe("tile");
     expect(kitBudgetClass("sign.hanging")).toBe("prop");
     expect(kitBudgetClass("dormer")).toBe("prop");
+    expect(kitBudgetClass("terrain.path.edge")).toBe("tile");
+    expect(kitBudgetClass("tree.palm")).toBe("plant");
+    expect(kitBudgetClass("bush")).toBe("plant");
+    expect(kitBudgetClass("flowers")).toBe("plant");
+    expect(kitBudgetClass("bank.curve_outer")).toBe("prop");
+    expect(kitBudgetClass("market_stall")).toBe("prop");
+    expect(kitTriBudget("tree.deciduous").max).toBe(1000);
   });
 
   it("reports variants outside the budget", () => {
@@ -53,6 +62,36 @@ describe("kit completeness", () => {
       "lamp: 2 variants, expected 3",
       "lamp v0: 3000 tris outside 12-2000",
       "lamp v1: 10 tris outside 12-2000",
+    ]);
+  });
+});
+
+describe("common kit", () => {
+  it("is a kit id next to the four styles", () => {
+    expect(KIT_IDS).toEqual(["european", "mediterranean", "arabic", "japanese", "common"]);
+    expect(KitIdSchema.parse(COMMON_KIT_ID)).toBe("common");
+    expect(KitIdSchema.safeParse("europe").success).toBe(false);
+  });
+
+  it("lists the M06 modules with valid, unique ids", () => {
+    expect(new Set(KIT_COMMON_MODULE_IDS).size).toBe(KIT_COMMON_MODULE_IDS.length);
+    for (const id of KIT_COMMON_MODULE_IDS) expect(ModuleIdSchema.safeParse(id).success).toBe(true);
+    expect(KIT_COMMON_MODULE_IDS.filter(isTreeModuleId)).toEqual([
+      "tree.deciduous",
+      "tree.conifer",
+      "tree.cypress",
+      "tree.palm",
+      "tree.sakura",
+      "tree.olive",
+    ]);
+    expect(KIT_COMMON_MODULE_IDS.some((id) => (KIT_BUILDING_MODULE_IDS as readonly string[]).includes(id))).toBe(false);
+  });
+
+  it("checks completeness against the common ids", () => {
+    const modules = KIT_COMMON_MODULE_IDS.map((id) => ({ id, variants: 3, tris: [100, 100, 100] }));
+    expect(kitCompletenessProblems({ modules: modules as never }, 3, KIT_COMMON_MODULE_IDS)).toEqual([]);
+    expect(kitCompletenessProblems({ modules: modules.slice(1) as never }, 3, KIT_COMMON_MODULE_IDS)).toEqual([
+      "terrain.grass: missing",
     ]);
   });
 });

@@ -25,6 +25,8 @@ from __future__ import annotations
 import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from hvkit import budgets
+from hvkit.budgets import PROP_BUDGET, TILE_BUDGET, WALL_BUDGET  # noqa: F401  (re-exported)
 from hvkit.grid import STOREY_M
 
 STYLES = ("european",)
@@ -53,25 +55,13 @@ ROOF_T = 0.12
 EAVE_M = 0.25
 GABLE_OVERHANG_M = 0.15
 
-WALL_BUDGET = (150, 600)
-"""GDD §7.2: a wall module is 150-600 triangles. Corners count as walls."""
-PROP_BUDGET = (12, 2000)
-"""GDD §7.2: hero props stay under 2k triangles. Roofs and attachments use the same cap."""
-TILE_BUDGET = (12, 400)
-"""Ground tiles repeat hundreds of times, so they get a tighter cap than the GDD minimum."""
-
 Rect = Tuple[float, float, float, float]
 
 
 def budget_for(module_id: str) -> Tuple[int, int]:
-    """Triangle budget per module id; mirrored by ``kitTriBudget`` in
-    packages/shared/src/assets/budgets.ts (the client kit test checks the built manifest)."""
-    family = module_id.split(".", 1)[0]
-    if family in ("wall", "corner"):
-        return WALL_BUDGET
-    if family == "tile":
-        return TILE_BUDGET
-    return PROP_BUDGET
+    """Triangle budget per module id (``hvkit.budgets``; mirrored by ``kitTriBudget`` in
+    packages/shared/src/assets/budgets.ts, and the client kit test checks the built manifest)."""
+    return budgets.budget_for(module_id)
 
 
 def lines(lo: float, hi: float, cuts: Sequence[float] = (), step: float = 0.5) -> List[float]:

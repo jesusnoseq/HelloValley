@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { StyleIdSchema } from "../data/styles";
+import { STYLE_IDS } from "../data/styles";
 
 /**
  * Kit grid (GDD §7.2): 1 m cells, 3 m storeys. Modules pivot at their bottom-left-front
@@ -11,6 +11,28 @@ export const STOREY_M = 3;
 /** kit-manifest.json format version; matches MANIFEST_VERSION in tools/blender/hvkit/manifest.py. */
 export const KIT_MANIFEST_VERSION = 1;
 export const KIT_MANIFEST_FILE = "kit-manifest.json";
+
+/**
+ * The style-neutral kit (M06: terrain, river pieces, bridge, dock, fountain, vegetation and
+ * generic props) in `kits/common/`. The client loads it next to the player's style kit.
+ * Mirrors COMMON_KIT_ID in tools/blender/hvkit/styles.py.
+ */
+export const COMMON_KIT_ID = "common";
+/** Every kit folder: one per town style plus the common kit. */
+export const KIT_IDS = [...STYLE_IDS, COMMON_KIT_ID] as const;
+export type KitId = (typeof KIT_IDS)[number];
+export const KitIdSchema = z.enum(KIT_IDS);
+
+/** Material extras the generator writes (three.js `material.userData`). `hv_atlas` materials
+ * sample the kit atlas; `hv_canopy` marks the wind-swayed canopy slot (also atlas); `hv_water`
+ * is a river or fountain surface the client shades itself. */
+export const KIT_MATERIAL_MARKERS = ["hv_atlas", "hv_canopy", "hv_glass", "hv_glow", "hv_water"] as const;
+
+/** `hv_part` node extras of a tree or plant canopy mesh: its own mesh and material slot, with
+ * the object origin at the top of the trunk (the sway pivot). */
+export const KIT_CANOPY_PART = "canopy";
+/** Manifest tag of modules that have a canopy mesh. */
+export const KIT_CANOPY_TAG = "canopy";
 
 /** Dotted lowercase semantic ids such as `wall.plain` or `roof.stepped_gable`. */
 export const ModuleIdSchema = z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$/);
@@ -70,7 +92,8 @@ export const KitManifestSchema = z
   .object({
     version: z.literal(KIT_MANIFEST_VERSION),
     generator: z.string(),
-    style: StyleIdSchema,
+    /** The kit id: a style id or `common`. */
+    style: KitIdSchema,
     grid: z.object({ cell: z.literal(CELL_M), storey: z.literal(STOREY_M) }),
     atlas: KitAtlasSchema.nullable(),
     modules: z.array(KitModuleSchema),
@@ -94,6 +117,15 @@ export interface KitVariantExtras {
   hv_module: string;
   hv_variant: number;
   hv_style?: string;
+}
+
+/** Extras on a mesh node that plays a role inside a variant (`canopy`, `trunk`, `water`...). */
+export interface KitPartExtras {
+  hv_part: string;
+}
+
+export function isKitPartExtras(value: unknown): value is KitPartExtras {
+  return typeof value === "object" && value !== null && typeof (value as Record<string, unknown>).hv_part === "string";
 }
 
 export function isKitVariantExtras(value: unknown): value is KitVariantExtras {
