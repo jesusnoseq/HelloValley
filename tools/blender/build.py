@@ -25,7 +25,7 @@ import hvmodules  # noqa: E402,F401  (registers every module)
 def main(argv: list) -> int:
     ns = cli.parse_args(cli.script_args(argv) if "--" in argv else argv[1:])
     try:
-        plan = cli.make_plan(ns)
+        plan = cli.make_character_plan(ns) if ns.characters else cli.make_plan(ns)
     except (ValueError, KeyError, NotImplementedError) as err:
         print(f"[hvkit] {err}")
         return 2
@@ -37,6 +37,10 @@ def main(argv: list) -> int:
     except ImportError:
         print("[hvkit] bpy is not available: run this script inside Blender (see tools/blender/README.md)")
         return 2
+    if ns.characters:
+        from hvkit.blender import characters
+
+        return characters.render(plan) if plan.contact_sheet else characters.run(plan)
     if plan.contact_sheet:
         from hvkit.blender.contact import render
 

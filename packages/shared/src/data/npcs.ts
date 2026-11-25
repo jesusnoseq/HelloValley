@@ -1,5 +1,7 @@
 import { z } from "zod";
+import type { AnimalId } from "./animals";
 import type { ItemId } from "./items";
+import type { SwatchId } from "./palette";
 import { clockToMinutes, type BuildingId, type PlaceId } from "./world";
 
 /** Inline TTS tags for brief vocal events (docs/hellovalley-village-npcs.md § Voice). */
@@ -23,6 +25,19 @@ export interface SchedulePoint {
   at: string;
   place: PlaceId;
   activity: NpcActivity;
+}
+
+/**
+ * How an NPC looks (build plan M07): one of the 16 animals with one of its natural fur tints,
+ * shirt and trouser swatches from the clothing palette, and its own outfit, which is the
+ * generated `outfit.<npc id>.glb` (apron for the Baker, sash and top hat for the Mayor,
+ * glasses for the Librarian...). Mirrored by NPC_LOOKS in tools/blender/hvchars/outfits.py.
+ */
+export interface NpcLook {
+  animal: AnimalId;
+  furTint: string;
+  shirt: SwatchId;
+  trousers: SwatchId;
 }
 
 export type ProgressionBand = "beginner" | "elementary" | "intermediate" | "upper_intermediate" | "advanced";
@@ -54,6 +69,7 @@ export interface NpcDef {
    */
   tierOffset: number;
   signature: string;
+  look: NpcLook;
   voice: NpcVoice;
   likedItems: readonly ItemId[];
   dislikedItems: readonly ItemId[];
@@ -70,6 +86,7 @@ export const NPCS = [
     progression: "elementary",
     tierOffset: 0,
     signature: "For you, my friend, a very special price!",
+    look: { animal: "raccoon", furTint: "grey", shirt: "butter", trousers: "navy" },
     voice: {
       prebuiltVoice: "Puck",
       character: "Upbeat",
@@ -95,6 +112,7 @@ export const NPCS = [
     progression: "beginner",
     tierOffset: -2,
     signature: "You look hungry, dear. Sit down.",
+    look: { animal: "bear", furTint: "honey", shirt: "peach", trousers: "cream" },
     voice: {
       prebuiltVoice: "Sulafat",
       character: "Warm",
@@ -120,6 +138,7 @@ export const NPCS = [
     progression: "intermediate",
     tierOffset: 0,
     signature: "You drink your coffee with sugar? Interesting choice.",
+    look: { animal: "cat", furTint: "black", shirt: "cream", trousers: "charcoal" },
     voice: {
       prebuiltVoice: "Zubenelgenubi",
       character: "Casual",
@@ -145,6 +164,7 @@ export const NPCS = [
     progression: "beginner",
     tierOffset: -2,
     signature: "Less talking. More working.",
+    look: { animal: "dog", furTint: "red", shirt: "terracotta", trousers: "periwinkle" },
     voice: {
       prebuiltVoice: "Algenib",
       character: "Gravelly",
@@ -170,6 +190,7 @@ export const NPCS = [
     progression: "upper_intermediate",
     tierOffset: 1,
     signature: "This is a matter of great importance to our village!",
+    look: { animal: "penguin", furTint: "black", shirt: "cream", trousers: "navy" },
     voice: {
       prebuiltVoice: "Fenrir",
       character: "Excitable",
@@ -196,6 +217,7 @@ export const NPCS = [
     progression: "advanced",
     tierOffset: 2,
     signature: "Technically, that's not what that word means.",
+    look: { animal: "owl", furTint: "tawny", shirt: "lavender", trousers: "charcoal" },
     voice: {
       prebuiltVoice: "Sadaltager",
       character: "Knowledgeable",
@@ -221,6 +243,7 @@ export const NPCS = [
     progression: "elementary",
     tierOffset: 0,
     signature: "Have you been sleeping properly? Don't lie to me.",
+    look: { animal: "koala", furTint: "grey", shirt: "sky", trousers: "navy" },
     voice: {
       prebuiltVoice: "Schedar",
       character: "Even",
@@ -245,6 +268,7 @@ export const NPCS = [
     progression: "intermediate",
     tierOffset: 0,
     signature: "Promise you won't tell anyone, but...",
+    look: { animal: "rabbit", furTint: "snow", shirt: "blush", trousers: "lilac" },
     voice: {
       prebuiltVoice: "Sadachbia",
       character: "Lively",
@@ -270,6 +294,7 @@ export const NPCS = [
     progression: "advanced",
     tierOffset: 2,
     signature: "Ah, that reminds me of the summer of '72...",
+    look: { animal: "capybara", furTint: "tawny", shirt: "sand", trousers: "moss" },
     voice: {
       prebuiltVoice: "Gacrux",
       character: "Mature",

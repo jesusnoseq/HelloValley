@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import bpy
 from mathutils import Vector
@@ -41,7 +41,27 @@ def supported_options(options: Dict[str, object]) -> Tuple[Dict[str, object], Li
     return kept, dropped
 
 
-def export_glb(path: str, objects: Iterable["bpy.types.Object"]) -> None:
+CHARACTER_BODY_OPTIONS: Dict[str, object] = {
+    # The skinned body (M07): the armature, its socket empties and every clip, one glTF
+    # animation per NLA track (hvkit.blender.rig.bake_clips).
+    "export_skins": True,
+    "export_animations": True,
+    "export_animation_mode": "NLA_TRACKS",
+    "export_force_sampling": True,
+    "export_frame_step": 1,
+    "export_optimize_animation_size": True,
+    "export_anim_slide_to_zero": True,
+    "export_reset_pose_bones": True,
+    "export_rest_position_armature": True,
+    "export_def_bones": False,
+    "export_leaf_bone": False,
+    "export_texcoords": False,
+}
+CHARACTER_PART_OPTIONS: Dict[str, object] = {"export_texcoords": False}
+"""Heads, tails and outfit pieces: static meshes without UVs (no atlas on characters)."""
+
+
+def export_glb(path: str, objects: Iterable["bpy.types.Object"], overrides: Optional[Dict[str, object]] = None) -> None:
     objs = list(objects)
     if not objs:
         raise ValueError(f"nothing to export for {path}")
@@ -50,7 +70,7 @@ def export_glb(path: str, objects: Iterable["bpy.types.Object"]) -> None:
     for o in objs:
         o.select_set(True)
     bpy.context.view_layer.objects.active = objs[0]
-    kwargs, dropped = supported_options(GLTF_OPTIONS)
+    kwargs, dropped = supported_options({**GLTF_OPTIONS, **(overrides or {})})
     if dropped:
         print(f"[hvkit] glTF exporter does not support: {', '.join(dropped)} (ignored)")
     result = bpy.ops.export_scene.gltf(filepath=path, **kwargs)

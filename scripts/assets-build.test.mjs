@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_KITS_DIR } from "../tools/optimize-assets.mjs";
+import { DEFAULT_CHARACTERS_DIR, DEFAULT_KITS_DIR } from "../tools/optimize-assets.mjs";
 import { buildArgs, kitId } from "./assets-build.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -39,5 +39,13 @@ describe("assets:build arguments", () => {
     expect(buildArgs(["--style=europe", "--contact-sheet=auto"]).passthrough).toContain("--contact-sheet=docs/art/european-kit-contact-sheet.png");
     expect(kitId("Europe")).toBe("european");
     expect(kitId("shared")).toBe("common");
+  });
+
+  it("builds characters into public/assets/characters with --characters", () => {
+    const { passthrough, outRoot, contactSheet } = buildArgs(["--characters", "--contact-sheet", "auto"]);
+    expect(passthrough).not.toContain("--style");
+    expect(passthrough.slice(-2)).toEqual(["--out", DEFAULT_CHARACTERS_DIR]);
+    expect(outRoot).toBe(DEFAULT_CHARACTERS_DIR);
+    expect(contactSheet).toBe(resolve(ROOT, "docs/art/characters-contact-sheet.png"));
   });
 });

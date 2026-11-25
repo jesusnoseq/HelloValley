@@ -160,6 +160,49 @@ Conventions (details in `hvmodules/common/base.py`):
 The contact sheet is `docs/art/common-kit-contact-sheet.png`; `tools/blender/tests/test_common.py`
 checks the definitions and that the committed manifest is up to date.
 
+## Characters (M07)
+
+`--characters` builds the player/NPC character set (GDD §3) instead of a kit, into
+`packages/client/public/assets/characters/` (committed, about 0.6 MB optimized):
+
+```bash
+npm run assets:build -- --characters            # build + optimize (add --strict to fail on problems)
+npm run assets:contact-sheet -- --characters    # docs/art/characters-contact-sheet.png
+```
+
+| File | Contents |
+|---|---|
+| `body.glb` | The skinned chibi body (~2.4 heads, 1.18 m to the skull top), the shared 17-bone armature, one empty per body socket and the 14 clips: idle, walk, run, sit, talk, wave, fish_cast, fish_reel, eat, cheer, laugh, heart, think, clap (24 fps; fish_cast and heart are one-shots). |
+| `animal.<id>.glb` × 16 | Root `animal_<id>`; children `head` (holds the head sockets), `tail` and optional parts (rabbit `ears_floppy`, cat `tabby`, capybara `orange`, penguin `flipper_l/_r`, deer `antlers`). |
+| `outfit.<npc>.glb` × 9 | Root `outfit_<npc>`; one child per piece (apron, sash, glasses, straw hat, boots...). |
+| `character-manifest.json` | Bones, sockets, slots, clip durations and loop flags, parts with their sockets, defaults and triangle counts. Validated by `CharacterManifestSchema` in `packages/shared/src/assets/characters.ts`. |
+
+Conventions (pure Python in `hvkit/character.py`, definitions in `hvchars/`):
+
+- **Sockets**: body sockets `head`, `neck`, `chest`, `hips`, `tail`, `hand_l/_r`, `foot_l/_r` are
+  empties named `socket_<name>` parented to bones (no dots: three.js strips them from names);
+  every head adds `hat`, `face`, `ear_l`, `ear_r`. Every part node has extras `hv_part`,
+  `hv_socket` and `hv_default`, and is authored relative to its socket: attach it as a child of
+  the socket and keep its local transform (meshopt quantization moves geometry into it).
+- **Material slots** (extras `hv_slot`, `hv_tint`): `fur`, `shirt`, `trousers` are tintable
+  (white vertex colours with a little jitter; the client sets `material.color`); `eyes`,
+  `markings` and `outfit` carry their colours in COLOR_0.
+- **Skinning** is rigid: each soft primitive (`hvkit/charshapes.py` recipes, built by
+  `hvkit/blender/charmesh.py`) follows one bone; the rounded joints overlap.
+- **Clips** are keyed in `hvchars/animations.py` as Euler degrees about the armature axes
+  (`hvkit/blender/rig.py` converts them to bone space), one action per clip on its own NLA
+  track, exported with `export_animation_mode = NLA_TRACKS`.
+- **Budgets**: body 500–3000 tris, one animal file 200–3000, one outfit file ≤ 1500
+  (`CHARACTER_TRI_BUDGETS`). NPC looks (animal, fur tint, shirt, trousers) live in
+  `look` in `packages/shared/src/data/npcs.ts`, mirrored by `NPC_LOOKS` in `hvchars/outfits.py`.
+- **Determinism**: shapes are triangulated with fixed methods and get rounded custom normals,
+  and the optimizer sorts triangles canonically, so a rebuild is byte-identical.
+
+Checks: `tools/blender/tests/test_characters.py` (definitions, TS mirrors, the committed
+manifest) and `packages/client/src/characters/characters.test.ts` (loads every GLB with
+three.js, checks the 14 clips, sockets and slots, assembles every animal and NPC, tints them
+and plays every clip). The dev gallery is `/dev/characters` (`npm run dev`, dev builds only).
+
 ## Layout
 
 ```
@@ -172,6 +215,8 @@ hvkit/                framework
                       contact-sheet layout
 hvmodules/            module definitions; importing the package registers them
   test_cube.py        test.cube (pipeline check)
+hvchars/              M07 characters: body.py, animals.py, outfits.py, animations.py
+  (framework side: hvkit/character.py, hvkit/charshapes.py, hvkit/blender/{charmesh,rig,characters}.py)
   europe/             M05 kit: common.py, walls.py, roofs.py, attachments.py, props.py
   common/             M06 style-neutral kit: base.py, ground.py, water.py, vegetation.py, props.py
 tests/                unittest suite for the pure-Python parts

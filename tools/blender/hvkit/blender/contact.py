@@ -100,10 +100,10 @@ def _ground(size_x: float, size_y: float, rgba) -> None:
     bpy.context.scene.collection.objects.link(obj)
 
 
-def _label(text: str, x: float, y: float, rgba) -> None:
+def _label(text: str, x: float, y: float, rgba, size: float = 0.42) -> None:
     curve = bpy.data.curves.new(f"label.{text}", type="FONT")
     curve.body = text
-    curve.size = 0.42
+    curve.size = size
     curve.extrude = 0.005
     obj = bpy.data.objects.new(f"label.{text}", curve)
     obj.location = (x, y, 0.0)
@@ -111,14 +111,14 @@ def _label(text: str, x: float, y: float, rgba) -> None:
     bpy.context.scene.collection.objects.link(obj)
 
 
-def _camera(points: List[Vector], width_px: int) -> tuple:
+def _camera(points: List[Vector], width_px: int, pitch_deg: float = CAMERA_PITCH_DEG, yaw_deg: float = CAMERA_YAW_DEG) -> tuple:
     cam_data = bpy.data.cameras.new("hv_camera")
     cam_data.type = "ORTHO"
     cam = bpy.data.objects.new("hv_camera", cam_data)
     bpy.context.scene.collection.objects.link(cam)
     # Cameras look down their local -Z: X = 90 degrees looks at the horizon, so X = 90 - pitch
     # looks ``pitch`` degrees down.
-    cam.rotation_euler = Euler((math.radians(90.0 - CAMERA_PITCH_DEG), 0.0, math.radians(CAMERA_YAW_DEG)), "XYZ")
+    cam.rotation_euler = Euler((math.radians(90.0 - pitch_deg), 0.0, math.radians(yaw_deg)), "XYZ")
     rot = cam.rotation_euler.to_matrix()
     right, up, back = rot.col[0], rot.col[1], rot.col[2]
     us = [p.dot(right) for p in points]

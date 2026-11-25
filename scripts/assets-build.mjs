@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_KITS_DIR, MANIFEST_FILE, findKitDirs, optimizeKit } from "../tools/optimize-assets.mjs";
+import { DEFAULT_CHARACTERS_DIR, DEFAULT_KITS_DIR, findKitDirs, manifestFileIn, optimizeKit } from "../tools/optimize-assets.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const BUILD_PY = join(ROOT, "tools", "blender", "build.py");
@@ -63,24 +63,27 @@ export function kitId(style) {
 }
 
 /** Splits wrapper flags from build.py flags and fills in the default style and output.
- * `--contact-sheet auto` writes docs/art/<kit>-kit-contact-sheet.png. */
+ * `--contact-sheet auto` writes docs/art/<kit>-kit-contact-sheet.png, or
+ * docs/art/characters-contact-sheet.png with `--characters` (whose output defaults to
+ * public/assets/characters). */
 export function buildArgs(argv) {
   const passthrough = argv.filter((a) => a !== "--no-optimize");
   const optimize = !argv.includes("--no-optimize") && !argv.includes("--dry-run");
+  const characters = passthrough.includes("--characters");
   const style = kitId(flagValue(passthrough, "--style").value ?? "european");
   const sheet = flagValue(passthrough, "--contact-sheet");
   if (sheet.value === "auto") {
-    const path = `docs/art/${style}-kit-contact-sheet.png`;
+    const path = characters ? "docs/art/characters-contact-sheet.png" : `docs/art/${style}-kit-contact-sheet.png`;
     if (passthrough[sheet.index].includes("=")) passthrough[sheet.index] = `--contact-sheet=${path}`;
     else passthrough[sheet.index + 1] = path;
     sheet.value = path;
   }
   const contactSheet = sheet.value ? resolve(ROOT, sheet.value) : null;
   const has = (flag) => passthrough.some((a) => a === flag || a.startsWith(`${flag}=`));
-  if (!has("--style")) passthrough.push("--style", "european");
-  let outRoot = DEFAULT_KITS_DIR;
+  if (!has("--style") && !characters) passthrough.push("--style", "european");
+  let outRoot = characters ? DEFAULT_CHARACTERS_DIR : DEFAULT_KITS_DIR;
   const outIndex = passthrough.findIndex((a) => a === "--out" || a.startsWith("--out="));
-  if (outIndex === -1) passthrough.push("--out", DEFAULT_KITS_DIR);
+  if (outIndex === -1) passthrough.push("--out", outRoot);
   else {
     const value = passthrough[outIndex].includes("=") ? passthrough[outIndex].split("=")[1] : passthrough[outIndex + 1];
     outRoot = resolve(ROOT, value ?? "");
@@ -130,7 +133,7 @@ async function main() {
   }
   if (!optimize) return;
   // Optimize only the kits this run wrote.
-  const fresh = findKitDirs([outRoot]).filter((dir) => statSync(join(dir, MANIFEST_FILE)).mtimeMs >= started - 1000);
+  const fresh = findKitDirs([outRoot]).filter((dir) => statSync(join(dir, manifestFileIn(dir))).mtimeMs >= started - 1000);
   for (const dir of fresh) await optimizeKit(dir);
 }
 

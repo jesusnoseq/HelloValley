@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildTestCubeDocument, testCubeManifest } from "./fixtures/make-test-kit.mjs";
-import { createIO, findKitDirs, optimizeGlb, optimizeKit, parseArgs, resolveTextureMode } from "./optimize-assets.mjs";
+import { createIO, findKitDirs, manifestFileIn, manifestGlbFiles, optimizeGlb, optimizeKit, parseArgs, resolveTextureMode } from "./optimize-assets.mjs";
 
 const dirs = [];
 function tempDir() {
@@ -22,6 +22,17 @@ describe("optimize-assets", () => {
     expect(resolveTextureMode("none", null)).toBe("none");
     expect(() => resolveTextureMode("ktx2", null)).toThrow(/KTX-Software/);
     expect(() => resolveTextureMode("avif", "ktx")).toThrow(/unknown/);
+  });
+
+  it("lists the GLBs of kit and character manifests", () => {
+    expect(manifestGlbFiles({ modules: [{ file: "a.glb" }, { file: "b.glb" }] })).toEqual(["a.glb", "b.glb"]);
+    const characters = { body: { file: "body.glb" }, animals: [{ file: "animal.fox.glb" }], outfits: [{ file: "outfit.baker.glb" }] };
+    expect(manifestGlbFiles(characters)).toEqual(["body.glb", "animal.fox.glb", "outfit.baker.glb"]);
+    const dir = tempDir();
+    expect(manifestFileIn(dir)).toBeNull();
+    writeFileSync(join(dir, "character-manifest.json"), JSON.stringify(characters));
+    expect(manifestFileIn(dir)).toBe("character-manifest.json");
+    expect(findKitDirs([dir])).toEqual([dir]);
   });
 
   it("parses arguments", () => {

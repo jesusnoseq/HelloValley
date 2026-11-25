@@ -18,6 +18,7 @@ from .variants import DEFAULT_SEED
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 DEFAULT_OUT = os.path.join("packages", "client", "public", "assets", "kits")
+DEFAULT_CHARACTERS_OUT = os.path.join("packages", "client", "public", "assets", "characters")
 ATLAS_FILE = "atlas.png"
 
 MIN_BLENDER = (4, 2, 0)
@@ -49,6 +50,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--strict", action="store_true", help="fail on budget or bounds problems")
     p.add_argument("--no-atlas", action="store_true", help="skip writing the style atlas")
     p.add_argument("--dry-run", action="store_true", help="print the plan and exit (no Blender needed)")
+    p.add_argument(
+        "--characters",
+        action="store_true",
+        help="build the character set (body + animations, animal heads, NPC outfits) instead of a kit; "
+        f"--out is then the characters folder (default {DEFAULT_CHARACTERS_OUT})",
+    )
     p.add_argument(
         "--contact-sheet",
         default="",
@@ -105,6 +112,46 @@ def make_plan(ns: argparse.Namespace, root: str = REPO_ROOT) -> BuildPlan:
         strict=ns.strict,
         write_atlas=not ns.no_atlas,
         contact_sheet=_abs(ns.contact_sheet, root) if ns.contact_sheet else "",
+    )
+
+
+@dataclass
+class CharacterPlan:
+    """``--characters``: the shared body, the 16 animals and the 9 NPC outfits (M07)."""
+
+    out_dir: str
+    strict: bool = False
+    contact_sheet: str = ""
+    seed: int = DEFAULT_SEED
+
+    @property
+    def manifest_path(self) -> str:
+        from .character import CHARACTER_MANIFEST_FILE
+
+        return os.path.join(self.out_dir, CHARACTER_MANIFEST_FILE)
+
+    def describe(self) -> str:
+        from hvchars import ANIMAL_IDS, OUTFIT_IDS
+        from hvchars.animations import CLIPS
+
+        target = f"contact sheet {self.contact_sheet}" if self.contact_sheet else self.out_dir
+        return "\n".join(
+            [
+                f"characters -> {target}",
+                f"  body.glb                 {len(CLIPS)} animations: {', '.join(c.name for c in CLIPS)}",
+                f"  animal.*.glb             {len(ANIMAL_IDS)} animals: {', '.join(ANIMAL_IDS)}",
+                f"  outfit.*.glb             {len(OUTFIT_IDS)} NPC outfits: {', '.join(OUTFIT_IDS)}",
+            ]
+        )
+
+
+def make_character_plan(ns: argparse.Namespace, root: str = REPO_ROOT) -> CharacterPlan:
+    out = DEFAULT_CHARACTERS_OUT if os.path.normpath(ns.out) == os.path.normpath(DEFAULT_OUT) else ns.out
+    return CharacterPlan(
+        out_dir=_abs(out, root),
+        strict=ns.strict,
+        contact_sheet=_abs(ns.contact_sheet, root) if ns.contact_sheet else "",
+        seed=ns.seed,
     )
 
 
