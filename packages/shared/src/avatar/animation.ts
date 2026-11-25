@@ -5,8 +5,8 @@ import type { Motion } from "../world/player";
 /**
  * The avatar animation state machine (build plan M15): which clip a character shows and how long
  * each change crossfades. Pure and deterministic (no three.js), so the client drives its
- * AnimationMixer with it and the server can reason about the same states (TODO(M16): the
- * TownRoom syncs `clip` for remote avatars and validates emotes with `EmoteSchema`).
+ * AnimationMixer with it. Remote avatars (build plan M16) run their own machine from the synced
+ * `motion` and the emotes the TownRoom relays (it accepts only `EMOTE_KEYS`).
  *
  * Base states come from what the character is doing, by priority: moving (run, walk) > seated
  * (sit) > talking (talk) > idle. Emotes are one-shot overlays on top of idle or talk: they play

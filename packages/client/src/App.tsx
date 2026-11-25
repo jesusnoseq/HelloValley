@@ -82,7 +82,9 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>
         <p style={{ margin: "4px 0 0" }}>
           {name} · {t("hud.apartment", { apartment: profile.apartmentId })}
+          {connection.shard !== null ? ` · ${t("hud.shard", { shard: String(connection.shard) })}` : ""}
         </p>
+        {connection.status === "replaced" ? <p style={{ margin: "2px 0 0", fontSize: 12 }}>{t("hud.replaced")}</p> : null}
         <p style={{ margin: "2px 0 0", fontSize: 12, opacity: 0.75 }}>
           {t("hud.signedInAs", { name: user.displayName ?? user.email ?? user.uid })}{" "}
           <button type="button" onClick={() => void signOutUser()}>

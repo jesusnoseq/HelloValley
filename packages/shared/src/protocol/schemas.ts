@@ -1,21 +1,20 @@
 import { z } from "zod";
+import { EMOTE_KEYS } from "../avatar/animation";
 import { NpcIdSchema } from "../data/npcs";
+import { INTERIOR_IDS } from "../world/interiors";
 import { ClientMessage } from "./messages";
 
 /** Longest chat line a player can send, in characters (after trimming). */
 export const CHAT_MAX_LENGTH = 200;
-/**
- * Sanity bound for world coordinates in metres (the town itself is TOWN_BOUNDS, world/town.ts).
- * TODO(M16): the server plans click targets with `planPath` (world/movement.ts, which snaps them
- * to where a walker fits) and steps movement with `PlayerController` (world/player.ts).
- */
+/** Sanity bound for world coordinates in metres (the town itself is TOWN_BOUNDS, world/town.ts). */
 export const WORLD_COORD_LIMIT = 1000;
+/** Headings are radians; anything beyond a few turns is garbage. */
+export const HEADING_LIMIT = 8 * Math.PI;
 /** Firebase ID tokens are JWTs of roughly 1 KB; anything far larger is rejected outright. */
 export const ID_TOKEN_MAX_LENGTH = 4096;
 
 // z.number() already rejects NaN and ±Infinity.
 const coord = z.number().min(-WORLD_COORD_LIMIT).max(WORLD_COORD_LIMIT);
-const axis = z.number().min(-1).max(1);
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/;
 
@@ -23,27 +22,34 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/;
 export const JoinOptionsSchema = z.object({
   /** Firebase ID token of the signed-in player. TownRoom.onAuth verifies it with firebase-admin. */
   idToken: z.string().min(1).max(ID_TOKEN_MAX_LENGTH),
-  // TODO(M16): friendUid to join a friend's shard.
+  // Joining a friend's shard: the client looks the shard up with GET /api/shards?friend=<uid>
+  // and joins it by room id (`client.joinById`), with these same options.
 });
 export type JoinOptions = z.infer<typeof JoinOptionsSchema>;
 
-/** WASD/arrow movement: a direction on the ground plane (x, z) with length ≤ 1. A zero vector means stop. */
-export const MoveInputSchema = z.object({
-  kind: z.literal("move"),
-  dir: z
-    .object({ x: axis, z: axis })
-    .refine((d) => d.x * d.x + d.z * d.z <= 1 + 1e-6, { message: "dir must have length <= 1" }),
-  run: z.boolean().optional(),
-});
+/** The spaces a walker can be in: the town or one interior (world/player.ts `SpaceId`). */
+export const SpaceIdSchema = z.enum(["town", ...INTERIOR_IDS]);
 
-/** Click-to-move: a target point on the ground plane. The server plans the path. */
-export const ClickInputSchema = z.object({
-  kind: z.literal("click"),
-  target: z.object({ x: coord, z: coord }),
+/**
+ * `player:move` (build plan M16): where the client's predicted walker is. The server checks it
+ * with `validateMove` (world/moveValidation.ts) and answers a rejection with a correction.
+ */
+export const PlayerMoveSchema = z.object({
+  seq: z.number().int().min(0).max(2 ** 31),
+  epoch: z.number().int().min(0).max(2 ** 31),
+  space: SpaceIdSchema,
+  x: coord,
+  z: coord,
+  heading: z.number().min(-HEADING_LIMIT).max(HEADING_LIMIT),
+  motion: z.enum(["idle", "walk", "run"]),
 });
+export type PlayerMove = z.infer<typeof PlayerMoveSchema>;
 
-export const PlayerInputSchema = z.discriminatedUnion("kind", [MoveInputSchema, ClickInputSchema]);
-export type PlayerInput = z.infer<typeof PlayerInputSchema>;
+/** `player:emote`: only the five hotbar emotes (keys 1–5) can be sent. */
+export const EmoteRequestSchema = z.object({ emote: z.enum(EMOTE_KEYS) });
+
+/** `time:sync`: the client's clock when it sent the probe. */
+export const TimeSyncRequestSchema = z.object({ t: z.number() });
 
 export const ChatMessageSchema = z.object({
   text: z
@@ -68,7 +74,9 @@ export type InteractRequest = z.infer<typeof InteractRequestSchema>;
 
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
-  [ClientMessage.PlayerInput]: PlayerInputSchema,
+  [ClientMessage.PlayerMove]: PlayerMoveSchema,
+  [ClientMessage.Emote]: EmoteRequestSchema,
+  [ClientMessage.TimeSync]: TimeSyncRequestSchema,
   [ClientMessage.Chat]: ChatMessageSchema,
   [ClientMessage.Interact]: InteractRequestSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
@@ -89,3 +97,25 @@ export function parseClientMessage<K extends ClientMessage>(
     ? { ok: true, value: result.data as ClientMessagePayloads[K] }
     : { ok: false, error: z.prettifyError(result.error) };
 }
+
+/** Firebase uids are up to 128 characters of letters, digits and a few symbols. */
+export const UidSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+
+/** One TownRoom shard ("Valley #n") as `GET /api/shards` lists it. */
+export const ShardInfoSchema = z.object({
+  roomId: z.string().min(1),
+  shard: z.number().int().min(1),
+  clients: z.number().int().min(0),
+  maxClients: z.number().int().min(1),
+});
+export type ShardInfo = z.infer<typeof ShardInfoSchema>;
+
+/**
+ * `GET /api/shards[?friend=<uid>]` (architecture §7.2): the open shards, plus the shard the
+ * friend is playing in (null when they are offline or unknown).
+ */
+export const ShardsResponseSchema = z.object({
+  shards: z.array(ShardInfoSchema),
+  friend: ShardInfoSchema.nullable(),
+});
+export type ShardsResponse = z.infer<typeof ShardsResponseSchema>;

@@ -4,7 +4,7 @@ import { assembleCharacter, type Character, type CharacterAssets } from "./chara
 /**
  * A player's appearance (profile `animal` + `colors`) as a generated character (build plan M15).
  * Clothes may be custom HSL colours, so the tints are passed as hex instead of swatch ids.
- * TODO(M16): the same for remote avatars from the room state. Optional parts (floppy ears,
+ * Remote avatars (scene/RemotePlayers.tsx) use it with the room state's appearance. Optional parts (floppy ears,
  * antlers, flippers) keep their defaults: the profile has no field for them yet.
  */
 export function avatarLook(appearance: AvatarAppearance): CharacterLook {

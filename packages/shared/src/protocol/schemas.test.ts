@@ -7,8 +7,13 @@ import {
   ID_TOKEN_MAX_LENGTH,
   InteractRequestSchema,
   JoinOptionsSchema,
+  EmoteRequestSchema,
+  HEADING_LIMIT,
   parseClientMessage,
-  PlayerInputSchema,
+  PlayerMoveSchema,
+  ShardsResponseSchema,
+  TimeSyncRequestSchema,
+  UidSchema,
   WORLD_COORD_LIMIT,
 } from "./schemas";
 
@@ -51,40 +56,67 @@ describe("JoinOptionsSchema", () => {
   });
 });
 
-describe("PlayerInputSchema", () => {
-  it("accepts unit and zero move directions", () => {
-    expect(PlayerInputSchema.parse({ kind: "move", dir: { x: 1, z: 0 } })).toEqual({ kind: "move", dir: { x: 1, z: 0 } });
-    expect(PlayerInputSchema.safeParse({ kind: "move", dir: { x: 0, z: 0 } }).success).toBe(true);
-    const d = Math.SQRT1_2;
-    expect(PlayerInputSchema.safeParse({ kind: "move", dir: { x: d, z: -d }, run: true }).success).toBe(true);
+describe("PlayerMoveSchema", () => {
+  const move = { seq: 1, epoch: 0, space: "town", x: 12.5, z: -3, heading: 1.2, motion: "walk" };
+
+  it("accepts a position report in the town or an interior", () => {
+    expect(PlayerMoveSchema.parse(move)).toEqual(move);
+    expect(PlayerMoveSchema.safeParse({ ...move, space: "bakery", motion: "idle" }).success).toBe(true);
+    expect(PlayerMoveSchema.safeParse({ ...move, motion: "run" }).success).toBe(true);
   });
 
-  it("rejects directions longer than 1 or out of range", () => {
-    expect(PlayerInputSchema.safeParse({ kind: "move", dir: { x: 1, z: 1 } }).success).toBe(false);
-    expect(PlayerInputSchema.safeParse({ kind: "move", dir: { x: 2, z: 0 } }).success).toBe(false);
+  it("rejects unknown spaces and motions", () => {
+    expect(PlayerMoveSchema.safeParse({ ...move, space: "moon" }).success).toBe(false);
+    expect(PlayerMoveSchema.safeParse({ ...move, motion: "fly" }).success).toBe(false);
   });
 
-  it("rejects non-finite numbers", () => {
+  it("rejects non-finite numbers and out-of-range coordinates", () => {
     for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, "1"]) {
-      expect(PlayerInputSchema.safeParse({ kind: "move", dir: { x: bad, z: 0 } }).success).toBe(false);
-      expect(PlayerInputSchema.safeParse({ kind: "click", target: { x: bad, z: 0 } }).success).toBe(false);
+      expect(PlayerMoveSchema.safeParse({ ...move, x: bad }).success).toBe(false);
+      expect(PlayerMoveSchema.safeParse({ ...move, heading: bad }).success).toBe(false);
     }
+    expect(PlayerMoveSchema.safeParse({ ...move, x: WORLD_COORD_LIMIT + 1 }).success).toBe(false);
+    expect(PlayerMoveSchema.safeParse({ ...move, heading: HEADING_LIMIT + 1 }).success).toBe(false);
   });
 
-  it("accepts click targets within the world bounds", () => {
-    expect(PlayerInputSchema.parse({ kind: "click", target: { x: 12.5, z: -3 } })).toEqual({
-      kind: "click",
-      target: { x: 12.5, z: -3 },
-    });
-    expect(
-      PlayerInputSchema.safeParse({ kind: "click", target: { x: WORLD_COORD_LIMIT + 1, z: 0 } }).success,
-    ).toBe(false);
+  it("requires non-negative integer seq and epoch", () => {
+    expect(PlayerMoveSchema.safeParse({ ...move, seq: -1 }).success).toBe(false);
+    expect(PlayerMoveSchema.safeParse({ ...move, seq: 1.5 }).success).toBe(false);
+    expect(PlayerMoveSchema.safeParse({ ...move, epoch: undefined }).success).toBe(false);
+  });
+});
+
+describe("EmoteRequestSchema", () => {
+  it("accepts the five hotbar emotes only", () => {
+    for (const emote of ["wave", "laugh", "cheer", "clap", "heart"]) {
+      expect(EmoteRequestSchema.safeParse({ emote }).success).toBe(true);
+    }
+    expect(EmoteRequestSchema.safeParse({ emote: "think" }).success).toBe(false);
+    expect(EmoteRequestSchema.safeParse({ emote: "dance" }).success).toBe(false);
+  });
+});
+
+describe("TimeSyncRequestSchema", () => {
+  it("needs a finite client time", () => {
+    expect(TimeSyncRequestSchema.safeParse({ t: 123.4 }).success).toBe(true);
+    expect(TimeSyncRequestSchema.safeParse({ t: Number.NaN }).success).toBe(false);
+    expect(TimeSyncRequestSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("ShardsResponseSchema", () => {
+  it("parses a shard list with and without a friend", () => {
+    const shard = { roomId: "abc", shard: 1, clients: 3, maxClients: 40 };
+    expect(ShardsResponseSchema.parse({ shards: [shard], friend: null })).toEqual({ shards: [shard], friend: null });
+    expect(ShardsResponseSchema.safeParse({ shards: [], friend: shard }).success).toBe(true);
+    expect(ShardsResponseSchema.safeParse({ shards: [{ ...shard, shard: 0 }], friend: null }).success).toBe(false);
   });
 
-  it("rejects unknown kinds and missing fields", () => {
-    expect(PlayerInputSchema.safeParse({ kind: "teleport", target: { x: 0, z: 0 } }).success).toBe(false);
-    expect(PlayerInputSchema.safeParse({ kind: "move" }).success).toBe(false);
-    expect(PlayerInputSchema.safeParse({ kind: "click", target: { x: 0 } }).success).toBe(false);
+  it("UidSchema accepts Firebase-style uids only", () => {
+    expect(UidSchema.safeParse("aB3_x-9").success).toBe(true);
+    expect(UidSchema.safeParse("").success).toBe(false);
+    expect(UidSchema.safeParse("a/b").success).toBe(false);
+    expect(UidSchema.safeParse("x".repeat(129)).success).toBe(false);
   });
 });
 
@@ -135,9 +167,9 @@ describe("parseClientMessage", () => {
   });
 
   it("returns an error instead of throwing for invalid payloads", () => {
-    const result = parseClientMessage(ClientMessage.PlayerInput, { kind: "move", dir: { x: 5, z: 0 } });
+    const result = parseClientMessage(ClientMessage.PlayerMove, { seq: 1, epoch: 0, space: "town", x: 5, z: 0, heading: 0, motion: "teleport" });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/dir/);
+    if (!result.ok) expect(result.error).toMatch(/motion/);
     expect(parseClientMessage(ClientMessage.Interact, undefined).ok).toBe(false);
   });
 });

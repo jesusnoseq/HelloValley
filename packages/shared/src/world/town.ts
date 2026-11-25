@@ -12,7 +12,7 @@ import { type Ground, type GroundMap, groundIndex } from "./terrain";
  * hill with the library and the elder's cottage in the north.
  *
  * It is plain data plus pure helpers, identical for every player and style: the server uses it
- * for walkability (TODO(M16): authoritative movement), the client renders it with the active
+ * for walkability (authoritative movement checks, moveValidation.ts), the client renders it with the active
  * style kit. Town frame: metres, x east, z south, y up (see terrain.ts); ground cell (x, z) covers
  * [x, x + 1] x [z, z + 1]. Buildings and props are placed like kit modules: `at` is the pivot
  * (the front-left footprint corner) and `rot` the quarter turns about +Y (three.js rotateY).

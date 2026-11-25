@@ -5,12 +5,15 @@ import {
   AppearanceUpdateRequestSchema,
   type AppearanceUpdateResponse,
   toPlayerProfile,
+  type UserProfile,
 } from "@hellovalley/shared";
 import type { AuthedLocals } from "../auth/middleware";
 import type { ProfileStore } from "../profiles/profileStore";
 
 export interface AppearanceDeps {
   profiles: ProfileStore;
+  /** Called after a save, so the player's TownRoom shows the new look to everyone. */
+  onSaved?: (uid: string, profile: UserProfile) => void;
 }
 
 function fail(res: Response, status: number, error: AppearanceError | "internal", message?: string): void {
@@ -26,7 +29,8 @@ const PATH = ApiRoute.Appearance.replace(/^\/api/, "");
  * (strict, so the name, apartment or economy fields cannot ride along; custom HSL colours are
  * clamped to the pastel range; the fur tint must belong to the animal) and written with the Admin
  * SDK to the caller's own `users/{uid}` (the uid comes from the verified ID token).
- * TODO(M16): tell the player's TownRoom so the room state shows the new look to everyone.
+ * The saved profile is then pushed to the player's TownRoom (`onSaved`), so the room state shows
+ * the new look to everyone.
  */
 export function appearanceRouter(deps: AppearanceDeps): Router {
   const router = Router();
@@ -44,6 +48,7 @@ export function appearanceRouter(deps: AppearanceDeps): Router {
         fail(res, 404, "not_onboarded");
         return;
       }
+      deps.onSaved?.(uid, profile);
       const body: AppearanceUpdateResponse = { profile: toPlayerProfile(profile) };
       res.json(body);
     } catch (err) {

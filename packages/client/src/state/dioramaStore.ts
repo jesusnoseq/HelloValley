@@ -15,7 +15,7 @@ export interface DioramaState {
   cameraStep: number;
   /** Index into ZOOM_LEVELS. */
   zoomLevel: number;
-  /** Day phase 0–1 (see scene/dayNight.ts). TODO(M16): mirror the TownRoom world clock. */
+  /** Day phase 0–1 (see scene/dayNight.ts). Online it follows the synced TownRoom clock (DayNightLights). */
   worldTime: number;
   /** Multiplier on the real 40-minute day for the local clock; 0 pauses it (dev tools). */
   timeScale: number;
@@ -32,7 +32,7 @@ export interface DioramaState {
   /**
    * Cosmetic weather (GDD §4.3), a world-state value. With `weatherAuto` the scene follows the
    * shared weather schedule (`weatherAt` in shared/world/weather.ts) and `weather` is ignored;
-   * dev pages pin a weather instead. TODO(M16): mirror the TownRoom's broadcast weather.
+   * dev pages pin a weather instead. Online the schedule is the TownRoom's broadcast weather.
    */
   weather: Weather;
   weatherAuto: boolean;

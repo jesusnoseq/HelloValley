@@ -6,9 +6,16 @@ import { WEATHERS, type Weather } from "../data/world";
  * client and the server agree without syncing more than the seed. Clients cross-fade between
  * weathers with `weatherWeights` / `easeWeatherWeights`.
  *
- * TODO(M16): the TownRoom broadcasts the current weather from `weatherAt(Date.now(), seed)` in its
- * room state (architecture §7.1); until then the client runs the same schedule locally.
+ * The TownRoom broadcasts the current weather from `weatherAt(Date.now(), WORLD_WEATHER_SEED)` in
+ * its room state (architecture §7.1, build plan M16), so a client with a wrong clock still shows
+ * the server's weather; offline (dev pages) the client runs the same schedule locally.
  */
+
+/**
+ * Seed of the weather schedule. My choice: one seed for every shard, so the whole valley shares
+ * its weather and moving to a friend's shard does not change the sky.
+ */
+export const WORLD_WEATHER_SEED = 0;
 
 /** One weather slot: a quarter of the 40-minute in-game day (architecture §3.1). */
 export const WEATHER_SLOT_MS = 10 * 60 * 1000;

@@ -12,7 +12,7 @@ import { AvatarColorsSchema, type PlayerProfile, PlayerProfileSchema } from "../
  * `PUT /api/profile/appearance`, rather than writing Firestore from the client. The server
  * parses the body with this schema (so custom HSL colours are clamped to the pastel range, not
  * just rejected the way `firestore.rules` does), checks that the fur tint belongs to the animal
- * (the rules cannot) and is the process that will push the new look to the TownRoom (TODO(M16)).
+ * (the rules cannot) and pushes the new look to the player's TownRoom (build plan M16).
  * The rules still allow a direct owner update of `animal`/`colors` (architecture §8.1), which
  * stays compatible: both paths write the same validated shape.
  */

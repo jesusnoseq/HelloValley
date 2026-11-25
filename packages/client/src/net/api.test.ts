@@ -1,6 +1,6 @@
 import type { OnboardingRequestInput } from "@hellovalley/shared";
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, postOnboarding, putAppearance } from "./api";
+import { ApiError, getShards, postOnboarding, putAppearance } from "./api";
 
 const user = { getIdToken: async () => "tok" };
 const request: OnboardingRequestInput = {
@@ -76,5 +76,25 @@ describe("putAppearance", () => {
   it("surfaces errors and rejects malformed profiles", async () => {
     await expect(putAppearance(user, look, { fetchImpl: reply(404, { error: "not_onboarded" }) })).rejects.toMatchObject({ code: "not_onboarded", status: 404 });
     await expect(putAppearance(user, look, { fetchImpl: reply(200, { profile: { ...profile, animal: "dragon" } }) })).rejects.toMatchObject({ code: "bad_response" });
+  });
+});
+
+describe("getShards", () => {
+  const shard = { roomId: "r1", shard: 2, clients: 3, maxClients: 40 };
+
+  it("gets the shard list with the ID token and a friend query", async () => {
+    const fetchImpl = reply(200, { shards: [shard], friend: shard });
+    const res = await getShards(user, "u_3", { baseUrl: "http://srv", fetchImpl });
+    expect(res.friend).toEqual(shard);
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://srv/api/shards?friend=u_3");
+    expect(init).toEqual({ method: "GET", headers: { authorization: "Bearer tok" } });
+  });
+
+  it("omits the query without a friend and rejects malformed answers", async () => {
+    const fetchImpl = reply(200, { shards: [], friend: null });
+    await getShards(user, undefined, { baseUrl: "http://srv", fetchImpl });
+    expect((fetchImpl.mock.calls[0] as unknown as [string])[0]).toBe("http://srv/api/shards");
+    await expect(getShards(user, "x", { fetchImpl: reply(200, { shards: [{ ...shard, shard: 0 }], friend: null }) })).rejects.toMatchObject({ code: "bad_response" });
   });
 });

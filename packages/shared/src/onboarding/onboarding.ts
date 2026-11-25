@@ -26,7 +26,9 @@ export const ApiRoute = {
   Onboarding: "/api/onboarding",
   /** `PUT`: the apartment mirror saves the avatar's appearance (build plan M15, avatar/appearance.ts). */
   Appearance: "/api/profile/appearance",
-  // TODO(M16): Shards: "/api/shards". TODO(M24/M37): Langs: "/api/langs" (add a target language).
+  /** `GET`: the TownRoom shards and a friend's shard (`?friend=<uid>`, build plan M16, protocol/schemas.ts). */
+  Shards: "/api/shards",
+  // TODO(M24/M37): Langs: "/api/langs" (add a target language).
 } as const;
 
 /** GDD §2.1 step 4: five friendly self-assessments, each mapped to a starting CEFR level. */

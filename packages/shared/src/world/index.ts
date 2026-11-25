@@ -11,3 +11,5 @@ export * from "./movement";
 export * from "./interiors";
 export * from "./player";
 export * from "./interactables";
+export * from "./clock";
+export * from "./moveValidation";

@@ -21,8 +21,8 @@ import { createKitGltfLoader, parseKitGlb } from "../assets/kitGlb";
  * sockets by name (node extras `hv_socket`) and keep their own local transform (the optimizer
  * may have moved geometry into it). Tintable material slots (`hv_slot` fur, shirt, trousers)
  * are cloned per character and tinted through `material.color`. The player avatar
- * (scene/Player.tsx, M15) drives `play` with the shared AnimationStateMachine.
- * TODO(M16): remote avatars driven by the room's animation state.
+ * (scene/Player.tsx, M15) and remote avatars (scene/RemotePlayers.tsx, M16) drive `play` with the
+ * shared AnimationStateMachine.
  */
 
 export interface CharacterAssets {

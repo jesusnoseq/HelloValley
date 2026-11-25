@@ -13,6 +13,8 @@ export const es: Catalog = {
 
   "hud.signedInAs": "Has iniciado sesión como {name}.",
   "hud.apartment": "Apartamento {apartment}",
+  "hud.shard": "Valle n.º {shard}",
+  "hud.replaced": "Estás jugando en otra pestaña.",
 
   "onboarding.title": "Te damos la bienvenida a HelloValley",
   "onboarding.progress": "Paso {step} de {total}",

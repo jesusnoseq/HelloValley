@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 /**
- * Time-of-day bands used by fish tables, NPC openers and barks. The world clock that maps the
- * server time to a band (1 in-game day = 40 real minutes, GDD §4.3) arrives with TODO(M16).
+ * Time-of-day bands used by fish tables, NPC openers and barks. The world clock maps the server
+ * time to a band (world/clock.ts `timeOfDayForMinutes`; 1 in-game day = 40 real minutes, GDD §4.3).
  */
 export const TIMES_OF_DAY = ["morning", "afternoon", "evening", "night"] as const;
 export type TimeOfDay = (typeof TIMES_OF_DAY)[number];

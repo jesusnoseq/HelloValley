@@ -4,6 +4,8 @@ import { Color, type DirectionalLight, type HemisphereLight, SRGBColorSpace } fr
 import { dioramaStore } from "../state/dioramaStore";
 import { worldStore } from "../state/worldStore";
 import { cameraRig, snapToGrid } from "./cameraRig";
+import { worldPhaseAt } from "@hellovalley/shared";
+import { townLive } from "../net/townSession";
 import { advanceWorldTime, lightingAt } from "./dayNight";
 import { overcastColor } from "./weatherLook";
 import { weatherRuntime } from "./worldFx";
@@ -19,8 +21,8 @@ const LAMP_LIGHT: [number, number, number] = [1, 0.8, 0.58];
 /**
  * Warm key light with soft PCF shadows plus a hemisphere sky/ground fill, both following the
  * day/night gradient for the store's `worldTime`, dimmed and greyed by the current weather
- * (scene/Weather.tsx). Also paints the background colour and advances the local clock by
- * `timeScale`. The lights centre on the camera's eased look-at point (snapped to a 1 m grid so
+ * (scene/Weather.tsx). Also paints the background colour and sets `worldTime` from the synced
+ * TownRoom clock (offline: advances the local clock by `timeScale`). The lights centre on the camera's eased look-at point (snapped to a 1 m grid so
  * shadows do not shimmer while the camera follows the player); indoors (build plan M13) the
  * fill is raised and warmed at night, as if the room's lamps were on.
  */
@@ -36,8 +38,11 @@ export function DayNightLights({
 
   useFrame((state, dt) => {
     const store = dioramaStore.getState();
-    // TODO(M16): take worldTime from the TownRoom clock instead of ticking it locally.
-    if (store.timeScale > 0) store.setWorldTime(advanceWorldTime(store.worldTime, dt, store.timeScale));
+    // Online the phase comes from the synced server clock (every player sees the same time of
+    // day); offline (dev pages) the local clock ticks at `timeScale`.
+    const serverNow = townLive.serverNow();
+    if (serverNow !== null) store.setWorldTime(worldPhaseAt(serverNow));
+    else if (store.timeScale > 0) store.setWorldTime(advanceWorldTime(store.worldTime, dt, store.timeScale));
     const light = lightingAt(dioramaStore.getState().worldTime);
     const weather = weatherRuntime.look;
     const indoors = worldStore.getState().space !== "town";

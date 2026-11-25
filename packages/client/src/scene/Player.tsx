@@ -4,6 +4,7 @@ import { Box3, type Group, type Mesh, MeshBasicMaterial, Raycaster, RingGeometry
 import {
   AnimationStateMachine,
   appearanceHex,
+  ClientMessage,
   appearanceOf,
   type CharacterManifest,
   type AvatarAppearance,
@@ -15,6 +16,8 @@ import {
   type Vec2,
 } from "@hellovalley/shared";
 import { characterAssetsWith } from "../characters/assetCache";
+import { MoveSync } from "../net/moveSync";
+import { townLive, townSession } from "../net/townSession";
 import { assembleAvatar, tintAvatar } from "../characters/avatarLook";
 import type { Character } from "../characters/characterGlb";
 import { PLACEHOLDER_APPEARANCE, PLACEHOLDER_NAME } from "../characters/placeholderLook";
@@ -53,8 +56,10 @@ function clipTimings(manifest: CharacterManifest): ClipTimings {
  * AnimationStateMachine (idle/walk/run, emotes on 1–5 with crossfades). F uses the interactable
  * the player stands next to (the apartment mirror). While the mirror is open, input pauses and
  * the avatar turns to the camera so the new look is easy to see.
- * Movement is local only: TODO(M16) send inputs and emotes to the TownRoom and reconcile with its
- * authoritative positions. TODO(M23/M29): `talking` and `seated` inputs of the state machine.
+ * Online (build plan M16) the walker is predicted locally and reported to the TownRoom (MoveSync):
+ * the server validates every report and a correction (or a fresh session's spawn) snaps the
+ * walker back to the server's point. Emotes are relayed to the other players.
+ * TODO(M23/M29): `talking` and `seated` inputs of the state machine.
  */
 export function Player({ start }: { start: SpacePoint }) {
   const controller = useMemo(() => new PlayerController(start), [start]);
@@ -68,6 +73,7 @@ export function Player({ start }: { start: SpacePoint }) {
   const machine = useRef<AnimationStateMachine | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
   const [tagY, setTagY] = useState(1.6);
+  const sync = useRef(new MoveSync());
 
   const profile = useAvatar((s) => s.profile);
   const preview = useAvatar((s) => s.preview);
@@ -137,8 +143,10 @@ export function Player({ start }: { start: SpacePoint }) {
       }
       const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
       const emote = digit ? emoteForKey(Number(digit)) : null;
-      // TODO(M16): send the emote to the TownRoom so others see it.
-      if (emote) machine.current?.playEmote(emote);
+      if (emote && machine.current?.playEmote(emote)) {
+        const room = townSession.getState().room;
+        if (room?.connection.isOpen) room.send(ClientMessage.Emote, { emote });
+      }
     };
     const up = (e: KeyboardEvent) => keys.delete(e.code);
     const clear = () => keys.clear();
@@ -175,6 +183,31 @@ export function Player({ start }: { start: SpacePoint }) {
     const world = worldStore.getState();
     const mirrorOpen = avatarStore.getState().mirrorOpen;
 
+    // Server corrections and a fresh session's spawn put the walker where the server has it.
+    const putAt = (to: SpacePoint) => {
+      controller.teleport(to);
+      heading.current = to.heading;
+      cameraRig.snap = true;
+      if (fade.current.phase !== "idle") {
+        fade.current = IDLE_FADE;
+        worldStore.setState({ fade: 0 });
+      }
+      if (world.space !== to.space) world.setSpace(to.space);
+    };
+    const spawn = townLive.spawn;
+    if (spawn) {
+      townLive.spawn = null;
+      sync.current.reset();
+      const here = controller.state;
+      if (here.space !== spawn.space || Math.hypot(here.pos[0] - spawn.x, here.pos[1] - spawn.z) > 0.05) {
+        putAt({ space: spawn.space, pos: [spawn.x, spawn.z], heading: spawn.heading });
+      }
+    }
+    while (townLive.corrections.length) {
+      const to = sync.current.correct(townLive.corrections.shift()!);
+      if (to) putAt(to);
+    }
+
     // Door fade: out, swap spaces at full cover, wait for the new room's meshes, back in.
     if (fade.current.phase !== "idle") {
       const r = stepFade(fade.current, dt, world.ready);
@@ -199,9 +232,17 @@ export function Player({ start }: { start: SpacePoint }) {
       const run = RUN_KEYS.some((k) => keys.has(k));
       controller.setInput(screenToWorld(screenDirection(keys), yawForStep(dioramaStore.getState().cameraStep)), run);
     }
+    let enteredDoor = false;
     if (fade.current.phase === "idle" && controller.update(dt)) {
       fade.current = startFade();
       worldStore.setState({ fade: 0 });
+      enteredDoor = true;
+    }
+    // Report the predicted walker (the door trigger position goes out at once).
+    const room = townSession.getState().room;
+    if (room?.connection.isOpen && townLive.welcomed) {
+      const move = sync.current.next(controller.state, performance.now(), enteredDoor);
+      if (move) room.send(ClientMessage.PlayerMove, move);
     }
 
     const { pos, motion, space } = controller.state;

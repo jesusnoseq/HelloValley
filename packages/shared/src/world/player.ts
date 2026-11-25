@@ -29,14 +29,22 @@ import { type Area, buildingArea, buildingDoors, DOOR_APPROACH_M, TOWN_BUILDINGS
 /**
  * The local player controller (build plan M13): one walker in one space (the town or an
  * interior), moved by WASD directions or click-to-move paths, that goes through doors. Pure and
- * deterministic, so a test can walk it everywhere and the server can reuse it (TODO(M16):
- * the TownRoom runs these steps authoritatively and the client predicts with them).
+ * deterministic, so a test can walk it everywhere. Online (build plan M16) the client predicts
+ * with it and reports positions, which the TownRoom validates (moveValidation.ts).
  */
 
 export type SpaceId = "town" | InteriorId;
 
 export function isSpaceId(value: unknown): value is SpaceId {
   return value === "town" || isInteriorId(value);
+}
+
+/**
+ * Spaces other players never see you in: your apartment is your own private instance (GDD §4.2).
+ * TODO(M17): the ApartmentRoom hosts it (and visits); the TownRoom just hides players there.
+ */
+export function isPrivateSpace(space: SpaceId): boolean {
+  return space === "apartment";
 }
 
 export function spaceGrid(space: SpaceId): NavGrid {

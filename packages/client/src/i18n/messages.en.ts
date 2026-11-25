@@ -15,6 +15,8 @@ export const en = {
 
   "hud.signedInAs": "Signed in as {name}.",
   "hud.apartment": "Apartment {apartment}",
+  "hud.shard": "Valley #{shard}",
+  "hud.replaced": "You are playing in another tab.",
 
   "onboarding.title": "Welcome to HelloValley",
   "onboarding.progress": "Step {step} of {total}",

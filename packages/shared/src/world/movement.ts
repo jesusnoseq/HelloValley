@@ -5,8 +5,8 @@ import type { Vec2 } from "./town";
 /**
  * Walker movement on a walkability grid (build plan M13): a circle of `PLAYER_RADIUS_M` that
  * slides along blocked cells, and click-to-move paths planned with A* for that circle. Pure and
- * headless: the client runs it every frame for the local player now; the server can run the same
- * steps for authoritative movement (TODO(M16): speed caps and position checks in TownRoom).
+ * headless: the client runs it every frame for the local player, and the server checks the
+ * reported positions with the same grids (moveValidation.ts, build plan M16).
  */
 
 /** Collision radius of a walker. Under half a 0.5 m cell, so cell-centre paths stay clear. */

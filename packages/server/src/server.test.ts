@@ -73,7 +73,8 @@ describe("game server", () => {
     const room = await join();
     try {
       room.send(ClientMessage.Chat, { text: "" });
-      room.send(ClientMessage.PlayerInput, { kind: "move", dir: { x: 9, z: 0 } });
+      room.send(ClientMessage.PlayerMove, { seq: 1, epoch: 0, space: "moon", x: 0, z: 0, heading: 0, motion: "idle" });
+      room.send(ClientMessage.Emote, { emote: "dance" });
       room.send(ClientMessage.Interact, { targetKind: "npc", targetId: "baker" });
       expect(await ping(room)).toBeGreaterThanOrEqual(0);
       expect(room.connection.isOpen).toBe(true);
@@ -92,7 +93,8 @@ describe("authentication", () => {
     const room = await new Client(baseUrl).joinOrCreate(RoomName.Town, { idToken: "valid:bob" });
     try {
       const welcome = await new Promise<WelcomeMessage>((resolve) => room.onMessage(ServerMessage.Welcome, resolve));
-      expect(welcome).toEqual({ uid: "bob" });
+      expect(welcome).toMatchObject({ uid: "bob", spawn: { space: "apartment" } });
+      expect(welcome.shard).toBeGreaterThanOrEqual(1);
     } finally {
       await room.leave();
     }

@@ -1,16 +1,14 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, Fog, LineSegments, type OrthographicCamera, ShaderMaterial, SRGBColorSpace, Vector3 } from "three";
-import { easeWeatherWeights, weatherAt } from "@hellovalley/shared";
+import { easeWeatherWeights, weatherAt, WORLD_WEATHER_SEED } from "@hellovalley/shared";
+import { townLive } from "../net/townSession";
 import { dioramaStore } from "../state/dioramaStore";
 import { worldStore } from "../state/worldStore";
 import { CAMERA_DISTANCE } from "./cameraMath";
 import { lightingAt } from "./dayNight";
 import { fogRange, overcastColor, weatherLook, windVector } from "./weatherLook";
 import { TIME_WRAP_SECONDS, weatherRuntime, worldUniforms } from "./worldFx";
-
-/** Seed of the shared weather schedule. TODO(M16): the TownRoom picks it per shard. */
-export const WEATHER_SEED = 0;
 
 /**
  * Drives the cosmetic weather (build plan M12) once per frame: eases the weather weights towards
@@ -38,7 +36,9 @@ export function WeatherDriver() {
 
   useFrame((_, dt) => {
     const store = dioramaStore.getState();
-    const target = store.weatherAuto ? weatherAt(Date.now(), WEATHER_SEED).weather : store.weather;
+    // Online the TownRoom's broadcast weather wins; offline (dev pages) the same schedule runs locally.
+    const scheduled = () => townLive.serverWeather() ?? weatherAt(townLive.serverNow() ?? Date.now(), WORLD_WEATHER_SEED).weather;
+    const target = store.weatherAuto ? scheduled() : store.weather;
     // Start in the current weather rather than fading in from sunshine.
     weatherRuntime.weights = easeWeatherWeights(weatherRuntime.weights, target, first.current ? 1e6 : dt);
     first.current = false;

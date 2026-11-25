@@ -7,6 +7,8 @@ import {
   type OnboardingRequestInput,
   type OnboardingResponse,
   OnboardingResponseSchema,
+  type ShardsResponse,
+  ShardsResponseSchema,
 } from "@hellovalley/shared";
 import { SERVER_URL } from "./serverUrl";
 
@@ -45,7 +47,7 @@ export class ApiError extends Error {
 
 async function call<T>(
   user: TokenSource,
-  method: "POST" | "PUT",
+  method: "GET" | "POST" | "PUT",
   route: string,
   body: unknown,
   schema: ResponseSchema<T>,
@@ -54,11 +56,12 @@ async function call<T>(
   const token = await user.getIdToken();
   let res: Awaited<ReturnType<FetchLike>>;
   try {
-    res = await fetchImpl(`${baseUrl.replace(/\/+$/, "")}${route}`, {
-      method,
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    res = await fetchImpl(
+      `${baseUrl.replace(/\/+$/, "")}${route}`,
+      method === "GET"
+        ? { method, headers: { authorization: `Bearer ${token}` } }
+        : { method, headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) },
+    );
   } catch (err) {
     throw new ApiError("network", null, err instanceof Error ? err.message : String(err));
   }
@@ -79,4 +82,10 @@ export function postOnboarding(user: TokenSource, request: OnboardingRequestInpu
 /** `PUT /api/profile/appearance` (the apartment mirror, M15): the server answers with the updated profile. */
 export function putAppearance(user: TokenSource, appearance: AppearanceUpdateRequest, options: ApiOptions = {}): Promise<AppearanceUpdateResponse> {
   return call(user, "PUT", ApiRoute.Appearance, appearance, AppearanceUpdateResponseSchema, options);
+}
+
+/** `GET /api/shards[?friend=<uid>]` (build plan M16): the live shards and the friend's shard (or null). */
+export function getShards(user: TokenSource, friendUid?: string, options: ApiOptions = {}): Promise<ShardsResponse> {
+  const route = friendUid ? `${ApiRoute.Shards}?friend=${encodeURIComponent(friendUid)}` : ApiRoute.Shards;
+  return call(user, "GET", route, undefined, ShardsResponseSchema, options);
 }

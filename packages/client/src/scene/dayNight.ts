@@ -5,7 +5,8 @@
  * `worldTime` is the phase of the shared 40-minute day, 0–1, linear in real time
  * (architecture §3.1: `((Date.now() − EPOCH) mod 40 min) / 40 min`). The day is 30 minutes and the
  * night 10, so here phase 0 is sunrise, the day runs to 0.75 (sunset) and night fills the last
- * quarter. TODO(M16): the server broadcasts worldTime and owns the phase → in-game clock mapping.
+ * quarter. The phase comes from the server's wall clock and the phase → in-game clock mapping
+ * lives in shared world/clock.ts (build plan M16).
  */
 
 /** sRGB colour with channels 0–1. */

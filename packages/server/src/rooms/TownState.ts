@@ -1,24 +1,59 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
+import type { TownPlayerView, TownWorldView } from "@hellovalley/shared";
 
 /**
- * Placeholder player entry. Positions are on the ground plane in metres.
- * TODO(M16): animation state (the shared AnimationStateMachine clip), appearance (profile
- * animal + colors, updated after PUT /api/profile/appearance) and facing; server-validated movement.
+ * One player in a TownRoom shard (build plan M16). Positions are on the ground plane in metres,
+ * in the player's current space (the town or an interior). `motion` drives remote avatars' clips
+ * (the client runs the shared AnimationStateMachine; emotes arrive as messages). `appearance` is
+ * the profile's `{animal, colors}` as JSON, refreshed when the mirror saves a new look.
+ * The fields match the shared `TownPlayerView` (checked below).
  */
 export const TownPlayer = schema(
   {
+    name: t.string(),
+    appearance: t.string(),
+    space: t.string(),
     x: t.number(),
     z: t.number(),
+    heading: t.number(),
+    motion: t.string(),
   },
   "TownPlayer",
 );
 export type TownPlayer = SchemaType<typeof TownPlayer>;
 
-/** Synced TownRoom state. TODO(M16): NPCs, world time, weather and spawns (architecture §7.1). */
+/**
+ * The world clock and weather (GDD §4.3). The clock itself is wall time (shared world/clock.ts),
+ * so the state only carries the server's time once a second; clients sync their clock with
+ * `time:sync` probes and compute the phase every frame.
+ */
+export const TownWorld = schema(
+  {
+    serverTime: t.number(),
+    day: t.number(),
+    weather: t.string(),
+    previousWeather: t.string(),
+    weatherSince: t.number(),
+  },
+  "TownWorld",
+);
+export type TownWorld = SchemaType<typeof TownWorld>;
+
+/**
+ * Synced TownRoom state. TODO(M19): NPCs (positions and schedule state). TODO(M28): forage spawns
+ * and fish shadows (architecture §7.1).
+ */
 export const TownState = schema(
   {
+    /** "Valley #n". */
+    shard: t.number(),
     players: t.map(TownPlayer),
+    world: TownWorld,
   },
   "TownState",
 );
 export type TownState = SchemaType<typeof TownState>;
+
+// Compile-time check that the schemas carry every field the client reads (shared protocol types).
+export type TownPlayerFieldsCheck = Pick<TownPlayer, keyof TownPlayerView>;
+export type TownWorldFieldsCheck = Pick<TownWorld, keyof TownWorldView>;
