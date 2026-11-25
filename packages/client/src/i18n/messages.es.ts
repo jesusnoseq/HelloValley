@@ -116,4 +116,15 @@ export const es: Catalog = {
   "swatch.terracotta": "Terracota",
   "swatch.charcoal": "Carbón",
   "swatch.navy": "Azul marino",
+
+  "interact.mirror": "Pulsa F para usar el espejo",
+  "interact.mirror.button": "Usar el espejo",
+  "mirror.title": "El espejo",
+  "mirror.hint": "Cambia tu animal, tu pelaje y tu ropa. Todo el pueblo verá tu nuevo aspecto.",
+  "mirror.save": "Guardar aspecto",
+  "mirror.saving": "Guardando…",
+  "mirror.close": "Cerrar",
+  "mirror.unchanged": "Todavía no has cambiado nada.",
+  "mirror.error.network": "No se pudo conectar con el pueblo, así que tu nuevo aspecto aún no está guardado. Inténtalo de nuevo.",
+  "mirror.error.generic": "No se pudo guardar tu nuevo aspecto. Inténtalo de nuevo.",
 };

@@ -1,6 +1,6 @@
 import type { OnboardingRequestInput } from "@hellovalley/shared";
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, postOnboarding } from "./api";
+import { ApiError, postOnboarding, putAppearance } from "./api";
 
 const user = { getIdToken: async () => "tok" };
 const request: OnboardingRequestInput = {
@@ -55,5 +55,26 @@ describe("postOnboarding", () => {
     const bad = postOnboarding(user, request, { fetchImpl: reply(200, { created: true, profile: { ...profile, apartmentId: "0Z" } }) });
     await expect(bad).rejects.toBeInstanceOf(ApiError);
     await expect(bad).rejects.toMatchObject({ code: "bad_response" });
+  });
+});
+
+describe("putAppearance", () => {
+  const look = { animal: "rabbit", colors: { fur: "cocoa", shirt: { h: 20, s: 0.5, l: 0.7 }, trousers: { swatch: "navy" } } } as const;
+
+  it("puts the appearance with the ID token and parses the updated profile", async () => {
+    const updated = { ...profile, ...look };
+    const fetchImpl = reply(200, { profile: updated });
+    const res = await putAppearance(user, look, { baseUrl: "http://srv", fetchImpl });
+    expect(res.profile).toEqual(updated);
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://srv/api/profile/appearance");
+    expect(init.method).toBe("PUT");
+    expect((init.headers as Record<string, string>).authorization).toBe("Bearer tok");
+    expect(JSON.parse(init.body as string)).toEqual(look);
+  });
+
+  it("surfaces errors and rejects malformed profiles", async () => {
+    await expect(putAppearance(user, look, { fetchImpl: reply(404, { error: "not_onboarded" }) })).rejects.toMatchObject({ code: "not_onboarded", status: 404 });
+    await expect(putAppearance(user, look, { fetchImpl: reply(200, { profile: { ...profile, animal: "dragon" } }) })).rejects.toMatchObject({ code: "bad_response" });
   });
 });

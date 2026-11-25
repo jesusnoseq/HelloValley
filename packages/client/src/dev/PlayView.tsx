@@ -1,12 +1,27 @@
 import type { CSSProperties } from "react";
-import { BUILDING_RECIPE_IDS, buildingExitPoint, interiorArrivalPoint, isInteriorId, type SpacePoint } from "@hellovalley/shared";
+import {
+  AppearanceUpdateRequestSchema,
+  BUILDING_RECIPE_IDS,
+  buildingExitPoint,
+  interiorArrivalPoint,
+  interiorLayout,
+  isInteriorId,
+  type PlayerProfile,
+  type SpacePoint,
+  withAppearance,
+} from "@hellovalley/shared";
+import { PLACEHOLDER_APPEARANCE, PLACEHOLDER_NAME } from "../characters/placeholderLook";
+import { ApiError } from "../net/api";
 import { ZOOM_LEVELS } from "../scene/cameraMath";
 import { DioramaView } from "../scene/DioramaView";
 import { TOWN_SHADOW_EXTENT } from "../scene/townCamera";
 import { TOWN_START, World } from "../scene/World";
+import { avatarStore } from "../state/avatarStore";
 import { dioramaStore, useDiorama } from "../state/dioramaStore";
 import { useWorld } from "../state/worldStore";
 import { FadeOverlay } from "../ui/FadeOverlay";
+import { MirrorLayer } from "../ui/mirror/MirrorLayer";
+import type { SaveAppearance } from "../ui/mirror/MirrorPanel";
 import { PerfHud } from "../ui/PerfHud";
 
 const panel: CSSProperties = {
@@ -36,7 +51,12 @@ if (query.has("step")) dioramaStore.setState({ cameraStep: Math.round(Number(que
 /** `?space=<interior>` starts inside it, `?at=<building>` outside its door, else at the spawn point. */
 function startPoint(): SpacePoint {
   const space = query.get("space");
-  if (isInteriorId(space)) return interiorArrivalPoint(space);
+  if (isInteriorId(space)) {
+    // `&spot=mirror` starts at a named spot of the room (interior layout `spots`).
+    const spot = interiorLayout(space).spots[query.get("spot") ?? ""];
+    const arrival = interiorArrivalPoint(space);
+    return spot ? { ...arrival, pos: [spot[0], spot[1]] } : arrival;
+  }
   const at = query.get("at");
   if (at && (BUILDING_RECIPE_IDS as readonly string[]).includes(at)) return buildingExitPoint(at as (typeof BUILDING_RECIPE_IDS)[number]);
   return TOWN_START;
@@ -44,11 +64,30 @@ function startPoint(): SpacePoint {
 
 const START = startPoint();
 
+// A fake signed-in profile so the avatar, name tag and mirror work without Firebase.
+avatarStore.getState().setProfile({
+  name: query.get("name") ?? PLACEHOLDER_NAME,
+  ...PLACEHOLDER_APPEARANCE,
+  apartmentId: "6D",
+  nativeLang: "en",
+  targetLangs: ["es"],
+  style: "european",
+} satisfies PlayerProfile);
+
+/** Stands in for `PUT /api/profile/appearance` (`?save=offline` simulates a network failure). */
+const fakeSave: SaveAppearance = async (request) => {
+  await new Promise((r) => setTimeout(r, 300));
+  if (query.get("save") === "offline") throw new ApiError("network", null);
+  return withAppearance(avatarStore.getState().profile!, AppearanceUpdateRequestSchema.parse(request));
+};
+
 /**
  * Dev-only play page (`/dev/play`, build plan M13): the world with the local player and no
  * sign-in. WASD / arrows walk (Shift runs), click the ground to walk there, click a building or
  * walk into its door to go inside; Q/E rotate, the wheel zooms. Query parameters:
- * `?space=bakery` or `?at=library` (start point), `&t=0.2&speed=0&zoom=1&step=0&fx=0`.
+ * `?space=bakery` (`&spot=counter`) or `?at=library` (start point), `&t=0.2&speed=0&zoom=1&step=0&fx=0`, and for
+ * the M15 avatar `&name=Lia` and `&save=offline`. In the apartment, F at the mirror edits the look;
+ * 1–5 play emotes.
  */
 export function PlayView() {
   const space = useWorld((st) => st.space);
@@ -56,13 +95,14 @@ export function PlayView() {
   return (
     <DioramaView shadowExtent={TOWN_SHADOW_EXTENT} world={<World start={START} />}>
       <FadeOverlay />
+      <MirrorLayer save={fakeSave} />
       <PerfHud />
       <div style={panel}>
-        <strong>Play (M13)</strong>
+        <strong>Play (M13, M15)</strong>
         <span>
           space: {space} · zoom: {ZOOM_LEVELS[zoomLevel]!.id}
         </span>
-        <span>WASD / arrows walk, Shift runs, click to walk there, click a building or walk into its door to enter. Q/E rotate, wheel zooms.</span>
+        <span>WASD / arrows walk, Shift runs, click to walk there, click a building or walk into its door to enter. Q/E rotate, wheel zooms. 1–5 emote; F at the apartment mirror changes your look.</span>
       </div>
     </DioramaView>
   );

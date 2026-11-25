@@ -3,9 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Mesh, type Object3D, Texture } from "three";
 import { describe, expect, it } from "vitest";
-import { CHARACTER_MANIFEST_FILE, INTERIOR_IDS, INTERIOR_KIT_ID, interiorEntrance, interiorLayout } from "@hellovalley/shared";
-import { assembleCharacter, loadCharacterAssets } from "../characters/characterGlb";
-import { PLACEHOLDER_LOOK } from "../characters/placeholderLook";
+import { ANIMALS, CHARACTER_MANIFEST_FILE, INTERIOR_IDS, INTERIOR_KIT_ID, interiorEntrance, interiorLayout } from "@hellovalley/shared";
+import { assembleAvatar } from "../characters/avatarLook";
+import { loadCharacterAssets } from "../characters/characterGlb";
 import { DRAW_CALL_BUDGET, estimateDrawCalls } from "./drawCalls";
 import { buildInteriorMeshes, disposeInteriorMeshes, interiorDrawItems, interiorPlacements } from "./interiorMeshes";
 import { createKitLoader } from "./kitLoader";
@@ -41,10 +41,10 @@ function visibleMeshes(root: Object3D): Mesh[] {
   return out;
 }
 
-describe.skipIf(!charactersPresent)("placeholder player avatar", () => {
-  it("assembles within the character mesh and triangle budget", async () => {
-    const assets = await loadCharacterAssets("/assets/characters", { animals: [PLACEHOLDER_LOOK.animal], outfits: [], fetchImpl: fetchFromPublic });
-    const character = assembleCharacter(assets, PLACEHOLDER_LOOK);
+describe.skipIf(!charactersPresent)("player avatars", () => {
+  it.each(ANIMALS.map((a) => [a.id, a.furTints.at(-1)!.id] as const))("%s assembles within the character mesh and triangle budget", async (animal, fur) => {
+    const assets = await loadCharacterAssets("/assets/characters", { animals: [animal], outfits: [], fetchImpl: fetchFromPublic });
+    const character = assembleAvatar(assets, { animal, colors: { fur, shirt: { h: 20, s: 0.5, l: 0.7 }, trousers: { swatch: "navy" } } });
     const meshes = visibleMeshes(character.root);
     expect(meshes.length).toBeGreaterThan(0);
     expect(meshes.length).toBeLessThanOrEqual(CHARACTER_MESHES_MAX);

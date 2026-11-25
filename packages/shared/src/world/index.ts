@@ -10,3 +10,4 @@ export * from "./vegetation";
 export * from "./movement";
 export * from "./interiors";
 export * from "./player";
+export * from "./interactables";

@@ -2,7 +2,8 @@ import { schema, t, type SchemaType } from "@colyseus/schema";
 
 /**
  * Placeholder player entry. Positions are on the ground plane in metres.
- * TODO(M15/M16): animation state, appearance and facing; server-validated movement.
+ * TODO(M16): animation state (the shared AnimationStateMachine clip), appearance (profile
+ * animal + colors, updated after PUT /api/profile/appearance) and facing; server-validated movement.
  */
 export const TownPlayer = schema(
   {

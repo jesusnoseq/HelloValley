@@ -46,6 +46,7 @@ let draws = 0;
 const profiles: ProfileStore = {
   getProfile: (uid) => (failing ? Promise.reject(new Error("unavailable")) : store.getProfile(uid)),
   createProfile: (uid, records) => store.createProfile(uid, records),
+  updateAppearance: (uid, appearance) => (failing ? Promise.reject(new Error("unavailable")) : store.updateAppearance(uid, appearance)),
 };
 
 beforeAll(async () => {

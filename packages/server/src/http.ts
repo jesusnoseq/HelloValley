@@ -2,9 +2,10 @@ import express, { type Application, type NextFunction, type Request, type Respon
 import { requireAuth } from "./auth/middleware";
 import type { IdTokenVerifier } from "./auth/idToken";
 import type { ProfileStore } from "./profiles/profileStore";
+import { appearanceRouter } from "./routes/appearance";
 import { onboardingRouter, type OnboardingDeps } from "./routes/onboarding";
 
-/** JSON bodies on /api are small (the onboarding request is well under 1 KB). */
+/** JSON bodies on /api are small (the onboarding and appearance requests are well under 1 KB). */
 export const API_BODY_LIMIT = "8kb";
 
 export interface HttpDeps {
@@ -24,6 +25,7 @@ export function registerHttpRoutes(app: Application, deps: HttpDeps): void {
   app.use("/api", requireAuth(deps.verifier));
   app.use("/api", express.json({ limit: API_BODY_LIMIT }));
   app.use("/api", onboardingRouter({ ...deps.onboarding, profiles: deps.profiles }));
+  app.use("/api", appearanceRouter({ profiles: deps.profiles }));
   // TODO(M24/M37): POST /api/langs (add a target language). TODO(M16): GET /api/shards.
 
   // Malformed JSON, oversized bodies and anything else thrown on /api answer with JSON.

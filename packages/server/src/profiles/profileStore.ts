@@ -1,10 +1,12 @@
 import type { App } from "firebase-admin/app";
 import { type Firestore, getFirestore } from "firebase-admin/firestore";
 import {
+  type AvatarAppearance,
   FirestorePaths,
   type OnboardingRecords,
   type UserProfile,
   UserProfileSchema,
+  withAppearance,
 } from "@hellovalley/shared";
 
 /**
@@ -20,6 +22,12 @@ export interface ProfileStore {
    * double-submitted onboarding is harmless; it never re-rolls the apartment or the coins).
    */
   createProfile(uid: string, records: OnboardingRecords): Promise<{ created: boolean; profile: UserProfile }>;
+  /**
+   * Replaces `animal` and `colors` of an existing profile (the apartment mirror, build plan M15)
+   * and returns the updated profile, or null when the player has no profile yet. Nothing else in
+   * the document changes.
+   */
+  updateAppearance(uid: string, appearance: AvatarAppearance): Promise<UserProfile | null>;
 }
 
 /** Thrown when a stored profile no longer matches the schema (hand-edited or from an old version). */
@@ -55,6 +63,17 @@ export function createFirestoreProfileStore(db: Firestore): ProfileStore {
         return { created: true, profile: records.profile };
       });
     },
+    async updateAppearance(uid, appearance) {
+      const userRef = db.doc(FirestorePaths.user(uid));
+      return db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) return null;
+        // Validate the whole result before writing, so a write never leaves a document the schema rejects.
+        const next = UserProfileSchema.parse(withAppearance(parseStored(uid, snap.data()), appearance));
+        tx.update(userRef, { animal: next.animal, colors: next.colors });
+        return next;
+      });
+    },
   };
 }
 
@@ -83,6 +102,13 @@ export function createMemoryProfileStore(initial: Record<string, UserProfile> = 
       profiles.set(uid, records.profile);
       langs.set(FirestorePaths.lang(uid, records.lang.code), records.lang.progress);
       return { created: true, profile: records.profile };
+    },
+    async updateAppearance(uid, appearance) {
+      const existing = profiles.get(uid);
+      if (!existing) return null;
+      const next = UserProfileSchema.parse(withAppearance(existing, appearance));
+      profiles.set(uid, next);
+      return next;
     },
   };
 }

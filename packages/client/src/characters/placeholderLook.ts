@@ -1,8 +1,11 @@
-import type { CharacterLook } from "@hellovalley/shared";
+import type { AvatarAppearance } from "@hellovalley/shared";
 
 /**
- * Look of the local player until avatars render from the profile (build plan M13 uses a
- * placeholder). TODO(M15): build the avatar from the player's profile (animal, fur, clothes,
- * name tag) with the animation state machine.
+ * The avatar used where there is no profile: the dev pages (`/dev/play`, no sign-in). Signed-in
+ * players render from their profile (state/avatarStore, build plan M15).
  */
-export const PLACEHOLDER_LOOK: CharacterLook = { animal: "fox", furTint: "russet", shirt: "sky", trousers: "navy" };
+export const PLACEHOLDER_APPEARANCE: AvatarAppearance = {
+  animal: "fox",
+  colors: { fur: "russet", shirt: { swatch: "sky" }, trousers: { swatch: "navy" } },
+};
+export const PLACEHOLDER_NAME = "Guest";

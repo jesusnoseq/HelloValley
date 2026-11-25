@@ -30,6 +30,7 @@ const denyAll: IdTokenVerifier = {
 const noProfiles: ProfileStore = {
   getProfile: () => Promise.resolve(null),
   createProfile: () => Promise.reject(new Error("no profile store")),
+  updateAppearance: () => Promise.resolve(null),
 };
 
 /**

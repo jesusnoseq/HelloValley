@@ -24,6 +24,8 @@ import {
 
 export const ApiRoute = {
   Onboarding: "/api/onboarding",
+  /** `PUT`: the apartment mirror saves the avatar's appearance (build plan M15, avatar/appearance.ts). */
+  Appearance: "/api/profile/appearance",
   // TODO(M16): Shards: "/api/shards". TODO(M24/M37): Langs: "/api/langs" (add a target language).
 } as const;
 
@@ -87,10 +89,12 @@ export type OnboardingResponse = z.infer<typeof OnboardingResponseSchema>;
 /** Error codes of `POST /api/onboarding` (4xx JSON body `{ error, message }`). */
 export const ONBOARDING_ERRORS = ["invalid_request", "name_rejected"] as const;
 export type OnboardingError = (typeof ONBOARDING_ERRORS)[number];
-export const OnboardingErrorBodySchema = z.object({
+/** The 4xx/5xx JSON body of every `/api/*` route: `{ error, message? }`. */
+export const ApiErrorBodySchema = z.object({
   error: z.string().max(64),
   message: z.string().max(500).optional(),
 });
+export const OnboardingErrorBodySchema = ApiErrorBodySchema;
 
 /** Documents the server creates for a new player. */
 export interface OnboardingRecords {

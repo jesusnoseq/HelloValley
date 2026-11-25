@@ -1,4 +1,4 @@
-import { buildOnboardingRecords, OnboardingRequestSchema } from "@hellovalley/shared";
+import { AvatarAppearanceSchema, buildOnboardingRecords, OnboardingRequestSchema } from "@hellovalley/shared";
 import { getFirestore } from "firebase-admin/firestore";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_FIRESTORE_EMULATOR_HOST, DEMO_PROJECT_ID } from "../config";
@@ -39,6 +39,20 @@ function contract(name: string, make: () => ProfileStore, { skip = false } = {})
       expect(second.created).toBe(false);
       expect(second.profile.apartmentId).toBe("6D");
       expect((await store.getProfile(uid))?.apartmentId).toBe("6D");
+    });
+
+    it("updates only the appearance of an existing profile", async () => {
+      const store = make();
+      const uid = `a${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+      const look = AvatarAppearanceSchema.parse({ animal: "fox", colors: { fur: "arctic", shirt: { h: 10, s: 0.5, l: 0.7 }, trousers: { swatch: "navy" } } });
+      expect(await store.updateAppearance(uid, look)).toBeNull();
+      expect(await store.getProfile(uid)).toBeNull();
+      await store.createProfile(uid, records("6D"));
+      const updated = await store.updateAppearance(uid, look);
+      expect(updated).toMatchObject({ name: "Kenji", apartmentId: "6D", animal: "fox", colors: look.colors, style: "mediterranean" });
+      const stored = await store.getProfile(uid);
+      expect(stored).toMatchObject({ animal: "fox", colors: look.colors, targetLangs: ["es"] });
+      expect(stored?.createdAt.seconds).toBe(ts.seconds);
     });
   });
 }

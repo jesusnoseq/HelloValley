@@ -118,6 +118,17 @@ export const en = {
   "swatch.terracotta": "Terracotta",
   "swatch.charcoal": "Charcoal",
   "swatch.navy": "Navy",
+
+  "interact.mirror": "Press F to use the mirror",
+  "interact.mirror.button": "Use the mirror",
+  "mirror.title": "The mirror",
+  "mirror.hint": "Change your animal, fur and clothes. Everyone in town will see your new look.",
+  "mirror.save": "Save look",
+  "mirror.saving": "Saving…",
+  "mirror.close": "Close",
+  "mirror.unchanged": "Nothing changed yet.",
+  "mirror.error.network": "Could not reach the town, so your new look is not saved yet. Try again.",
+  "mirror.error.generic": "Your new look could not be saved. Please try again.",
 } as const satisfies Record<string, string>;
 
 export type MessageKey = keyof typeof en;

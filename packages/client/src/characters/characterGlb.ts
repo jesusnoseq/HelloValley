@@ -20,8 +20,9 @@ import { createKitGltfLoader, parseKitGlb } from "../assets/kitGlb";
  * a head, a tail and optional parts; each NPC outfit GLB carries rigid pieces. Parts attach to
  * sockets by name (node extras `hv_socket`) and keep their own local transform (the optimizer
  * may have moved geometry into it). Tintable material slots (`hv_slot` fur, shirt, trousers)
- * are cloned per character and tinted through `material.color`.
- * TODO(M15/M16): the avatar component and network-driven animation state.
+ * are cloned per character and tinted through `material.color`. The player avatar
+ * (scene/Player.tsx, M15) drives `play` with the shared AnimationStateMachine.
+ * TODO(M16): remote avatars driven by the room's animation state.
  */
 
 export interface CharacterAssets {
@@ -73,6 +74,13 @@ function joinUrl(base: string, file: string): string {
 
 type FetchLike = (url: string) => Promise<Pick<Response, "ok" | "status" | "json" | "arrayBuffer">>;
 
+/** Fetches and parses one GLB of the character set (an animal or outfit file loaded on demand). */
+export async function loadCharacterGlb(baseUrl: string, file: string, fetchImpl: FetchLike = fetch as FetchLike): Promise<GLTF> {
+  const r = await fetchImpl(joinUrl(baseUrl, file));
+  if (!r.ok) throw new Error(`${file}: HTTP ${r.status}`);
+  return parseKitGlb(await r.arrayBuffer());
+}
+
 /** Fetches the manifest, the body and the requested animals and outfits (all by default). */
 export async function loadCharacterAssets(
   baseUrl: string,
@@ -111,17 +119,26 @@ export interface Character {
   parts: Map<string, Object3D>;
   /** Per-character copies of the tintable materials, by slot. */
   tints: Map<CharacterSlot, MeshStandardMaterial[]>;
-  play(clip: string, fade?: number): AnimationAction;
+  /**
+   * Shows `clip`, crossfading from the current one over `fade` seconds. Playing the current clip
+   * again does nothing unless `restart` (an emote triggered twice replays from the start).
+   */
+  play(clip: string, fade?: number, restart?: boolean): AnimationAction;
   setTint(slot: CharacterSlot, hex: string): void;
   setPartVisible(name: string, visible: boolean): void;
 }
 
 /** Builds one character from loaded assets: the body clone, the animal's parts (optional
- * ones only when `look.parts` asks), the outfit pieces, tinted clothes and fur. */
-export function assembleCharacter(assets: CharacterAssets, look: CharacterLook): Character {
+ * ones only when `look.parts` asks), the outfit pieces, tinted clothes and fur. `colors`
+ * (sRGB hex) replaces the look's swatch colours, e.g. a player's custom HSL clothes. */
+export function assembleCharacter(
+  assets: CharacterAssets,
+  look: CharacterLook,
+  colorOverride?: { fur: string; shirt: string; trousers: string },
+): Character {
   const animal = assets.animals.get(look.animal);
   if (!animal) throw new Error(`animal ${look.animal} is not loaded`);
-  const colors = characterColors(look);
+  const colors = colorOverride ?? characterColors(look);
   if (!colors) throw new Error(`invalid look ${JSON.stringify(look)}`);
 
   const root = cloneSkinned(assets.body.scene);
@@ -186,13 +203,14 @@ export function assembleCharacter(assets: CharacterAssets, look: CharacterLook):
     actions,
     parts,
     tints,
-    play(name, fade = 0.2) {
+    play(name, fade = 0.2, restart = false) {
       const next = actions.get(name);
       if (!next) throw new Error(`unknown clip ${name}`);
-      if (next === current && next.isRunning()) return next;
+      if (next === current && next.isRunning() && !restart) return next;
       next.reset().setEffectiveWeight(1).play();
       if (current && current !== next) {
-        if (fade > 0 && current.isRunning()) current.crossFadeTo(next, fade, false);
+        // A finished one-shot (clamped on its last frame) is still scheduled and fades out too.
+        if (fade > 0 && current.isScheduled()) current.crossFadeTo(next, fade, false);
         else current.stop();
       }
       current = next;

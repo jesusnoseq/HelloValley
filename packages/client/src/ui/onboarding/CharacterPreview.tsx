@@ -2,14 +2,15 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { ANIMAL_IDS } from "@hellovalley/shared";
 import { Component, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { Group } from "three";
-import { assembleCharacter, type CharacterAssets, loadCharacterAssets } from "../../characters/characterGlb";
+import { characterAssetsWith } from "../../characters/assetCache";
+import { assembleCharacter, type CharacterAssets } from "../../characters/characterGlb";
 import { useI18n } from "../../i18n/I18nProvider";
 
 /**
  * The live 3D preview of character creation (build plan M14): the generated body with the chosen
  * animal head, tinted fur, shirt and trousers, idling on a slow turntable. Loaded lazily so
  * three.js and R3F stay out of the onboarding chunk until it renders.
- * TODO(M15): reuse for the apartment mirror, with the full animation state machine.
+ * The apartment mirror (M15) shows the same preview through AppearanceEditor.
  */
 
 export interface PreviewLook {
@@ -20,18 +21,9 @@ export interface PreviewLook {
   trousersHex: string;
 }
 
-let assetsPromise: Promise<CharacterAssets> | null = null;
-
-/** Body plus all 16 animals (each 8–25 kB), so the carousel swaps heads instantly. */
+/** Body plus all 16 animals (each 8–25 kB), so the carousel swaps heads instantly (shared with the player avatar). */
 function previewAssets(): Promise<CharacterAssets> {
-  assetsPromise ??= loadCharacterAssets(`${import.meta.env.BASE_URL}assets/characters`, {
-    animals: ANIMAL_IDS,
-    outfits: [],
-  });
-  assetsPromise.catch(() => {
-    assetsPromise = null;
-  });
-  return assetsPromise;
+  return characterAssetsWith(ANIMAL_IDS);
 }
 
 function Avatar({ assets, look }: { assets: CharacterAssets; look: PreviewLook }) {

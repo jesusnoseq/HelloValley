@@ -1,41 +1,62 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Group, type Mesh, MeshBasicMaterial, Raycaster, RingGeometry, Vector2 } from "three";
-import { type CharacterLook, PlayerController, type SpacePoint, type Vec2 } from "@hellovalley/shared";
-import { assembleCharacter, type Character, type CharacterAssets, loadCharacterAssets } from "../characters/characterGlb";
-import { PLACEHOLDER_LOOK } from "../characters/placeholderLook";
+import { Box3, type Group, type Mesh, MeshBasicMaterial, Raycaster, RingGeometry, type Sprite, Vector2 } from "three";
+import {
+  AnimationStateMachine,
+  appearanceHex,
+  appearanceOf,
+  type CharacterManifest,
+  type AvatarAppearance,
+  type ClipTimings,
+  emoteForKey,
+  nearestInteractable,
+  PlayerController,
+  type SpacePoint,
+  type Vec2,
+} from "@hellovalley/shared";
+import { characterAssetsWith } from "../characters/assetCache";
+import { assembleAvatar, tintAvatar } from "../characters/avatarLook";
+import type { Character } from "../characters/characterGlb";
+import { PLACEHOLDER_APPEARANCE, PLACEHOLDER_NAME } from "../characters/placeholderLook";
+import { avatarStore, useAvatar } from "../state/avatarStore";
 import { dioramaStore } from "../state/dioramaStore";
 import { worldStore } from "../state/worldStore";
 import { yawForStep } from "./cameraMath";
 import { cameraRig } from "./cameraRig";
+import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
 import { dampAngle, type Fade, IDLE_FADE, RUN_KEYS, screenDirection, screenToWorld, startFade, stepFade } from "./playerMath";
 
 /** Turning speed of the avatar towards its walking direction (1/s). */
 const TURN_RATE = 14;
-
-let assetsPromise: Promise<CharacterAssets> | null = null;
-
-/** The character assets the placeholder needs (body + one animal), loaded once per page. */
-function placeholderAssets(): Promise<CharacterAssets> {
-  assetsPromise ??= loadCharacterAssets(`${import.meta.env.BASE_URL}assets/characters`, { animals: [PLACEHOLDER_LOOK.animal], outfits: [] });
-  assetsPromise.catch(() => {
-    assetsPromise = null;
-  });
-  return assetsPromise;
-}
+const NO_INPUT: Vec2 = [0, 0];
 
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
+/** The appearance the avatar shows: the mirror's live preview, else the profile's, else the placeholder. */
+function currentAppearance(): AvatarAppearance {
+  const { preview, profile } = avatarStore.getState();
+  return preview ?? (profile ? appearanceOf(profile) : PLACEHOLDER_APPEARANCE);
+}
+
+function clipTimings(manifest: CharacterManifest): ClipTimings {
+  return Object.fromEntries(manifest.animations.map((a) => [a.name, { duration: a.duration, loop: a.loop }]));
+}
+
 /**
- * The local player (build plan M13): WASD / arrows walk relative to the screen (Shift runs),
+ * The local player (build plan M13, M15): WASD / arrows walk relative to the screen (Shift runs),
  * a left click on the ground walks there along an A* path, and walking into a door fades into
- * that building's interior (or back out). The camera follows through `cameraRig`. Movement is
- * local only: TODO(M16) send inputs to the TownRoom and reconcile with its authoritative positions.
+ * that building's interior (or back out). The avatar is built from the profile's appearance
+ * (or the mirror's live preview) with a name tag, and its clips follow the shared
+ * AnimationStateMachine (idle/walk/run, emotes on 1–5 with crossfades). F uses the interactable
+ * the player stands next to (the apartment mirror). While the mirror is open, input pauses and
+ * the avatar turns to the camera so the new look is easy to see.
+ * Movement is local only: TODO(M16) send inputs and emotes to the TownRoom and reconcile with its
+ * authoritative positions. TODO(M23/M29): `talking` and `seated` inputs of the state machine.
  */
-export function Player({ start, look = PLACEHOLDER_LOOK }: { start: SpacePoint; look?: CharacterLook }) {
+export function Player({ start }: { start: SpacePoint }) {
   const controller = useMemo(() => new PlayerController(start), [start]);
   const gl = useThree((s) => s.gl);
   const get = useThree((s) => s.get);
@@ -44,7 +65,16 @@ export function Player({ start, look = PLACEHOLDER_LOOK }: { start: SpacePoint; 
   const marker = useRef<Mesh>(null);
   const fade = useRef<Fade>(IDLE_FADE);
   const heading = useRef(start.heading);
+  const machine = useRef<AnimationStateMachine | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
+  const [tagY, setTagY] = useState(1.6);
+
+  const profile = useAvatar((s) => s.profile);
+  const preview = useAvatar((s) => s.preview);
+  const shown = preview ?? (profile ? appearanceOf(profile) : PLACEHOLDER_APPEARANCE);
+  const name = profile?.name ?? PLACEHOLDER_NAME;
+  const hex = appearanceHex(shown);
+  const animal = shown.animal;
 
   // Show the start space and put the camera on the player.
   useEffect(() => {
@@ -53,20 +83,26 @@ export function Player({ start, look = PLACEHOLDER_LOOK }: { start: SpacePoint; 
     cameraRig.snap = true;
     return () => {
       cameraRig.follow = null;
+      worldStore.setState({ nearby: null });
     };
   }, [start]);
 
+  // A new character per animal (heads differ); colours change in place below.
   useEffect(() => {
     let cancelled = false;
     let built: Character | null = null;
-    placeholderAssets()
+    characterAssetsWith([animal])
       .then((assets) => {
         if (cancelled) return;
-        built = assembleCharacter(assets, look);
+        const look = currentAppearance();
+        built = assembleAvatar(assets, look.animal === animal ? look : { ...look, animal, colors: { ...look.colors, fur: "" } });
         built.root.traverse((n) => {
           n.castShadow = true;
         });
-        built.play("idle", 0);
+        // The name tag floats above the tallest part of this head (ears, antlers).
+        setTagY(new Box3().setFromObject(built.root).max.y + NAME_TAG.gapM + (NAME_TAG.heightPx * NAME_TAG.metresPerPx) / 2);
+        machine.current ??= new AnimationStateMachine(clipTimings(assets.manifest));
+        built.play(machine.current.clip, 0);
         setCharacter(built);
       })
       .catch((error: unknown) => console.error("player avatar:", error));
@@ -75,15 +111,34 @@ export function Player({ start, look = PLACEHOLDER_LOOK }: { start: SpacePoint; 
       built?.mixer.stopAllAction();
       setCharacter(null);
     };
-  }, [look]);
+  }, [animal]);
 
-  // Keyboard: held keys are sampled every frame.
+  // Colour edits re-tint in place (the hex values change, the character does not).
+  useEffect(() => {
+    if (character) tintAvatar(character, currentAppearance());
+  }, [character, hex.fur, hex.shirt, hex.trousers]);
+
+  const tag = useMemo<Sprite>(() => createNameTag(name), [name]);
+  useEffect(() => () => disposeNameTag(tag), [tag]);
+
+  // Keyboard: held keys are sampled every frame; F interacts, 1–5 emote.
   useEffect(() => {
     const keys = held.current;
     const down = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
-      keys.add(e.code);
+      if (avatarStore.getState().mirrorOpen) return;
       if (e.code.startsWith("Arrow")) e.preventDefault();
+      if (e.repeat) return;
+      keys.add(e.code);
+      if (e.code === "KeyF" && fade.current.phase === "idle" && worldStore.getState().nearby?.kind === "mirror") {
+        keys.clear();
+        avatarStore.getState().openMirror();
+        return;
+      }
+      const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
+      const emote = digit ? emoteForKey(Number(digit)) : null;
+      // TODO(M16): send the emote to the TownRoom so others see it.
+      if (emote) machine.current?.playEmote(emote);
     };
     const up = (e: KeyboardEvent) => keys.delete(e.code);
     const clear = () => keys.clear();
@@ -103,7 +158,7 @@ export function Player({ start, look = PLACEHOLDER_LOOK }: { start: SpacePoint; 
     const raycaster = new Raycaster();
     const ndc = new Vector2();
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || fade.current.phase !== "idle") return;
+      if (e.button !== 0 || fade.current.phase !== "idle" || avatarStore.getState().mirrorOpen) return;
       const rect = el.getBoundingClientRect();
       ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, get().camera);
@@ -118,6 +173,7 @@ export function Player({ start, look = PLACEHOLDER_LOOK }: { start: SpacePoint; 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
     const world = worldStore.getState();
+    const mirrorOpen = avatarStore.getState().mirrorOpen;
 
     // Door fade: out, swap spaces at full cover, wait for the new room's meshes, back in.
     if (fade.current.phase !== "idle") {
@@ -134,27 +190,39 @@ export function Player({ start, look = PLACEHOLDER_LOOK }: { start: SpacePoint; 
       worldStore.setState({ fade: fade.current.cover });
     }
 
-    const keys = held.current;
-    const screen = screenDirection(keys);
-    const run = RUN_KEYS.some((k) => keys.has(k));
-    controller.setInput(screenToWorld(screen, yawForStep(dioramaStore.getState().cameraStep)), run);
+    if (mirrorOpen) {
+      held.current.clear();
+      controller.setInput(NO_INPUT);
+      if (controller.waypoints) controller.teleport({ ...controller.state });
+    } else {
+      const keys = held.current;
+      const run = RUN_KEYS.some((k) => keys.has(k));
+      controller.setInput(screenToWorld(screenDirection(keys), yawForStep(dioramaStore.getState().cameraStep)), run);
+    }
     if (fade.current.phase === "idle" && controller.update(dt)) {
       fade.current = startFade();
       worldStore.setState({ fade: 0 });
     }
 
-    const { pos, motion } = controller.state;
+    const { pos, motion, space } = controller.state;
+    // What F would use: only while standing still in the open (not mid-fade).
+    const near = fade.current.phase === "idle" ? nearestInteractable(space, pos) : null;
+    if ((near?.id ?? null) !== (world.nearby?.id ?? null)) worldStore.setState({ nearby: near ? { id: near.id, kind: near.kind } : null });
+
     cameraRig.follow = [pos[0], 0, pos[1]];
-    heading.current = dampAngle(heading.current, controller.state.heading, TURN_RATE, dt);
+    // In front of the mirror the avatar turns to the camera to show off the new look.
+    heading.current = dampAngle(heading.current, mirrorOpen ? cameraRig.yaw : controller.state.heading, TURN_RATE, dt);
     const g = avatar.current;
     if (g) {
       g.position.set(pos[0], 0, pos[1]);
       g.rotation.y = heading.current;
     }
-    if (character) {
-      character.play(motion === "run" ? "run" : motion === "walk" ? "walk" : "idle", 0.2);
-      character.mixer.update(dt);
+    const m0 = machine.current;
+    if (m0) {
+      const change = m0.update({ motion }, dt);
+      if (change && character) character.play(change.clip, change.fade, change.restart);
     }
+    character?.mixer.update(dt);
     const m = marker.current;
     if (m) {
       const goal: Vec2 | undefined = controller.waypoints?.at(-1);
@@ -180,6 +248,7 @@ export function Player({ start, look = PLACEHOLDER_LOOK }: { start: SpacePoint; 
     <>
       <group ref={avatar} name="player">
         {character ? <primitive object={character.root} /> : null}
+        <primitive object={tag} position={[0, tagY, 0]} />
       </group>
       <mesh ref={marker} geometry={markerResources.geometry} material={markerResources.material} visible={false} renderOrder={5} />
     </>

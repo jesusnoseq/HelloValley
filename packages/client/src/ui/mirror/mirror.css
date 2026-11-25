@@ -1,0 +1,30 @@
+/* The apartment mirror (build plan M15): the onboarding card as a dialog over the room. */
+
+.hv-onb.hv-mirror {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  min-height: 0;
+  overflow-y: auto;
+  /* Light veil: the avatar in the room shows the edits live behind it. */
+  background: rgba(58, 54, 52, 0.18);
+  place-items: center end;
+}
+
+.hv-mirror .hv-onb-card {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.hv-mirror .hv-onb-stage {
+  border: 6px solid #c9a978;
+  border-radius: 48% 48% 14px 14px / 30% 30% 14px 14px;
+  background: radial-gradient(circle at 40% 30%, #fdfbf6, #dfe7ec 70%, #cdd8df);
+}
+
+@media (max-width: 680px) {
+  .hv-onb.hv-mirror {
+    place-items: center;
+  }
+}

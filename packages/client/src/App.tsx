@@ -9,9 +9,12 @@ import { useTownConnection } from "./net/connection";
 import { ProfileGate } from "./profile/ProfileGate";
 import { DioramaView } from "./scene/DioramaView";
 import { SPAWN_TARGET, TOWN_SHADOW_EXTENT } from "./scene/townCamera";
+import { avatarStore, useAvatar } from "./state/avatarStore";
 import { dioramaStore } from "./state/dioramaStore";
 import { DebugOverlay } from "./ui/DebugOverlay";
 import { FadeOverlay } from "./ui/FadeOverlay";
+import { MirrorLayer } from "./ui/mirror/MirrorLayer";
+import type { SaveAppearance } from "./ui/mirror/MirrorPanel";
 
 // The world pulls in shared game data (and zod): keep it in its own chunk, after sign-in.
 const WorldScene = lazy(() => import("./scene/World").then((m) => ({ default: m.World })));
@@ -53,6 +56,15 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
   useEffect(() => {
     dioramaStore.getState().setStyle(profile.style);
   }, [profile.style]);
+  // The avatar renders from the profile; a saved mirror edit replaces it (build plan M15).
+  useEffect(() => {
+    avatarStore.getState().setProfile(profile);
+    return () => avatarStore.getState().setProfile(null);
+  }, [profile]);
+  const name = useAvatar((s) => s.profile?.name) ?? profile.name;
+  // The API client pulls in shared schemas (zod): load it on first save, not in the entry chunk.
+  const saveAppearance: SaveAppearance = (appearance) =>
+    import("./net/api").then(({ putAppearance }) => putAppearance(user, appearance)).then((r) => r.profile);
   return (
     <DioramaView
       target={SPAWN_TARGET}
@@ -65,10 +77,11 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       }
     >
       <FadeOverlay />
+      <MirrorLayer save={saveAppearance} />
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>
         <p style={{ margin: "4px 0 0" }}>
-          {profile.name} · {t("hud.apartment", { apartment: profile.apartmentId })}
+          {name} · {t("hud.apartment", { apartment: profile.apartmentId })}
         </p>
         <p style={{ margin: "2px 0 0", fontSize: 12, opacity: 0.75 }}>
           {t("hud.signedInAs", { name: user.displayName ?? user.email ?? user.uid })}{" "}

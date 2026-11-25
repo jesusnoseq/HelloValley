@@ -26,15 +26,19 @@ import type { MessageKey } from "../../i18n/i18n";
 export const ONBOARDING_STEPS = ["native", "target", "level", "character", "style"] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
-export interface OnboardingDraft {
-  nativeLang: string | null;
-  targetLang: string | null;
-  selfAssessment: SelfAssessment | null;
-  name: string;
+/** The appearance part of character creation, also edited by the apartment mirror (M15). */
+export interface AppearanceDraft {
   animal: AnimalId;
   fur: string;
   shirt: ClothingColor;
   trousers: ClothingColor;
+}
+
+export interface OnboardingDraft extends AppearanceDraft {
+  nativeLang: string | null;
+  targetLang: string | null;
+  selfAssessment: SelfAssessment | null;
+  name: string;
   style: StyleId | null;
   /** The player picked a style themselves: changing the target language no longer resets it. */
   styleChosen: boolean;
@@ -84,7 +88,7 @@ export function setStyle(d: OnboardingDraft, style: StyleId): OnboardingDraft {
 }
 
 /** Switching animal keeps the fur tint only if the new animal has one with the same id. */
-export function setAnimal(d: OnboardingDraft, animal: AnimalId): OnboardingDraft {
+export function setAnimal<D extends AppearanceDraft>(d: D, animal: AnimalId): D {
   const def = getAnimal(animal);
   if (!def) return d;
   const fur = def.furTints.some((t) => t.id === d.fur) ? d.fur : def.furTints[0]!.id;
