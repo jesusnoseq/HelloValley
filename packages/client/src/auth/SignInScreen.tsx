@@ -31,7 +31,10 @@ const button: CSSProperties = {
   cursor: "pointer",
 };
 
-/** Google sign-in is required to play (GDD §9.3). TODO(M14): onboarding follows sign-in. */
+/**
+ * Google sign-in is required to play (GDD §9.3); onboarding follows (profile/ProfileGate).
+ * TODO(M37): localise with the browser language (the native language is not known yet).
+ */
 export function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -8,6 +8,7 @@ import {
   type WelcomeMessage,
 } from "@hellovalley/shared";
 import { type IdTokenVerifier, InvalidIdTokenError, type VerifiedUser } from "../auth/idToken";
+import type { ProfileStore } from "../profiles/profileStore";
 import { TownPlayer, TownState } from "./TownState";
 
 /** GDD §4.4 / architecture §7.1: up to 40 players per shard. */
@@ -25,6 +26,12 @@ const denyAll: IdTokenVerifier = {
   verify: () => Promise.reject(new InvalidIdTokenError()),
 };
 
+/** Knows no profiles, so nobody counts as onboarded. */
+const noProfiles: ProfileStore = {
+  getProfile: () => Promise.resolve(null),
+  createProfile: () => Promise.reject(new Error("no profile store")),
+};
+
 /**
  * Placeholder town shard. Joining needs a valid Firebase ID token in the join options; the
  * verified uid is the player's identity for everything the server decides. Every client message
@@ -34,6 +41,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> {
   override maxClients = TOWN_MAX_CLIENTS;
   override state = new TownState();
   protected verifier: IdTokenVerifier = denyAll;
+  protected profiles: ProfileStore = noProfiles;
 
   override onCreate(): void {
     this.handle(ClientMessage.PlayerInput, (_client, _input) => {
@@ -57,7 +65,16 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> {
     } catch {
       throw new ServerError(401, "invalid ID token");
     }
-    // TODO(M14): reject users who have not finished onboarding (no users/{uid} profile yet).
+    // Architecture §7.1: players who have not finished onboarding (no users/{uid}) cannot join.
+    let onboarded: boolean;
+    try {
+      onboarded = (await this.profiles.getProfile(user.uid)) !== null;
+    } catch (err) {
+      console.error(`[town] profile lookup failed for ${user.uid}:`, err);
+      throw new ServerError(503, "profile unavailable");
+    }
+    if (!onboarded) throw new ServerError(403, "onboarding required");
+    // TODO(M15/M16): keep the profile (name, look, apartment) on the player for the room state.
     // TODO(M16): one session per uid (kick or refuse a second tab).
     return { uid: user.uid };
   }
@@ -90,9 +107,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> {
   }
 }
 
-/** A TownRoom class bound to an ID token verifier, for `server.define`. */
-export function townRoomWith(verifier: IdTokenVerifier): typeof TownRoom {
+/** A TownRoom class bound to an ID token verifier and the profile store, for `server.define`. */
+export function townRoomWith(verifier: IdTokenVerifier, profiles: ProfileStore): typeof TownRoom {
   return class extends TownRoom {
     protected override verifier = verifier;
+    protected override profiles = profiles;
   };
 }

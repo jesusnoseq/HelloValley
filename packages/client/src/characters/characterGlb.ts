@@ -21,7 +21,7 @@ import { createKitGltfLoader, parseKitGlb } from "../assets/kitGlb";
  * sockets by name (node extras `hv_socket`) and keep their own local transform (the optimizer
  * may have moved geometry into it). Tintable material slots (`hv_slot` fur, shirt, trousers)
  * are cloned per character and tinted through `material.color`.
- * TODO(M14/M16): the avatar component and network-driven animation state.
+ * TODO(M15/M16): the avatar component and network-driven animation state.
  */
 
 export interface CharacterAssets {

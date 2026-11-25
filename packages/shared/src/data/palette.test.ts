@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  clothingColorHex,
   ClothingColorSchema,
   clampPastel,
   getSwatch,
@@ -134,5 +135,13 @@ describe("ClothingColorSchema", () => {
     expect(ClothingColorSchema.parse({ h: 370, s: 1, l: 0.2 })).toEqual({ h: 10, s: PASTEL_SATURATION.max, l: PASTEL_LIGHTNESS.min });
     expect(ClothingColorSchema.safeParse({ swatch: "neon" }).success).toBe(false);
     expect(ClothingColorSchema.safeParse({ h: "red" }).success).toBe(false);
+  });
+});
+
+describe("clothingColorHex", () => {
+  it("resolves swatches and clamps picker colours", () => {
+    expect(clothingColorHex({ swatch: "navy" })).toBe("#4a5878");
+    expect(clothingColorHex({ swatch: "nope" })).toBe("#f6efdc");
+    expect(clothingColorHex({ h: 0, s: 1, l: 0.1 })).toBe(hslToHex({ h: 0, s: 0.7, l: 0.6 }));
   });
 });

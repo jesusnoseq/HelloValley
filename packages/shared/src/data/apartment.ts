@@ -28,7 +28,7 @@ function pick<T>(options: readonly T[], random: () => number): T {
 
 /**
  * A random apartment ID. `random` returns a number in [0, 1) like Math.random (inject a seeded RNG
- * in tests). The server assigns it at onboarding (TODO(M14)).
+ * in tests). The server assigns it at onboarding (`POST /api/onboarding`).
  */
 export function randomApartmentId(random: () => number = Math.random): ApartmentId {
   return `${pick(APARTMENT_FLOORS, random)}${pick(APARTMENT_DOORS, random)}`;

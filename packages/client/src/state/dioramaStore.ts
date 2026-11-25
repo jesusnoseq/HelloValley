@@ -25,7 +25,7 @@ export interface DioramaState {
   effects: boolean;
   /**
    * Town style the kits render in. Switching it swaps the kit under every building without
-   * moving anything (scene/KitBuilding). TODO(M14/M37): set it from the player's profile and the
+   * moving anything (scene/KitBuilding). App sets it from the player's profile; TODO(M37): the
    * Settings screen.
    */
   style: StyleId;

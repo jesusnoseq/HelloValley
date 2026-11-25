@@ -2,6 +2,7 @@ import { Client, type Room } from "@colyseus/sdk";
 import { type JoinOptions, RoomName, ServerMessage, type WelcomeMessage } from "@hellovalley/shared";
 import type { User } from "firebase/auth";
 import { useEffect, useState } from "react";
+import { SERVER_URL } from "./serverUrl";
 
 export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
 
@@ -14,8 +15,7 @@ export interface ConnectionState {
   error: string | null;
 }
 
-/** Game server base URL. Local dev talks to the server started by `npm run dev`. */
-export const SERVER_URL: string = import.meta.env.VITE_SERVER_URL ?? "http://127.0.0.1:2567";
+export { SERVER_URL };
 
 const PING_INTERVAL_MS = 2000;
 const RETRY_DELAY_MS = 2000;

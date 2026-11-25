@@ -17,7 +17,7 @@ import { StyleIdSchema } from "../data/styles";
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/;
 
-/** GDD §3.3: display names are 2–16 characters (and moderated by the server, TODO(M14)). */
+/** GDD §3.3: display names are 2–16 characters (and moderated by the server at onboarding). */
 export const PLAYER_NAME_MIN_LENGTH = 2;
 export const PLAYER_NAME_MAX_LENGTH = 16;
 /** A player learns at most this many target languages at once. */
@@ -85,9 +85,23 @@ const furMatchesAnimal = (p: { animal?: string; colors?: { fur: string } }) =>
   p.animal === undefined || p.colors === undefined || isFurTintFor(p.animal, p.colors.fur);
 const furMatchesAnimalIssue = { message: "fur tint does not belong to the animal", path: ["colors", "fur"] };
 
-/** `users/{uid}`: created by the server at onboarding (TODO(M14)). */
+/** `users/{uid}`: created by the server at onboarding (`POST /api/onboarding`). */
 export const UserProfileSchema = z.strictObject(userProfileShape).refine(furMatchesAnimal, furMatchesAnimalIssue);
 export type UserProfile = z.infer<typeof UserProfileSchema>;
+
+const { createdAt: _createdAt, ...playerProfileShape } = userProfileShape;
+
+/**
+ * The profile as the game uses it: `users/{uid}` without the Firestore-only `createdAt`. It is what
+ * `POST /api/onboarding` returns (JSON has no Timestamp) and what the client keeps in memory.
+ */
+export const PlayerProfileSchema = z.strictObject(playerProfileShape).refine(furMatchesAnimal, furMatchesAnimalIssue);
+export type PlayerProfile = z.infer<typeof PlayerProfileSchema>;
+
+export function toPlayerProfile(profile: UserProfile): PlayerProfile {
+  const { createdAt: _ignored, ...rest } = profile;
+  return rest;
+}
 
 /**
  * The only `users/{uid}` fields a client may change (architecture §8.1): appearance, style and

@@ -29,7 +29,7 @@ const authEmulatorUp = await fetch(`http://${AUTH_EMULATOR}/`, { signal: AbortSi
 );
 
 describe("createFirebaseVerifier (firebase-admin, emulator mode)", () => {
-  const verifier = createFirebaseVerifier({ projectId: PROJECT, authEmulatorHost: AUTH_EMULATOR });
+  const verifier = createFirebaseVerifier({ projectId: PROJECT, authEmulatorHost: AUTH_EMULATOR, firestoreEmulatorHost: null });
 
   // In emulator mode firebase-admin also looks the user up in the emulator, so this needs one running.
   it.skipIf(!authEmulatorUp)("returns the uid of a token issued by the Auth emulator", async () => {
@@ -57,7 +57,11 @@ describe("createFirebaseVerifier (firebase-admin, emulator mode)", () => {
 
 describe("readFirebaseConfig", () => {
   it("defaults to the demo project on the Auth emulator", () => {
-    expect(readFirebaseConfig({})).toEqual({ projectId: PROJECT, authEmulatorHost: "127.0.0.1:9099" });
+    expect(readFirebaseConfig({})).toEqual({
+      projectId: PROJECT,
+      authEmulatorHost: "127.0.0.1:9099",
+      firestoreEmulatorHost: "127.0.0.1:8080",
+    });
     expect(readFirebaseConfig({ FIREBASE_AUTH_EMULATOR_HOST: "localhost:9199" }).authEmulatorHost).toBe("localhost:9199");
   });
 
@@ -65,6 +69,7 @@ describe("readFirebaseConfig", () => {
     expect(readFirebaseConfig({ FIREBASE_PROJECT_ID: "hellovalley-prod" })).toEqual({
       projectId: "hellovalley-prod",
       authEmulatorHost: null,
+      firestoreEmulatorHost: null,
     });
   });
 
@@ -72,6 +77,13 @@ describe("readFirebaseConfig", () => {
     expect(() =>
       readFirebaseConfig({ FIREBASE_PROJECT_ID: "hellovalley-prod", FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099" }),
     ).toThrow(/real project/);
+  });
+
+  it("refuses the Firestore emulator for a real project", () => {
+    expect(() =>
+      readFirebaseConfig({ FIREBASE_PROJECT_ID: "hellovalley-prod", FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080" }),
+    ).toThrow(/real project/);
+    expect(readFirebaseConfig({ FIRESTORE_EMULATOR_HOST: "localhost:8081" }).firestoreEmulatorHost).toBe("localhost:8081");
   });
 
   it("rejects invalid project ids", () => {

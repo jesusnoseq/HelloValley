@@ -2,10 +2,11 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "@colyseus/core";
 import { Client, type Room } from "@colyseus/sdk";
 import type { WebSocketTransport } from "@colyseus/ws-transport";
-import { ClientMessage, RoomName, ServerMessage, type WelcomeMessage } from "@hellovalley/shared";
+import { ClientMessage, RoomName, ServerMessage, type UserProfile, type WelcomeMessage } from "@hellovalley/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type IdTokenVerifier, InvalidIdTokenError } from "./auth/idToken";
 import { readConfig } from "./config";
+import { createMemoryProfileStore } from "./profiles/profileStore";
 import { createGameServer } from "./server";
 
 let server: Server;
@@ -19,10 +20,22 @@ const fakeVerifier: IdTokenVerifier = {
     return { uid, admin: false };
   },
 };
+const profileOf = (name: string): UserProfile => ({
+  name,
+  animal: "fox",
+  colors: { fur: "russet", shirt: { swatch: "sky" }, trousers: { swatch: "navy" } },
+  apartmentId: "6D",
+  nativeLang: "en",
+  targetLangs: ["ja"],
+  style: "japanese",
+  createdAt: { seconds: 1_790_000_000, nanoseconds: 0 },
+});
+/** alice and bob have finished onboarding; carol has not. */
+const profiles = createMemoryProfileStore({ alice: profileOf("Alice"), bob: profileOf("Bob") });
 const join = (uid = "alice") => new Client(baseUrl).joinOrCreate(RoomName.Town, { idToken: `valid:${uid}` });
 
 beforeAll(async () => {
-  server = createGameServer({ verifier: fakeVerifier });
+  server = createGameServer({ verifier: fakeVerifier, profiles });
   await server.listen(0, "127.0.0.1");
   const { port } = (server.transport as WebSocketTransport).server!.address() as AddressInfo;
   baseUrl = `http://127.0.0.1:${port}`;
@@ -92,11 +105,15 @@ describe("authentication", () => {
     );
   });
 
+  it("rejects players who have not finished onboarding", async () => {
+    await expect(join("carol")).rejects.toThrow(/onboarding required/);
+  });
+
   it("requires a valid bearer token on /api/*", async () => {
     expect((await fetch(`${baseUrl}/api/anything`)).status).toBe(401);
     const forged = await fetch(`${baseUrl}/api/anything`, { headers: { authorization: "Bearer forged" } });
     expect(forged.status).toBe(401);
-    // Authenticated requests reach the router (no /api routes exist yet, so 404).
+    // Authenticated requests reach the router (unknown routes 404).
     const ok = await fetch(`${baseUrl}/api/anything`, { headers: { authorization: "Bearer valid:alice" } });
     expect(ok.status).toBe(404);
   });

@@ -6,7 +6,8 @@ import { firebaseApp, firebaseConfig } from "./app";
  * with the zod schemas from `@hellovalley/shared`. The client writes only its own profile
  * appearance, language settings and notebook; `firestore.rules` rejects everything else
  * (architecture §8.1).
- * TODO(M14): read the profile for the auth gate. TODO(M25): notebook reads and writes.
+ * The profile gate reads `users/{uid}` (profile/profileSource). TODO(M15): appearance writes from
+ * the mirror. TODO(M25): notebook reads and writes.
  */
 export const db = getFirestore(firebaseApp);
 

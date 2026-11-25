@@ -3,7 +3,7 @@ import { BUILDING_RECIPE_IDS, buildingExitPoint, interiorArrivalPoint, isInterio
 import { ZOOM_LEVELS } from "../scene/cameraMath";
 import { DioramaView } from "../scene/DioramaView";
 import { TOWN_SHADOW_EXTENT } from "../scene/townCamera";
-import { DEFAULT_START, World } from "../scene/World";
+import { TOWN_START, World } from "../scene/World";
 import { dioramaStore, useDiorama } from "../state/dioramaStore";
 import { useWorld } from "../state/worldStore";
 import { FadeOverlay } from "../ui/FadeOverlay";
@@ -39,7 +39,7 @@ function startPoint(): SpacePoint {
   if (isInteriorId(space)) return interiorArrivalPoint(space);
   const at = query.get("at");
   if (at && (BUILDING_RECIPE_IDS as readonly string[]).includes(at)) return buildingExitPoint(at as (typeof BUILDING_RECIPE_IDS)[number]);
-  return DEFAULT_START;
+  return TOWN_START;
 }
 
 const START = startPoint();

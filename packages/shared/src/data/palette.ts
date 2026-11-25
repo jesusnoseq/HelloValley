@@ -123,3 +123,9 @@ export const ClothingColorSchema = z.union([
     .transform((c) => clampPastel(c)),
 ]);
 export type ClothingColor = z.infer<typeof ClothingColorSchema>;
+
+/** The sRGB hex a clothing colour renders as: the swatch's hex, or the (clamped) picker colour. */
+export function clothingColorHex(color: { swatch: string } | Hsl): string {
+  if ("swatch" in color) return getSwatch(color.swatch)?.hex ?? PALETTE[0].hex;
+  return hslToHex(clampPastel(color));
+}
