@@ -1,6 +1,7 @@
 import type { PlayerProfile } from "@hellovalley/shared";
 import type { User } from "firebase/auth";
 import { type CSSProperties, lazy, Suspense, useEffect } from "react";
+import { checkOnDeviceAtLogin, setAiUser, startWarmUp } from "./ai/client";
 import { AuthGate } from "./auth/AuthGate";
 import { signOutUser } from "./auth/useAuth";
 import { uiLocaleFor } from "./i18n/i18n";
@@ -12,6 +13,7 @@ import { DioramaView } from "./scene/DioramaView";
 import { SPAWN_TARGET, TOWN_SHADOW_EXTENT } from "./scene/townCamera";
 import { avatarStore, useAvatar } from "./state/avatarStore";
 import { dioramaStore } from "./state/dioramaStore";
+import { AiStatusChip } from "./ui/AiStatusChip";
 import { ApartmentHud } from "./ui/apartment/ApartmentHud";
 import { ChatHud } from "./ui/chat/ChatHud";
 import { DebugOverlay } from "./ui/DebugOverlay";
@@ -78,6 +80,20 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       stop?.();
     };
   }, [user.uid, profile.targetLangs]);
+  // Build plan M20: AI answers are cached in this player's IndexedDB; a returning player whose
+  // on-device model is still downloadable starts the download on a click or key press (startWarmUp does nothing otherwise).
+  useEffect(() => {
+    setAiUser(user.uid);
+    void checkOnDeviceAtLogin();
+    const gesture = () => startWarmUp();
+    window.addEventListener("pointerdown", gesture);
+    window.addEventListener("keydown", gesture);
+    return () => {
+      window.removeEventListener("pointerdown", gesture);
+      window.removeEventListener("keydown", gesture);
+      setAiUser(null);
+    };
+  }, [user.uid]);
   const name = useAvatar((s) => s.profile?.name) ?? profile.name;
   // The API client pulls in shared schemas (zod): load it on first save, not in the entry chunk.
   const saveAppearance: SaveAppearance = (appearance) =>
@@ -112,6 +128,7 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
           </button>
         </p>
       </div>
+      <AiStatusChip />
       <DebugOverlay connection={connection} />
     </DioramaView>
   );

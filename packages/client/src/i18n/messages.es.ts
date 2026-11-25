@@ -16,6 +16,10 @@ export const es: Catalog = {
   "hud.shard": "Valle n.º {shard}",
   "hud.replaced": "Estás jugando en otra pestaña.",
 
+  "ai.chip.downloading": "✨ Acelerando las traducciones…",
+  "ai.chip.progress": "✨ Acelerando las traducciones… {percent} %",
+  "ai.chip.ready": "✨ Traducciones aceleradas: ahora se hacen en tu ordenador.",
+
   "onboarding.title": "Te damos la bienvenida a HelloValley",
   "onboarding.progress": "Paso {step} de {total}",
   "onboarding.native.title": "¿Qué idioma hablas mejor?",

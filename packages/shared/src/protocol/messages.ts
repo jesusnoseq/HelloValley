@@ -268,7 +268,8 @@ export interface ChatSendMessage {
   /**
    * The language the line is written in, as the sender's client says (an untrusted claim; it only
    * decides how readers translate it). Missing: the sender's target language.
-   * TODO(M20): the sender's client detects it on-device.
+   * The sender picks it with the chat input's language toggle (M18). Build plan M20 adds on-device
+   * detection (`detectLanguage`), used for the NPC native-language redirect (TODO(M23)), not here.
    */
   lang?: string;
 }

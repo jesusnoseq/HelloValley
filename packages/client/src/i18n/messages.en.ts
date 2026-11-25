@@ -18,6 +18,10 @@ export const en = {
   "hud.shard": "Valley #{shard}",
   "hud.replaced": "You are playing in another tab.",
 
+  "ai.chip.downloading": "✨ Speeding up translations…",
+  "ai.chip.progress": "✨ Speeding up translations… {percent}%",
+  "ai.chip.ready": "✨ Translations sped up: they now run on your computer.",
+
   "onboarding.title": "Welcome to HelloValley",
   "onboarding.progress": "Step {step} of {total}",
   "onboarding.native.title": "Which language do you speak best?",

@@ -9,3 +9,4 @@ export * from "./avatar/index";
 export * from "./apartment/index";
 export * from "./chat/index";
 export * from "./language/index";
+export * from "./ai/index";

@@ -9,7 +9,7 @@ import type { OnboardingDraft } from "./draft";
  * Character creation (GDD §2.1 step 5, §3): name (moderated by the server) plus the appearance
  * editor (animal carousel with a live 3D preview, fur tints, shirt and trousers colours), which
  * the apartment mirror reuses (M15).
- * TODO(M20): show the on-device model warm-up chip ("Speeding up translations…") here.
+ * The on-device model warm-up chip ("Speeding up translations…", M20) is shown by the wizard.
  */
 export function CharacterStep({
   draft,

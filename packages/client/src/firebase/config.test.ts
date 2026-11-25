@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_PROJECT_ID, readFirebaseConfig } from "./config";
+import { aiCloudEnabled, DEMO_PROJECT_ID, readFirebaseConfig } from "./config";
 
 describe("readFirebaseConfig", () => {
   it("defaults to the demo project on the emulators (firebase.json ports)", () => {
@@ -35,5 +35,13 @@ describe("readFirebaseConfig", () => {
       VITE_FIRESTORE_EMULATOR_HOST: "localhost:8181",
     });
     expect(config.emulators?.firestore).toEqual({ host: "localhost", port: 8181 });
+  });
+});
+
+describe("aiCloudEnabled", () => {
+  it("is off for the demo project and without an API key", () => {
+    expect(aiCloudEnabled(readFirebaseConfig({}).options)).toBe(false);
+    expect(aiCloudEnabled({ projectId: "hellovalley-dev" })).toBe(false);
+    expect(aiCloudEnabled(readFirebaseConfig({ VITE_FIREBASE_PROJECT_ID: "hellovalley-dev", VITE_FIREBASE_API_KEY: "k" }).options)).toBe(true);
   });
 });

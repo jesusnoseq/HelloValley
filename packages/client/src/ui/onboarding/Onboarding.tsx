@@ -8,9 +8,11 @@ import {
   STYLE_IDS,
 } from "@hellovalley/shared";
 import { useEffect, useRef, useState } from "react";
+import { checkOnDeviceAtLogin, startWarmUp } from "../../ai/client";
 import { languageDisplayName, type MessageKey, uiLocaleFor, uiLocaleFromBrowser } from "../../i18n/i18n";
 import { I18nProvider, useI18n } from "../../i18n/I18nProvider";
 import { ApiError, postOnboarding, type TokenSource } from "../../net/api";
+import { AiStatusChip } from "../AiStatusChip";
 import { CharacterStep } from "./CharacterStep";
 import {
   initialDraft,
@@ -31,6 +33,8 @@ import "./onboarding.css";
  * → self-assessed level → character → town style, then `POST /api/onboarding` (the server assigns
  * the apartment) and the apartment number reveal. The UI switches to the chosen native language
  * as soon as it is picked (EN/ES catalogues, others fall back to EN).
+ * Build plan M20: on mount it asks whether the on-device model is available; the click that opens
+ * character creation starts its download (a user gesture is required), and a chip shows progress.
  * TODO(M22): the intro cutscene (the Mayor's cached welcome, the key, the camera pulling out of
  * the apartment window) follows the reveal.
  */
@@ -83,6 +87,11 @@ function Wizard({
   const step = ONBOARDING_STEPS[stepIndex]!;
   const last = stepIndex === ONBOARDING_STEPS.length - 1;
 
+  // Architecture §5.2 warm-up: check the on-device model (and preload the AI chunk) at login.
+  useEffect(() => {
+    void checkOnDeviceAtLogin();
+  }, []);
+
   // Move focus to the new step's heading so screen readers announce it.
   const done = submit.state === "done";
   useEffect(() => {
@@ -129,6 +138,8 @@ function Wizard({
     setShowErrors(false);
     if (last) void send();
     else setStepIndex(stepIndex + 1);
+    // Still inside the click: start the model download as character creation opens.
+    if (stepIndex + 1 >= ONBOARDING_STEPS.indexOf("character")) startWarmUp();
   };
 
   const back = () => {
@@ -154,6 +165,7 @@ function Wizard({
             {t("onboarding.apartment.enter")}
           </button>
         </section>
+        <AiStatusChip />
       </main>
     );
   }
@@ -281,6 +293,7 @@ function Wizard({
           </button>
         </div>
       </form>
+      <AiStatusChip />
     </main>
   );
 }

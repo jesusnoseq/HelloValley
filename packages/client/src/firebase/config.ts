@@ -52,3 +52,12 @@ export function readFirebaseConfig(env: Env): ClientFirebaseConfig {
       : null,
   };
 }
+
+/**
+ * Can the client reach cloud Gemini through Firebase AI Logic? AI Logic has no emulator
+ * (architecture §3.3), so the `demo-*` project (and a config without an API key) runs the hybrid
+ * tasks on-device only. A real dev project works with the Auth/Firestore emulators too.
+ */
+export function aiCloudEnabled(options: FirebaseOptions): boolean {
+  return Boolean(options.projectId && !options.projectId.startsWith("demo-") && options.apiKey);
+}

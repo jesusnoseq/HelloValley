@@ -22,8 +22,9 @@ import {
   ClientMessage,
   ServerMessage,
 } from "@hellovalley/shared";
-import { type ChatModeration, stubChatModeration } from "../ai/moderation";
-import { createCachedTranslator, stubTranslator, type Translator } from "../ai/translate";
+import { lazyModeration, lazyTranslator } from "../ai/client";
+import type { ChatModeration } from "../ai/moderation";
+import { createCachedTranslator, type Translator } from "../ai/translate";
 
 /**
  * The client side of proximity chat (build plan M18, GDD §6.6), over the TownRoom: the chat log,
@@ -251,8 +252,11 @@ export function createChatSession(deps: ChatDeps): ChatSession {
   return session;
 }
 
-/** The game's chat session: the stub translator (TODO(M20)) behind the per-message cache. */
-export const chat = createChatSession({ translator: createCachedTranslator(stubTranslator), moderation: stubChatModeration });
+/**
+ * The game's chat session: the hybrid AI module (build plan M20, loaded on the first line) for
+ * translations, behind the per-message cache, and for the sender and reader moderation checks.
+ */
+export const chat = createChatSession({ translator: createCachedTranslator(lazyTranslator), moderation: lazyModeration });
 
 export function useChat<T>(selector: (state: ChatState) => T): T {
   return useStore(chat.store, selector);
