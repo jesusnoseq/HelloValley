@@ -6,11 +6,9 @@ import {
   type FlatTile,
   type Ground,
   isPlantModule,
-  RIVER_BED_Y,
   rotateVec,
   type StyleId,
   TERRAIN_TOP,
-  TERRAIN_Y,
   TOWN_BUILDINGS,
   TOWN_D,
   TOWN_W,
@@ -69,10 +67,26 @@ export interface TownLayer {
 }
 
 /**
- * Chunk of the dressed props that come from the common kit (a swapped tree's trunk in Europe, the
- * square's fountain): one whole-town bucket, so they add one mesh per material, not one per chunk.
+ * The whole-town bucket (M37 draw-call pass): small material slots are not worth a mesh per chunk,
+ * so they merge into one mesh for the whole town (one draw call, never culled, which costs little
+ * at their size): glass and glow, the common layer's standing props (crates, rocks, trunks: ~5k
+ * triangles) and the dressed props that come from the common kit (a swapped tree's trunk in
+ * Europe, the square's fountain).
  */
-export const DRESSING_CHUNK = -1;
+export const WHOLE_TOWN_CHUNK = -1;
+/** @deprecated M34 name of the whole-town bucket. */
+export const DRESSING_CHUNK = WHOLE_TOWN_CHUNK;
+
+/** Material slots merged into the whole-town bucket in every layer. */
+const WHOLE_TOWN_KINDS: ReadonlySet<KitMaterialKind> = new Set(["glass", "glow"]);
+
+/**
+ * Whether a town part is drawn in the shadow pass: not the ground (it only receives), not the
+ * water and not the glow (lamps and lit windows give light, they do not block it).
+ */
+export function castsShadow(part: Pick<TownMeshPart, "ground" | "kind">): boolean {
+  return !part.ground && part.kind !== "water" && part.kind !== "glow";
+}
 
 class Buckets {
   private readonly map = new Map<string, { kit: string; chunk: number; kind: KitMaterialKind; ground: boolean; list: BufferGeometry[] }>();
@@ -80,6 +94,7 @@ class Buckets {
   constructor(private readonly kit: string) {}
 
   add(chunk: number, kind: KitMaterialKind, ground: boolean, geometry: BufferGeometry, kit: string = this.kit): void {
+    if (WHOLE_TOWN_KINDS.has(kind)) chunk = WHOLE_TOWN_CHUNK;
     const key = `${kit}:${chunk}:${kind}:${ground ? "g" : "o"}`;
     let bucket = this.map.get(key);
     if (!bucket) this.map.set(key, (bucket = { kit, chunk, kind, ground, list: [] }));
@@ -174,7 +189,6 @@ const FLAT_SOURCES: Readonly<Record<Exclude<Ground, "water">, string>> = {
 
 export interface FlatSamples {
   ground: Record<Exclude<Ground, "water">, FlatSample>;
-  bed: FlatSample;
   water: FlatSample;
 }
 
@@ -183,7 +197,6 @@ const FALLBACK: Record<string, [number, number, number]> = {
   path: [0.69, 0.53, 0.3],
   cobble: [0.5, 0.47, 0.4],
   sand: [0.86, 0.72, 0.4],
-  bed: [0.26, 0.32, 0.27],
   water: [0.24, 0.52, 0.6],
 };
 
@@ -197,9 +210,8 @@ export async function sampleFlats(common: LoadedKit): Promise<FlatSamples> {
     ground[g] = (common.has(id) ? sampleFlatSurface(await common.variantParts(id, 0), TERRAIN_TOP[g]) : null) ?? fallback(g);
   }
   const water = common.has("bank.water") ? await common.variantParts("bank.water", 0) : [];
-  const bed = sampleFlatSurface(water, RIVER_BED_Y, (p) => p.kind === "atlas" && p.part !== "water") ?? fallback("bed");
   const surface = sampleFlatSurface(water, TERRAIN_TOP.water, (p) => p.kind === "water") ?? fallback("water", "water");
-  return { ground, bed, water: { ...surface, kind: "water" } };
+  return { ground, water: { ...surface, kind: "water" } };
 }
 
 /** Two-triangle quads, one per flat tile, as plain geometry with the kit attribute layout. */
@@ -244,12 +256,9 @@ function addFlats(buckets: Buckets, flats: readonly FlatTile[], samples: FlatSam
   };
   for (const f of flats) {
     const chunk = chunkOf(f.x + 0.5, f.z + 0.5);
-    if (f.ground === "water") {
-      push(chunk, samples.water, f);
-      push(chunk, samples.bed, { x: f.x, z: f.z, y: TERRAIN_Y + RIVER_BED_Y });
-    } else {
-      push(chunk, samples.ground[f.ground], f);
-    }
+    // Water tiles are only their surface: the river material is opaque, so a bed under it would
+    // never be seen (M37).
+    push(chunk, f.ground === "water" ? samples.water : samples.ground[f.ground], f);
   }
   for (const { chunk, kind, tiles } of groups.values()) buckets.add(chunk, kind, true, flatQuads(tiles));
 }
@@ -275,7 +284,9 @@ export async function buildCommonLayer(common: LoadedKit): Promise<TownLayer> {
     const kept = isPlantModule(m.module) ? parts.filter((p) => p.kind !== "canopy") : parts;
     if (kept.length === 0) continue;
     matrixFor(m.position, m.rot, matrix);
-    buckets.addParts(kept, matrix, chunkOf(m.position[0], m.position[2]), isGroundModule(m.module));
+    const ground = isGroundModule(m.module);
+    // Ground stays chunked (it is most of the layer's triangles); standing props share one bucket.
+    buckets.addParts(kept, matrix, ground ? chunkOf(m.position[0], m.position[2]) : WHOLE_TOWN_CHUNK, ground);
   }
   return { kitId: common.id, signs: [], vegetation: [], ...buckets.merge("common layer") };
 }
@@ -327,7 +338,7 @@ export async function buildStyleLayer(kit: LoadedKit, common: LoadedKit): Promis
     const kept = parts.filter((p) => p.kind !== "canopy");
     if (kept.length < parts.length) plants.set(from, [...(plants.get(from) ?? []), m]);
     matrixFor(m.position, m.rot, matrix);
-    const chunk = from === kit ? chunkOf(m.position[0], m.position[2]) : DRESSING_CHUNK;
+    const chunk = from === kit ? chunkOf(m.position[0], m.position[2]) : WHOLE_TOWN_CHUNK;
     buckets.addParts(kept, matrix, chunk, false, from.id);
   }
   const vegetation: KitVegetation[] = [];

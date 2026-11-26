@@ -11,6 +11,7 @@ import { itemEnglish } from "../items/items";
 import { ForageAlbum } from "./ForageAlbum";
 import { FORAGE_ICONS, LOST_ICON } from "./icons";
 import "./forage.css";
+import { useActionKey } from "../../settings/keyNames";
 
 /** The pick-up notice fades after this long (ms). */
 export const FORAGE_NOTICE_MS = 4000;
@@ -29,6 +30,7 @@ export interface ForageLayerProps {
  */
 export function ForageLayer({ store = forageStore, pick = (id) => sendPick(id, store) }: ForageLayerProps) {
   const { t } = useI18n();
+  const interactKey = useActionKey("interact");
   const nearbyId = useForage((s) => s.nearby, store);
   const nearby = useForage((s) => (s.nearby ? s.spawns[s.nearby] : undefined), store);
   const picking = useForage((s) => s.picking, store);
@@ -88,7 +90,7 @@ export function ForageLayer({ store = forageStore, pick = (id) => sendPick(id, s
               <span aria-hidden="true">{icon(nearby.itemId)}</span>{" "}
               <span lang={labels?.[itemLabelKey(nearby.itemId)] ? (lang ?? undefined) : "en"}>{name(nearby.itemId)}</span>{" "}
               <button type="button" aria-keyshortcuts="F" disabled={picking !== null} onClick={() => pick(nearbyId)}>
-                {t("forage.pick")}
+                {t("forage.pick", { key: interactKey.name })}
               </button>
             </p>
           ) : null}

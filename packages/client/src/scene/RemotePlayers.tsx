@@ -22,6 +22,8 @@ import { useWorld } from "../state/worldStore";
 import { CHAT_BUBBLE_GAP_M } from "../ui/chat/chatView";
 import { ChatBubble } from "./ChatBubble";
 import { ChattingIndicator } from "./ChattingIndicator";
+import { type AppliedLod, shirtColor, syncCrowdMember } from "./Crowd";
+import { crowd } from "./crowdPlan";
 import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
 
 function clipTimings(manifest: CharacterManifest): ClipTimings {
@@ -42,8 +44,9 @@ export function parseRemoteAppearance(json: string): AvatarAppearance {
  * The other players in the local player's space (build plan M16): one avatar each, built from
  * the appearance in the room state, with a name tag. In an apartment (a private space) only the
  * people in that same apartment show: the ApartmentRoom lists their TownRoom sessions (M17).
- * TODO(M37): distance culling / LOD when a full 40-player shard crowds one place (each avatar is
- * ~9 meshes plus its shadow).
+ * A crowded place stays inside the draw-call budget with the crowd level of detail (build plan
+ * M37, scene/crowdPlan.ts): only the nearest few characters are drawn in full, the rest as instanced
+ * impostors with blob shadows.
  */
 export function RemotePlayers() {
   const remotes = useTownSession((s) => s.remotes);
@@ -78,6 +81,10 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   const talkingRef = useRef(info.talkingTo !== "");
   const activityRef = useRef(activityClip(info.activity));
   const seatRef = useRef(info.seat ? (getSeat(info.seat) ?? null) : null);
+  const tagRef = useRef<Sprite | null>(null);
+  const lodRef = useRef<AppliedLod | null>(null);
+  const crowdId = `remote:${info.sessionId}`;
+  useEffect(() => () => crowd.remove(crowdId), [crowdId]);
   const animal = look.animal;
 
   // Before the build effect below, so a new character starts with the newest look.
@@ -138,6 +145,7 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
     const seat = seatRef.current && seatRef.current.space === sample.space ? seatRef.current : null;
     g.position.set(seat ? seat.pos[0] : sample.x, 0, seat ? seat.pos[1] : sample.z);
     g.rotation.y = seat ? seat.facing : sample.heading;
+    syncCrowdMember(crowdId, { x: g.position.x, z: g.position.z, visible: g.visible, color: shirtColor(character) }, { root: character?.root ?? null, tag: tagRef.current }, lodRef);
     const m = machine.current;
     if (m) {
       for (const emote of townLive.takeEmotes(info.sessionId)) m.playEmote(emote);
@@ -152,9 +160,10 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   return (
     <group ref={group} name={`remote-${info.sessionId}`} visible={false}>
       {character ? <primitive object={character.root} /> : null}
-      <primitive object={tag} position={[0, tagY, 0]} />
+      <primitive ref={tagRef} object={tag} position={[0, tagY, 0]} />
       <ChatBubble sessionId={info.sessionId} y={tagY + CHAT_BUBBLE_GAP_M} />
       {info.talkingTo ? <ChattingIndicator y={tagY + 0.35} /> : null}
     </group>
   );
 }
+

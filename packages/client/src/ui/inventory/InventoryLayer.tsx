@@ -1,6 +1,7 @@
 import { type DragEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useId, useRef } from "react";
 import { HOTBAR_SLOT_INDEXES, HOTBAR_SLOTS, INVENTORY_SLOTS, type SlotEntry, TOTAL_SLOTS } from "@hellovalley/shared";
 import { useI18n } from "../../i18n/I18nProvider";
+import { useActionKey } from "../../settings/keyNames";
 import type { MessageKey } from "../../i18n/messages.en";
 import type { LabelMap } from "../../labels/labelSource";
 import { requestLabels, useLabelMap } from "../../labels/labelStore";
@@ -8,6 +9,7 @@ import { moveInventory } from "../../net/inventorySession";
 import { type InventoryStore, inventoryStore, setInventoryOpen, useInventory } from "../../state/inventoryStore";
 import { itemEnglish, itemIcon, itemName } from "../items/items";
 import "./inventory.css";
+import { isAction } from "../../settings/settingsStore";
 
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -43,6 +45,7 @@ export interface InventoryLayerProps {
  */
 export function InventoryLayer({ store = inventoryStore, move = (from, to) => void moveInventory(from, to, store) }: InventoryLayerProps) {
   const { t, locale } = useI18n();
+  const bagKey = useActionKey("inventory");
   const status = useInventory((s) => s.status, store);
   const open = useInventory((s) => s.open, store);
   const coins = useInventory((s) => s.coins, store);
@@ -62,7 +65,7 @@ export function InventoryLayer({ store = inventoryStore, move = (from, to) => vo
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
-      if (e.code === "Tab" && !e.shiftKey && tabIsOurs(e.target)) {
+      if (isAction(e, "inventory") && !e.shiftKey && tabIsOurs(e.target)) {
         e.preventDefault();
         setInventoryOpen(!store.getState().open, store);
       } else if (e.code === "Escape" && store.getState().open && tabIsOurs(e.target)) {
@@ -141,7 +144,7 @@ export function InventoryLayer({ store = inventoryStore, move = (from, to) => vo
     <>
       {!open ? (
         <div className="hv-hotbar" role="toolbar" aria-label={t("inventory.hotbar")} aria-orientation="vertical">
-          <button type="button" className="hv-hotbar__bag" aria-expanded={false} aria-keyshortcuts="Tab" onClick={() => setInventoryOpen(true, store)}>
+          <button type="button" className="hv-hotbar__bag" aria-expanded={false} aria-keyshortcuts={bagKey.aria} onClick={() => setInventoryOpen(true, store)}>
             🎒 <span className="hv-hotbar__label">{t("inventory.button")}</span>
           </button>
           <span className="hv-hotbar__coins" aria-label={coinText}>

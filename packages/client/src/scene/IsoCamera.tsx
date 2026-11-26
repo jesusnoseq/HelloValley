@@ -1,6 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import type { OrthographicCamera } from "three";
+import { isAction, cameraEasing } from "../settings/settingsStore";
 import { dioramaStore } from "../state/dioramaStore";
 import { cameraRig, FOLLOW_DAMPING } from "./cameraRig";
 import {
@@ -28,7 +29,8 @@ function isEditable(target: EventTarget | null): boolean {
 
 /**
  * Drives the default orthographic camera: eases yaw towards the current 90° step and the zoom
- * towards the current level, and binds Q/E (rotate) and the scroll wheel (zoom).
+ * towards the current level (or cuts there with reduced motion, M37), and binds Q/E (rotate,
+ * remappable) and the scroll wheel (zoom).
  * When the player controller sets `cameraRig.follow`, the look-at point eases after the player
  * (or jumps there on `cameraRig.snap`); otherwise it is the fixed `target`. The eased target and
  * yaw are published on `cameraRig` for the lights and the interior cut-away. During an NPC
@@ -49,9 +51,9 @@ export function IsoCamera({
     const { rotate } = dioramaStore.getState();
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
-      const key = e.key.toLowerCase();
-      if (key === "q") rotate(-1);
-      else if (key === "e") rotate(1);
+      // Q/E by default; remappable in Settings (build plan M37).
+      if (isAction(e, "rotateLeft")) rotate(-1);
+      else if (isAction(e, "rotateRight")) rotate(1);
     };
     const stepper = new WheelStepper();
     const onWheel = (e: WheelEvent) => {
@@ -78,9 +80,11 @@ export function IsoCamera({
     const targetHeight = talk?.viewHeight ?? viewHeight ?? ZOOM_LEVELS[zoomLevel]!.viewHeight;
     const focus = talk?.target ?? cameraRig.follow ?? target;
     const current = (eased.current ??= { yaw: targetYaw, viewHeight: targetHeight, x: focus[0], y: focus[1], z: focus[2] });
-    current.yaw = settle(damp(current.yaw, targetYaw, ROTATION_DAMPING, dt), targetYaw, 1e-4);
-    current.viewHeight = settle(dampLog(current.viewHeight, targetHeight, ZOOM_DAMPING, dt), targetHeight, 1e-3);
-    if ((talk || cameraRig.follow) && !cameraRig.snap) {
+    // Reduced motion (build plan M37): no easing, the camera cuts to its new yaw, zoom and focus.
+    const easing = cameraEasing();
+    current.yaw = easing ? settle(damp(current.yaw, targetYaw, ROTATION_DAMPING, dt), targetYaw, 1e-4) : targetYaw;
+    current.viewHeight = easing ? settle(dampLog(current.viewHeight, targetHeight, ZOOM_DAMPING, dt), targetHeight, 1e-3) : targetHeight;
+    if ((talk || cameraRig.follow) && !cameraRig.snap && easing) {
       current.x = damp(current.x, focus[0], FOLLOW_DAMPING, dt);
       current.y = damp(current.y, focus[1], FOLLOW_DAMPING, dt);
       current.z = damp(current.z, focus[2], FOLLOW_DAMPING, dt);

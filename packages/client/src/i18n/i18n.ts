@@ -5,7 +5,7 @@ import { es } from "./messages.es";
  * The UI string system (build plan M14): the UI is shown in the player's native language when a
  * catalogue exists for it, else in English; a key missing from a catalogue falls back to English.
  * No shared imports here: this module is in the entry chunk (shared values pull in zod).
- * TODO(M37): more UI languages (start with the featured ones: FR DE IT PT JA).
+ * TODO(backlog): more UI languages (start with the featured ones: FR DE IT PT JA).
  */
 
 export type { MessageKey } from "./messages.en";

@@ -32,7 +32,7 @@ export const ApiRoute = {
   Review: "/api/review",
   /** `GET`: budget and abuse counters for operators (the `admin: true` claim, build plan M36, server metrics/metrics.ts). */
   Metrics: "/api/metrics",
-  // TODO(M37): Langs: "/api/langs" (add a target language).
+  // TODO(backlog): Langs: "/api/langs" (add a target language).
 } as const;
 
 /** GDD §2.1 step 4: five friendly self-assessments, each mapped to a starting CEFR level. */

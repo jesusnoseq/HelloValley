@@ -347,7 +347,7 @@ class Dormer(Module):
 @register
 class Chimney(Module):
     """Chimney stack for a roof; the base is buried in the roof, ``smoke`` is where the client
-    emits smoke particles (TODO(M37): not part of the M12 weather pass)."""
+    emits smoke particles (TODO(backlog): not part of the M12 weather pass)."""
 
     id = "chimney"
     footprint = Footprint(w=1, d=1, h=2.0)

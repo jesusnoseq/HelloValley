@@ -12,7 +12,7 @@ body:has(.hv-onb) {
   --line: #e2d8c3;
   --accent: #4a5878;
   --accent-soft: #dfe5f2;
-  --warn: #a33a2a;
+  --warn: var(--hv-warn);
   min-height: 100vh;
   box-sizing: border-box;
   padding: 24px 16px;
@@ -125,7 +125,7 @@ body:has(.hv-onb) {
 }
 
 .hv-onb :focus-visible {
-  outline: 3px solid #e0a63a;
+  outline: 3px solid var(--hv-select);
   outline-offset: 2px;
 }
 
@@ -190,7 +190,7 @@ body:has(.hv-onb) {
 }
 
 .hv-onb-option:has(input:focus-visible) {
-  outline: 3px solid #e0a63a;
+  outline: 3px solid var(--hv-select);
   outline-offset: 2px;
 }
 
@@ -377,7 +377,7 @@ body:has(.hv-onb) {
 }
 
 .hv-onb-swatch:has(input:focus-visible) {
-  outline: 3px solid #e0a63a;
+  outline: 3px solid var(--hv-select);
   outline-offset: 4px;
 }
 

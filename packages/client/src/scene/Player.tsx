@@ -50,8 +50,9 @@ import { CHAT_BUBBLE_GAP_M } from "../ui/chat/chatView";
 import { yawForStep } from "./cameraMath";
 import { cameraRig, TALK_VIEW_HEIGHT } from "./cameraRig";
 import { ChatBubble } from "./ChatBubble";
+import { isAction, settingsStore } from "../settings/settingsStore";
 import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
-import { dampAngle, type Fade, IDLE_FADE, RUN_KEYS, screenDirection, screenToWorld, startFade, stepFade } from "./playerMath";
+import { dampAngle, type Fade, IDLE_FADE, runHeld, screenDirection, screenToWorld, startFade, stepFade } from "./playerMath";
 
 /** Turning speed of the avatar towards its walking direction (1/s). */
 const TURN_RATE = 14;
@@ -183,7 +184,7 @@ export function Player({ start }: { start: SpacePoint }) {
   const tag = useMemo<Sprite>(() => createNameTag(name), [name]);
   useEffect(() => () => disposeNameTag(tag), [tag]);
 
-  // Keyboard: held keys are sampled every frame; F interacts, 1–5 emote.
+  // Keyboard: held keys are sampled every frame; F (remappable) interacts, 1–5 emote.
   useEffect(() => {
     const keys = held.current;
     const down = (e: KeyboardEvent) => {
@@ -194,7 +195,7 @@ export function Player({ start }: { start: SpacePoint }) {
       keys.add(e.code);
       const nearby = worldStore.getState().nearby?.kind;
       // F next to an NPC belongs to the conversation layer (ui/conversation/ConversationLayer).
-      if (e.code === "KeyF" && fade.current.phase === "idle" && nearby && nearby !== "npc") {
+      if (isAction(e, "interact") && fade.current.phase === "idle" && nearby && nearby !== "npc") {
         keys.clear();
         if (nearby === "mirror") avatarStore.getState().openMirror();
         else if (nearby === "kitchen") foodStore.setState({ kitchenOpen: true });
@@ -205,14 +206,14 @@ export function Player({ start }: { start: SpacePoint }) {
       }
       // Build plan M28: F next to a forage spawn (or a lost item) asks the server to pick it up.
       const spawn = forageStore.getState().nearby;
-      if (e.code === "KeyF" && fade.current.phase === "idle" && !nearby && spawn && conversationStore.getState().phase === "idle") {
+      if (isAction(e, "interact") && fade.current.phase === "idle" && !nearby && spawn && conversationStore.getState().phase === "idle") {
         keys.clear();
         sendPick(spawn);
         return;
       }
       // Build plan M29: F sits on the seat in reach, or stands up again.
       const food = foodStore.getState();
-      if (e.code === "KeyF" && fade.current.phase === "idle" && !nearby && conversationStore.getState().phase === "idle" && (food.seat || food.nearbySeat)) {
+      if (isAction(e, "interact") && fade.current.phase === "idle" && !nearby && conversationStore.getState().phase === "idle" && (food.seat || food.nearbySeat)) {
         keys.clear();
         if (food.seat) sendStand();
         else if (food.nearbySeat) sendSit(food.nearbySeat);
@@ -321,8 +322,9 @@ export function Player({ start }: { start: SpacePoint }) {
       const keys = held.current;
       // Walking off with the keys cancels a clicked NPC.
       if (keys.size > 0 && conversationStore.getState().pendingTalk) conversation.cancelPending();
-      const run = RUN_KEYS.some((k) => keys.has(k));
-      controller.setInput(screenToWorld(screenDirection(keys), yawForStep(dioramaStore.getState().cameraStep)), run);
+      // Remappable keys (build plan M37); the arrows always walk too.
+      const keymap = settingsStore.getState().settings.keymap;
+      controller.setInput(screenToWorld(screenDirection(keys, keymap), yawForStep(dioramaStore.getState().cameraStep)), runHeld(keys, keymap));
     }
     // Build plan M29: bread's walk-speed buff (the server allows the same factor).
     const food = foodStore.getState();

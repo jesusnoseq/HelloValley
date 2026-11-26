@@ -11,6 +11,8 @@ import { avatarStore } from "../../state/avatarStore";
 import { conversationActive, conversationStore } from "../../state/conversationStore";
 import { placementStore } from "../../state/placementStore";
 import { hasHover, lineVisible } from "./chatView";
+import { isAction } from "../../settings/settingsStore";
+import { useActionKey } from "../../settings/keyNames";
 
 const surface: CSSProperties = {
   borderRadius: 12,
@@ -70,6 +72,7 @@ function dialogOpen(): boolean {
  */
 export function ChatHud({ targetLang, nativeLang }: { targetLang: string; nativeLang: string }) {
   const { t } = useI18n();
+  const chatKey = useActionKey("chat");
   const lines = useChat((s) => s.lines);
   const online = useChat((s) => s.online);
   const [open, setOpen] = useState(false);
@@ -80,10 +83,10 @@ export function ChatHud({ targetLang, nativeLang }: { targetLang: string; native
     return () => chat.setReader(null);
   }, [targetLang, nativeLang]);
 
-  // Enter opens the chat input (GDD §10), unless something else has the keyboard.
+  // Enter (remappable, M37) opens the chat input (GDD §10), unless something else has the keyboard.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "Enter" && e.code !== "NumpadEnter") return;
+      if (!isAction(e, "chat")) return;
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target) || dialogOpen()) return;
       e.preventDefault();
       setOpen(true);
@@ -102,7 +105,7 @@ export function ChatHud({ targetLang, nativeLang }: { targetLang: string; native
   return (
     <section aria-label={t("chat.title")} style={panel}>
       <ul ref={listRef} style={log} aria-live="polite">
-        {lines.length === 0 ? <li style={small}>{t("chat.empty")}</li> : null}
+        {lines.length === 0 ? <li style={small}>{t("chat.empty", { key: chatKey.name })}</li> : null}
         {lines.map((line) => (
           <LineRow key={line.id} line={line} />
         ))}
@@ -113,7 +116,7 @@ export function ChatHud({ targetLang, nativeLang }: { targetLang: string; native
       ) : (
         <div style={row}>
           <button type="button" onClick={() => setOpen(true)}>
-            {t("chat.open")}
+            {t("chat.open", { key: chatKey.name })}
           </button>
           <BlockedList />
         </div>

@@ -15,6 +15,7 @@ import { conversation as gameConversation, type ConversationController } from ".
 import { ConversationPanel, npcNameKey } from "./ConversationPanel";
 import { type SpeechInput, speechInput } from "./speechInput";
 import "./conversation.css";
+import { isAction } from "../../settings/settingsStore";
 
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -49,7 +50,7 @@ export function ConversationLayer({ controller = gameConversation, tts, voice, s
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
-      if (e.code === "KeyF") {
+      if (isAction(e, "interact")) {
         const near = worldStore.getState().nearby;
         if (near?.kind !== "npc" || controller.active || otherDialogOpen()) return;
         e.preventDefault();

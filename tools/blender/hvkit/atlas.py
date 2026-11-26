@@ -8,7 +8,7 @@ the atlas only adds brush-stroke detail, so one atlas serves every palette of th
 Generation is pure Python and deterministic (seeded), and :func:`write_png` saves it without
 Blender, so ``python -m hvkit.atlas`` can preview a style's atlas. Hand-painted textures made
 with docs/prompts/art.md §4 can later replace a tile by dropping a PNG next to the style
-(TODO(M37): needs an image-generation pass, which this repo's tooling does not run; see
+(TODO(backlog): needs an image-generation pass, which this repo's tooling does not run; see
 pending.md M05).
 
 UV convention: Blender UVs (origin bottom-left). Tile 0 is the top-left tile of the image.

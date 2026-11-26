@@ -129,14 +129,14 @@
 }
 
 .hv-slot[aria-pressed="true"] {
-  border-color: #6b5cd6;
+  border-color: var(--hv-focus);
   background: #ece8ff;
 }
 
 .hv-slot:focus-visible,
 .hv-hotbar__bag:focus-visible,
 .hv-bag__header button:focus-visible {
-  outline: 2px solid #6b5cd6;
+  outline: 2px solid var(--hv-focus);
   outline-offset: 2px;
 }
 

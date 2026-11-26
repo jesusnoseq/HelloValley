@@ -4,8 +4,8 @@
  * `webkitSpeechRecognition`; where there is none the mic button is not shown. Speech goes to the
  * browser's recogniser, never to the game server. The transcript only fills the reply box: the
  * player still reads it and sends it (input method `spoken`).
- * TODO(M37): a setting to turn the mic button off; the recogniser's on-device mode when Chrome
- * ships it widely (`processLocally`).
+ * Settings can turn the mic button off (build plan M37). Not done: the recogniser's on-device mode
+ * when Chrome ships it widely (`processLocally`; no milestone owns it).
  */
 
 export interface SpeechSession {

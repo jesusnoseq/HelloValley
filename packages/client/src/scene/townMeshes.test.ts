@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { difficultySigns, isPlantModule, SPAWN_POINT, STYLE_IDS, TERRAIN_TOP, TERRAIN_Y, TOWN_BOUNDS, TOWN_CENTER, TOWN_D, TOWN_W, townGrassTufts, townPlaces, townRenderPlan } from "@hellovalley/shared";
 import { CAMERA_PITCH_DEG, cameraOffset, degToRad, yawForStep, ZOOM_LEVELS } from "./cameraMath";
 import { leafOffsets } from "./DifficultySigns";
-import { DRAW_CALL_BUDGET, estimateDrawCalls } from "./drawCalls";
+import { DRAW_CALL_BUDGET, estimateDrawCalls, TOWN_DRAW_CALLS_WITH_HEADROOM, TOWN_TRIANGLES_WITH_HEADROOM } from "./drawCalls";
+import { crowdDrawItems, planCrowd } from "./crowdPlan";
 import { createKitLoader } from "./kitLoader";
 import { playerDrawItems } from "./playerDraw";
 import { preloadStyle } from "./stylePreload";
@@ -113,7 +114,6 @@ describe.skipIf(!present)("town meshes (common + style kits)", () => {
       expect(s.uv.some(([u, v]) => u > 0 && v > 0)).toBe(true);
     }
     expect(samples.water.kind).toBe("water");
-    expect(samples.bed.uv.some(([u]) => u > 0)).toBe(true);
     expect(samples.ground.grass.color[1]).toBeGreaterThan(samples.ground.grass.color[0]);
   });
 
@@ -125,13 +125,11 @@ describe.skipIf(!present)("town meshes (common + style kits)", () => {
     const meshes = common.parts.length + style.parts.length;
     // Everything the town draws: merged chunks plus the instanced vegetation (canopies and grass).
     const triangles = common.triangles + style.triangles + vegetation.triangles;
-    // GDD §7.2: under 300k triangles on screen and 150 draw calls for the whole town. The European
-    // town stays under 300k even with everything in view; the Arabic kit's heavier buildings
-    // (M33) take the whole town just over it, so the other styles are held to the gameplay views
-    // below (pending.md, M34).
-    if (styleId === "european") expect(triangles).toBeLessThan(300_000);
-    else expect(triangles).toBeLessThan(310_000);
-    expect(meshes).toBeLessThan(60);
+    // GDD §7.2: under 300k triangles on screen and 150 draw calls for the whole town, here with
+    // everything in view at once and with headroom (M37: hidden ground faces culled at build
+    // time, no river bed under the opaque water).
+    expect(triangles, `${styleId}: ${triangles}`).toBeLessThan(TOWN_TRIANGLES_WITH_HEADROOM);
+    expect(meshes).toBeLessThan(30);
     // Ground meshes do not cast shadows; canopies left the chunks for the sway batch.
     expect(common.parts.some((p) => p.ground)).toBe(true);
     expect(common.parts.some((p) => p.kind === "canopy")).toBe(false);
@@ -169,6 +167,13 @@ describe.skipIf(!present)("town meshes (common + style kits)", () => {
     // stack, and the local player's avatar and click marker (M13).
     const calls = estimateDrawCalls([...townDrawItems(common, style, vegetation), ...playerDrawItems()]);
     expect(calls.total, JSON.stringify(calls)).toBeLessThan(DRAW_CALL_BUDGET);
+    // M37: room left for the villagers and a crowd of remote players (scene/crowdPlan.ts).
+    expect(calls.total, JSON.stringify(calls)).toBeLessThanOrEqual(TOWN_DRAW_CALLS_WITH_HEADROOM);
+    // A full 40-player shard and all nine villagers on the square, everyone in view.
+    const square = townPlaces().town_square;
+    const members = Array.from({ length: 49 }, (_, i) => ({ id: `c${i}`, x: square[0] + (i % 7) - 3, z: square[1] + Math.floor(i / 7) - 3 }));
+    const crowded = estimateDrawCalls([...townDrawItems(common, style, vegetation), ...playerDrawItems(), ...crowdDrawItems(planCrowd(square, members))]);
+    expect(crowded.total, JSON.stringify(crowded)).toBeLessThan(DRAW_CALL_BUDGET);
     disposeTownLayer(common);
     disposeTownLayer(style);
     disposeVegetation(vegetation);

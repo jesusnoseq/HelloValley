@@ -156,8 +156,8 @@ export function townDecks(): Area[] {
   return out;
 }
 
-/** Build the town's walkability grid. */
-export function buildTownNavGrid(cell = NAV_CELL_M): NavGrid {
+/** Build the town's walkability grid (from `townBlockers()`, or other blockers for checks). */
+export function buildTownNavGrid(cell = NAV_CELL_M, blockers: readonly Blocker[] = townBlockers()): NavGrid {
   const grid = createNavGrid(TOWN_W, TOWN_D, cell);
   const ground = townGround();
   const water = groundIndex("water");
@@ -172,7 +172,7 @@ export function buildTownNavGrid(cell = NAV_CELL_M): NavGrid {
     }
   }
   for (const deck of townDecks()) fillCentres(grid, deck, 1);
-  for (const b of townBlockers()) fillOverlapping(grid, b.area, 0);
+  for (const b of blockers) fillOverlapping(grid, b.area, 0);
   return grid;
 }
 

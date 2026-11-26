@@ -53,7 +53,7 @@ export function chatDisplayPlan(messageLang: string, reader: ChatReader): ChatDi
 
 /**
  * The target language a player is playing in: the first of their target languages.
- * TODO(M37): a language switcher once a player can learn several (`POST /api/langs`).
+ * TODO(backlog): a language switcher once a player can learn several (`POST /api/langs`).
  */
 export function activeTargetLang(profile: Pick<PlayerProfile, "targetLangs">): string {
   return profile.targetLangs[0]!;

@@ -1,5 +1,6 @@
 import { interiorArrivalPoint, SPAWN_POINT, type SpacePoint } from "@hellovalley/shared";
 import { useWorld } from "../state/worldStore";
+import { Crowd } from "./Crowd";
 import { FishingLine } from "./FishingLine";
 import { ForageSpawns } from "./ForageSpawns";
 import { Interior } from "./Interior";
@@ -34,6 +35,7 @@ export function World({ start = HOME_START }: { start?: SpacePoint }) {
       <Npcs />
       <Player start={start} />
       <RemotePlayers />
+      <Crowd />
       <PlacementMode />
       <WorldLabels />
       <FishingLine />

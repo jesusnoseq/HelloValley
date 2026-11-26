@@ -16,9 +16,11 @@ import type { TownProp } from "./town";
  *   (the lantern spots: a bush in Europe, a stone lantern in Japan, a brass one in the Arabic town).
  *
  * Walking stays identical for everyone (the server builds one walkability grid without knowing any
- * style): a placement blocks the union of what all its fills block (navgrid.ts), and a swap keeps
- * the neutral's footprint and deck (tests check the kits). The client renders each placement with
- * `dressTownProp` for the player's style (render.ts).
+ * style), and nothing blocks invisibly (M37): every fill of a swap blocks the same grid cells (a
+ * test checks it) and keeps the neutral's footprint and deck, and a style-only decoration blocks
+ * nothing itself; it stands on something every style shows (a flower bed) that already blocks the
+ * cells it covers. The client renders each placement with `dressTownProp` for the player's style
+ * (render.ts).
  */
 
 export interface StyleDressing {
@@ -78,8 +80,13 @@ export function isDressedProp(prop: Pick<TownProp, "module" | "at" | "styles">):
   return prop.styles !== undefined || townPropFills(prop).some((m) => m !== prop.module);
 }
 
-/** The module-frame walking blockers of a prop: one per fill that blocks (navgrid.ts). */
+/**
+ * The module-frame walking blockers of a prop: one per fill that blocks (navgrid.ts). A decoration
+ * shown only in some styles blocks nothing (it would block invisibly in the others); the layout
+ * stands it where something shown in every style blocks its cells.
+ */
 export function townPropBlocks(prop: Pick<TownProp, "module" | "at" | "styles">): Rect[] {
+  if (prop.styles) return [];
   const out: Rect[] = [];
   for (const m of townPropFills(prop)) {
     const blocks = (TOWN_PROPS[m] as { blocks?: Rect }).blocks;

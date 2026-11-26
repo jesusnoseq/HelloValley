@@ -1,0 +1,77 @@
+/*
+ * Global UI tokens and accessibility switches (build plan M37). The settings store
+ * (settings/settingsStore.ts) sets on <html>:
+ * - data-hv-accents="colorblind": a colour-blind-safe accent set (Okabe–Ito);
+ * - --hv-text-scale: the text size, applied to the HUD layer (.hv-ui) with CSS zoom;
+ * - data-hv-reduced-motion: no animations or transitions (the scene also drops tilt-shift and
+ *   camera easing).
+ */
+:root {
+  --hv-ink: #3d3a44;
+  --hv-good: #4f7f4e;
+  --hv-good-soft: rgba(91, 140, 90, 0.25);
+  --hv-bad: #b8362a;
+  --hv-warn: #a33a2a;
+  --hv-heart: #c73a56;
+  --hv-focus: #5a4bc9;
+  --hv-select: #c98a1c;
+  --hv-zone: rgba(98, 196, 110, 0.75);
+  --hv-zone-edge: rgba(40, 110, 50, 0.6);
+  --hv-bobber: #e8483b;
+  --hv-text-scale: 1;
+}
+
+/* Okabe–Ito: blue for good, vermillion for bad, reddish purple for hearts, and a catch zone that
+   does not rely on telling green from red. */
+:root[data-hv-accents="colorblind"] {
+  --hv-good: #0072b2;
+  --hv-good-soft: rgba(0, 114, 178, 0.22);
+  --hv-bad: #b34a00;
+  --hv-warn: #b34a00;
+  --hv-heart: #a8568a;
+  --hv-focus: #000000;
+  --hv-select: #0072b2;
+  --hv-zone: rgba(86, 180, 233, 0.8);
+  --hv-zone-edge: rgba(0, 114, 178, 0.9);
+  --hv-bobber: #e69f00;
+}
+
+/* WCAG 2.4.7 / 2.4.11: a visible keyboard focus everywhere, never hidden by the default reset. */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--hv-focus);
+  outline-offset: 2px;
+}
+
+/* The HUD and panels over the canvas, scaled by the text size setting (the 3D scene is not). */
+.hv-ui {
+  zoom: var(--hv-text-scale);
+}
+
+/* WCAG 2.5.8: small UI buttons still offer a 24 x 24 px target. */
+.hv-ui button,
+.hv-signin button {
+  min-height: 24px;
+  min-width: 24px;
+}
+
+:root[data-hv-reduced-motion] *,
+:root[data-hv-reduced-motion] *::before,
+:root[data-hv-reduced-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Visually hidden, still read by screen readers. */
+.hv-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

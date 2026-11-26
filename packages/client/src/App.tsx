@@ -9,6 +9,7 @@ import { I18nProvider, useI18n } from "./i18n/I18nProvider";
 import { useApartmentConnection } from "./net/apartmentConnection";
 import { useTownConnection } from "./net/connection";
 import { ProfileGate } from "./profile/ProfileGate";
+import { loadSettingsFor } from "./settings/settingsStore";
 import { DioramaView } from "./scene/DioramaView";
 import { SPAWN_TARGET, TOWN_SHADOW_EXTENT } from "./scene/townCamera";
 import { avatarStore, useAvatar } from "./state/avatarStore";
@@ -103,6 +104,11 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       stop?.();
     };
   }, [user.uid, profile.targetLangs]);
+  // Build plan M37: this player's accessibility, graphics and key settings (this device).
+  useEffect(() => {
+    loadSettingsFor(user.uid);
+    return () => loadSettingsFor(null);
+  }, [user.uid]);
   // Build plan M35: music, ambience, footsteps and effects, with this player's saved volumes
   // (its own lazy chunk; the mixer starts on the first click or key press).
   useEffect(() => {
@@ -117,7 +123,7 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
     };
   }, [user.uid]);
   // Build plan M25: the notebook of the first target language mirrors users/{uid}/langs/{lang}/notebook
-  // and saves every clicked word (bubbles, chat, world labels). TODO(M37): a target-language switcher.
+  // and saves every clicked word (bubbles, chat, world labels). TODO(backlog): a target-language switcher.
   const targetLang = profile.targetLangs[0] ?? null;
   useEffect(() => {
     if (!targetLang) return;
@@ -151,6 +157,7 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
     import("./net/api").then(({ putAppearance }) => putAppearance(user, appearance)).then((r) => r.profile);
   return (
     <DioramaView
+      loading={{ targetLang: profile.targetLangs[0] ?? null }}
       target={SPAWN_TARGET}
       shadowExtent={TOWN_SHADOW_EXTENT}
       world={
@@ -163,7 +170,7 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       <FadeOverlay />
       <MirrorLayer save={saveAppearance} />
       <ApartmentHud />
-      {/* Build plan M18: proximity chat, read in the first target language (TODO(M37): a switcher). */}
+      {/* Build plan M18: proximity chat, read in the first target language (TODO(backlog): a switcher). */}
       <ChatHud targetLang={profile.targetLangs[0] ?? profile.nativeLang} nativeLang={profile.nativeLang} />
       <Suspense fallback={null}>
         <ConversationLayer />

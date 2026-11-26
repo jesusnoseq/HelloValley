@@ -15,6 +15,8 @@ import { useWorld } from "../../state/worldStore";
 import { itemIcon, itemName } from "../items/items";
 import { RecipeCard } from "./RecipeCard";
 import "./food.css";
+import { isAction } from "../../settings/settingsStore";
+import { useActionKey } from "../../settings/keyNames";
 
 /** Notices fade after this long (ms). */
 export const FOOD_NOTICE_MS = 4000;
@@ -79,6 +81,8 @@ export function FoodLayer({
   stand = () => sendStand(store),
 }: FoodLayerProps) {
   const { t } = useI18n();
+  const useKey = useActionKey("use");
+  const interactKey = useActionKey("interact");
   const buffs = useFood((s) => s.buffs, store);
   const lastEaten = useFood((s) => s.lastEaten, store);
   const lastCooked = useFood((s) => s.lastCooked, store);
@@ -141,7 +145,7 @@ export function FoodLayer({
         store.setState({ kitchenOpen: false });
         return;
       }
-      if (e.code !== "Space" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || spaceIsTaken(e.target)) return;
+      if (!isAction(e, "use") || e.repeat || e.ctrlKey || e.metaKey || e.altKey || spaceIsTaken(e.target)) return;
       const held = edibleSlot(inventory.getState());
       if (held === null || otherPanelOpen(inventory) || store.getState().kitchenOpen) return;
       e.preventDefault();
@@ -166,28 +170,28 @@ export function FoodLayer({
         {notice ? <p className={`hv-food__notice${lastEaten?.ok ? " hv-food__notice--ok" : ""}`}>{notice}</p> : null}
         {heldEntry ? (
           <p>
-            <button type="button" aria-keyshortcuts="Space" disabled={eatingNow} onClick={() => eat(heldEntry.slot)}>
-              {itemIcon(heldEntry.itemId)} {t(getItem(heldEntry.itemId)?.category === "drink" ? "food.drink" : "food.eat", { item: name(heldEntry.itemId) })}
+            <button type="button" aria-keyshortcuts={useKey.aria} disabled={eatingNow} onClick={() => eat(heldEntry.slot)}>
+              {itemIcon(heldEntry.itemId)} {t(getItem(heldEntry.itemId)?.category === "drink" ? "food.drink" : "food.eat", { item: name(heldEntry.itemId), key: useKey.name })}
             </button>
           </p>
         ) : null}
         {seat ? (
           <p>
             <button type="button" aria-keyshortcuts="F" onClick={() => stand()}>
-              🪑 {t("food.stand")}
+              🪑 {t("food.stand", { key: interactKey.name })}
             </button>
           </p>
         ) : nearbySeat ? (
           <p>
             <button type="button" aria-keyshortcuts="F" onClick={() => sit(nearbySeat)}>
-              🪑 {t("food.sit")}
+              🪑 {t("food.sit", { key: interactKey.name })}
             </button>
           </p>
         ) : null}
         {atKitchen && !kitchenOpen ? (
           <p>
             <button type="button" aria-keyshortcuts="F" onClick={() => store.setState({ kitchenOpen: true })}>
-              🍳 {t("food.kitchen.open")}
+              🍳 {t("food.kitchen.open", { key: interactKey.name })}
             </button>
           </p>
         ) : null}

@@ -17,6 +17,7 @@ import { sendFurnitureEdit } from "../net/apartmentSession";
 import { type HeldPiece, placementStore, usePlacement } from "../state/placementStore";
 import { useWorld } from "../state/worldStore";
 import { currentApartment, useApartmentLayout } from "./apartmentLayout";
+import { isAction } from "../settings/settingsStore";
 
 /** The pointer position is kept on this grid so moving within a cell does not re-render. */
 const POINTER_STEP_M = 0.125;
@@ -129,7 +130,7 @@ function PlacementGhost() {
       const target = e.target;
       if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
       const s = placementStore.getState();
-      if (e.code === "KeyR") s.rotate();
+      if (isAction(e, "rotateItem")) s.rotate();
       else if (e.code === "Escape") {
         if (s.held) s.hold(null);
         else s.setOpen(false);

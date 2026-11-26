@@ -6,7 +6,7 @@ import type { DifficultySign } from "@hellovalley/shared";
 /**
  * The 1–5 leaf difficulty signs in front of the buildings (GDD §4.1): a post with a cream board
  * and a row of leaves on both faces. Two instanced meshes for the whole town (posts and leaves).
- * Placeholder geometry built here; TODO(M37): a kit `sign.difficulty` module and the hand-drawn
+ * Placeholder geometry built here; TODO(backlog): a kit `sign.difficulty` module and the hand-drawn
  * leaf icon.
  */
 

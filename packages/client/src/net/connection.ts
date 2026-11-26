@@ -24,7 +24,7 @@ export { SERVER_URL };
 const PING_INTERVAL_MS = 2000;
 const RETRY_DELAY_MS = 2000;
 
-/** `?friend=<uid>` in the page URL: join that player's shard (build plan M16). TODO(M37): a shard picker in the UI. */
+/** `?friend=<uid>` in the page URL: join that player's shard (build plan M16). TODO(backlog): a shard picker in the UI. */
 export function friendFromUrl(search: string = typeof location === "undefined" ? "" : location.search): string | null {
   const uid = new URLSearchParams(search).get("friend");
   return uid && /^[A-Za-z0-9_-]{1,128}$/.test(uid) ? uid : null;

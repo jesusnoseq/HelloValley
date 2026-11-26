@@ -239,7 +239,7 @@
 }
 
 .hv-heart--full {
-  color: #d6405f;
+  color: var(--hv-heart);
 }
 
 .hv-heart--empty {
@@ -247,7 +247,7 @@
 }
 
 .hv-heart--part {
-  background: linear-gradient(90deg, #d6405f var(--fill, 50%), rgba(61, 58, 68, 0.22) var(--fill, 50%));
+  background: linear-gradient(90deg, var(--hv-heart) var(--fill, 50%), rgba(61, 58, 68, 0.22) var(--fill, 50%));
   background-clip: text;
   color: transparent;
 }

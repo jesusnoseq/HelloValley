@@ -7,6 +7,7 @@ import { useI18n } from "../../i18n/I18nProvider";
 import type { MessageKey } from "../../i18n/messages.en";
 import { type Card, type ConversationNotice, type ConversationState, type LogEntry, useConversation } from "../../state/conversationStore";
 import { RecipeCard } from "../food/RecipeCard";
+import { useSettings } from "../../settings/settingsStore";
 import { SpeechBubble } from "../speech/SpeechBubble";
 import { VoiceControls } from "../speech/VoiceControls";
 import type { VoicePlayer } from "../speech/voicePlayer";
@@ -51,6 +52,8 @@ function findLast<T>(list: readonly T[], test: (item: T) => boolean): T | undefi
  * control is a real button or input, so Tab order and screen readers work as usual.
  */
 export function ConversationPanel({ controller, tts, voice, speech, loadFont }: ConversationPanelProps) {
+  // Settings (build plan M37): the microphone button can be turned off.
+  const micButton = useSettings((s) => s.settings.micButton);
   const { t, locale } = useI18n();
   const store = controller.store;
   const state = useConversation((s) => s, store);
@@ -285,7 +288,7 @@ export function ConversationPanel({ controller, tts, voice, speech, loadFont }: 
               }}
               onKeyDown={onInputKeyDown}
             />
-            {speech?.supported && context ? <MicButton speech={speech} lang={context.lang} onText={(heard) => fill(text ? `${text} ${heard}` : heard, null, "spoken")} /> : null}
+            {speech?.supported && context && micButton ? <MicButton speech={speech} lang={context.lang} onText={(heard) => fill(text ? `${text} ${heard}` : heard, null, "spoken")} /> : null}
             <button type="submit" disabled={phase !== "open" || state.check.status === "checking" || !text.trim()}>
               {t("convo.send")}
             </button>

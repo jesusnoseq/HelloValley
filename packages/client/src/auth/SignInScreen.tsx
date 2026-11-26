@@ -1,5 +1,6 @@
 import { type CSSProperties, useState } from "react";
 import { firebaseConfig } from "../firebase/app";
+import { createTranslator, uiLocaleFromBrowser } from "../i18n/i18n";
 import { signInErrorMessage, signInWithGoogle } from "./useAuth";
 
 const page: CSSProperties = {
@@ -32,10 +33,13 @@ const button: CSSProperties = {
 };
 
 /**
- * Google sign-in is required to play (GDD §9.3); onboarding follows (profile/ProfileGate).
- * TODO(M37): localise with the browser language (the native language is not known yet).
+ * Google sign-in is required to play (GDD §9.3); onboarding follows (profile/ProfileGate). Shown in
+ * the browser's language when there is a UI catalogue for it (the native language is not known yet,
+ * build plan M37). Sign-in errors come from Firebase and stay in English.
  */
 export function SignInScreen() {
+  const locale = uiLocaleFromBrowser(typeof navigator === "undefined" ? [] : navigator.languages);
+  const t = createTranslator(locale);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,22 +56,22 @@ export function SignInScreen() {
   };
 
   return (
-    <main style={page}>
+    <main style={page} lang={locale} className="hv-signin">
       <section style={card} aria-labelledby="sign-in-title">
         <h1 id="sign-in-title" style={{ margin: 0 }}>
           HelloValley
         </h1>
-        <p>A cozy town where everyone speaks the language you are learning.</p>
+        <p>{t("signin.tagline")}</p>
         <button type="button" style={button} onClick={signIn} disabled={busy} aria-busy={busy}>
-          {busy ? "Signing in…" : "Sign in with Google"}
+          {busy ? t("signin.busy") : t("signin.google")}
         </button>
         {error ? (
-          <p role="alert" style={{ color: "#a33a2a", marginBottom: 0 }}>
+          <p role="alert" style={{ color: "var(--hv-warn)", marginBottom: 0 }}>
             {error}
           </p>
         ) : null}
         {firebaseConfig.emulators ? (
-          <p style={{ fontSize: 12, opacity: 0.6, marginBottom: 0 }}>Local emulators ({firebaseConfig.options.projectId})</p>
+          <p style={{ fontSize: 12, color: "#5e5852", marginBottom: 0 }}>Local emulators ({firebaseConfig.options.projectId})</p>
         ) : null}
       </section>
     </main>

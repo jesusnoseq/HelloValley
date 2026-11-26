@@ -10,6 +10,7 @@ import { type VoicePlayer, voicePlayer } from "../speech/voicePlayer";
 import { ReviewSession } from "./ReviewSession";
 import { sourceName } from "./sourceName";
 import "./notebook.css";
+import { isAction } from "../../settings/settingsStore";
 
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -52,7 +53,7 @@ export function NotebookLayer({ notebook, store = notebookStore, tts = lazyTts, 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
-      if (e.code === "KeyN") {
+      if (isAction(e, "notebook")) {
         e.preventDefault();
         setReviewing(false);
         setNotebookOpen(!store.getState().open, store);

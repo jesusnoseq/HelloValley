@@ -22,7 +22,8 @@ export function createKitGltfLoader(): GLTFLoader {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   // Kit GLBs embed no textures (the atlas is a separate file, see scene/kitLoader.ts), so no
-  // KTX2Loader is needed here. TODO(M37): KTX2 atlases.
+  // KTX2Loader is needed here (atlases ship as WebP; KTX2 is blocked on the KTX-Software CLI,
+  // pending.md M37).
   return loader;
 }
 

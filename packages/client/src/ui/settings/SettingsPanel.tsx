@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useId, useMemo } from "react";
+import { type CSSProperties, useEffect, useId, useMemo, useRef } from "react";
 import { useStore } from "zustand";
 import { AUDIO_CHANNELS, STYLE_IDS, type StyleId } from "@hellovalley/shared";
 import { playSfx } from "../../audio/live";
@@ -8,6 +8,7 @@ import { preloadStyle } from "../../scene/stylePreload";
 import { saveStyle } from "../../settings/saveStyle";
 import { createStyleSwitcher, type StyleSwitcher } from "../../settings/styleSwitch";
 import { dioramaStore, useDiorama } from "../../state/dioramaStore";
+import { AccessibilitySettings } from "./AccessibilitySettings";
 
 const panel: CSSProperties = {
   position: "fixed",
@@ -22,6 +23,8 @@ const panel: CSSProperties = {
   font: "14px/1.4 system-ui, sans-serif",
   boxShadow: "0 2px 12px rgba(0, 0, 0, 0.2)",
   zIndex: 20,
+  maxHeight: "calc(100vh - 124px)",
+  overflowY: "auto",
 };
 
 const choice: CSSProperties = { display: "flex", gap: 8, alignItems: "flex-start", padding: "6px 4px", borderRadius: 6, cursor: "pointer" };
@@ -47,8 +50,11 @@ function styleSwitcherFor(uid: string): StyleSwitcher {
  * The Settings panel (GDD §2: the town style can change any time). M34 adds the town style: a
  * choice loads that style's kit in the background while the current town stays on screen, then
  * swaps it in place and saves it to the profile. M35 adds the volume sliders (music, voices,
- * effects and ambience), saved per player on this device (audio/volumeStore). TODO(M37): quality,
- * tilt-shift and the target-language switcher.
+ * effects and ambience), saved per player on this device (audio/volumeStore). M37 adds
+ * accessibility (text size, colour-blind-safe accents, reduced motion, the mic button; captions are
+ * always on), graphics quality and tilt-shift, and remappable keys (ui/settings/AccessibilitySettings).
+ * Focus moves into the panel when it opens and back to the button that opened it when it closes.
+ * Not done: the target-language switcher (needs `POST /api/langs`; no milestone owns it).
  */
 export function SettingsPanel({ uid, onClose }: { uid: string; onClose: () => void }) {
   const { t } = useI18n();
@@ -57,6 +63,14 @@ export function SettingsPanel({ uid, onClose }: { uid: string; onClose: () => vo
   const { pending, error } = useStore(sw.store);
   const style = useDiorama((s) => s.style);
   const volumes = useVolumes((s) => s.volumes);
+  const heading = useRef<HTMLHeadingElement>(null);
+
+  // WCAG 2.4.3: focus goes to the panel on open and back where it came from on close.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    heading.current?.focus();
+    return () => opener?.focus();
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -70,7 +84,7 @@ export function SettingsPanel({ uid, onClose }: { uid: string; onClose: () => vo
   return (
     <section style={panel} role="dialog" aria-labelledby={headingId}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 id={headingId} style={{ margin: 0, fontSize: 16 }}>
+        <h2 id={headingId} ref={heading} tabIndex={-1} style={{ margin: 0, fontSize: 16 }}>
           {t("settings.title")}
         </h2>
         <button type="button" onClick={onClose}>
@@ -114,6 +128,7 @@ export function SettingsPanel({ uid, onClose }: { uid: string; onClose: () => vo
           </label>
         ))}
       </fieldset>
+      <AccessibilitySettings />
     </section>
   );
 }

@@ -122,10 +122,105 @@ export function sortTriangles(document) {
   return document;
 }
 
+/**
+ * Ground modules (terrain tiles and river banks, M06) whose hidden faces are culled at build time
+ * (M37): they never cast shadows and are only seen by the town's iso camera, so faces it can never
+ * see are pure cost. `bank.water` is kept whole: the town draws water tiles as flat quads and only
+ * samples its surfaces (scene/townMeshes `sampleFlats`).
+ */
+export function isCulledGroundModule(moduleId) {
+  return (moduleId.startsWith("terrain.") || moduleId.startsWith("bank.")) && moduleId !== "bank.water";
+}
+
+/**
+ * A face pointing down more than this (normal y below it) is never front-facing for the town
+ * camera: at a 35° pitch the camera sees a face only while sin(35°)·ny + cos(35°)·|n_xz| > 0,
+ * i.e. ny > −0.819 (client scene/cameraMath CAMERA_PITCH_DEG; a test keeps them in step).
+ */
+export const HIDDEN_DOWN_NY = -0.83;
+/** River water surface in the module frame (shared TERRAIN_TOP.water); the water is opaque. */
+export const WATER_TOP_Y = -0.15;
+
+/**
+ * Removes the triangles of ground modules the town can never show, in place: faces pointing down
+ * (under the tile) and, in modules with water, faces entirely under the opaque water surface (the
+ * submerged bank slope and bed). The water meshes themselves are kept. Works on the module frame
+ * (node transforms applied); a mesh used by several nodes is left alone. Returns the triangles
+ * removed per variant root (`hv_variant` extras) and in total.
+ */
+export function cullHiddenGroundFaces(document, { downNy = HIDDEN_DOWN_NY, waterTop = WATER_TOP_Y - 0.01 } = {}) {
+  const root = document.getRoot();
+  const isWater = (prim) => prim.getMaterial()?.getExtras()?.hv_water === true;
+  const hasWater = root.listMeshes().some((mesh) => mesh.listPrimitives().some(isWater));
+  const removed = new Map();
+  let total = 0;
+  const variantOf = (node) => {
+    for (let n = node; n; n = n.getParentNode()) {
+      const v = n.getExtras()?.hv_variant;
+      if (typeof v === "number") return v;
+    }
+    return -1;
+  };
+  for (const mesh of root.listMeshes()) {
+    const nodes = mesh.listParents().filter((p) => p.propertyType === "Node");
+    if (nodes.length !== 1) continue;
+    const m = nodes[0].getWorldMatrix();
+    const world = (p) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
+    for (const prim of mesh.listPrimitives()) {
+      const indices = prim.getIndices();
+      const position = prim.getAttribute("POSITION");
+      if (!indices || !position || prim.getMode() !== 4 || isWater(prim)) continue;
+      const src = indices.getArray();
+      const kept = [];
+      const el = [0, 0, 0];
+      for (let i = 0; i + 2 < src.length; i += 3) {
+        const [a, b, c] = [src[i], src[i + 1], src[i + 2]].map((k) => world(position.getElement(k, el)));
+        const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        const len = Math.hypot(n[0], n[1], n[2]);
+        const down = len > 1e-12 && n[1] / len < downNy;
+        const submerged = hasWater && Math.max(a[1], b[1], c[1]) < waterTop;
+        if (!down && !submerged) kept.push(src[i], src[i + 1], src[i + 2]);
+      }
+      const dropped = (src.length - kept.length) / 3;
+      if (dropped === 0) continue;
+      if (kept.length === 0) {
+        prim.dispose();
+      } else {
+        indices.setArray(new src.constructor(kept));
+      }
+      const variant = variantOf(nodes[0]);
+      removed.set(variant, (removed.get(variant) ?? 0) + dropped);
+      total += dropped;
+    }
+  }
+  return { removed, total };
+}
+
+/** Triangles under each variant root (`hv_variant` extras) of a document. */
+export function variantTriangles(document) {
+  const out = new Map();
+  const visit = (node, variant) => {
+    const v = typeof node.getExtras()?.hv_variant === "number" ? node.getExtras().hv_variant : variant;
+    const mesh = node.getMesh();
+    if (mesh && v >= 0) {
+      for (const prim of mesh.listPrimitives()) {
+        const count = prim.getIndices()?.getCount() ?? prim.getAttribute("POSITION")?.getCount() ?? 0;
+        out.set(v, (out.get(v) ?? 0) + count / 3);
+      }
+    }
+    for (const child of node.listChildren()) visit(child, v);
+  };
+  for (const scene of document.getRoot().listScenes()) for (const node of scene.listChildren()) visit(node, -1);
+  return out;
+}
+
 /** Applies the kit optimizations to a glTF Document in place. */
-export async function optimizeDocument(document, { textures = "none", ktxTool = null, verbose = false, character = false } = {}) {
+export async function optimizeDocument(document, { textures = "none", ktxTool = null, verbose = false, character = false, cullGround = false } = {}) {
   await MeshoptEncoder.ready;
   document.setLogger(new Logger(verbose ? Logger.Verbosity.INFO : Logger.Verbosity.WARN));
+  if (cullGround) cullHiddenGroundFaces(document);
   // keepAttributes: UVs look unused (no texture in the GLB) but the shared atlas binds at runtime.
   // Characters keep their socket empties (leaf nodes with hv_socket extras) and drop redundant
   // animation keys.
@@ -151,12 +246,14 @@ export async function optimizeDocument(document, { textures = "none", ktxTool = 
   return document;
 }
 
-/** Reads a GLB, optimizes it and returns the new GLB bytes. */
+/** Reads a GLB, optimizes it and returns the new GLB bytes (and, with `tris`, the triangles per variant). */
 export async function optimizeGlb(bytes, options) {
   const io = await createIO();
   const document = await io.readBinary(bytes);
   await optimizeDocument(document, options);
-  return io.writeBinary(document);
+  const out = await io.writeBinary(document);
+  if (options?.tris) options.tris(variantTriangles(document));
+  return out;
 }
 
 /** Converts the kit's shared atlas and returns the new file name (or the old one). */
@@ -189,22 +286,41 @@ export async function optimizeKit(kitDir, { textures = "auto", keepPng = false, 
   let before = 0;
   let after = 0;
   const files = manifestGlbFiles(manifest);
+  let manifestChanged = false;
   for (const file of files) {
     const path = join(kitDir, file);
     if (!existsSync(path)) {
       log(`  missing ${file}, skipped`);
       continue;
     }
+    // Ground modules lose their hidden faces (M37); their manifest triangle counts follow.
+    const module = character ? undefined : manifest.modules.find((m) => m.file === file);
+    const cullGround = module !== undefined && isCulledGroundModule(module.id);
     const input = readFileSync(path);
-    const output = await optimizeGlb(new Uint8Array(input), { textures: mode, ktxTool, character });
+    const output = await optimizeGlb(new Uint8Array(input), {
+      textures: mode,
+      ktxTool,
+      character,
+      cullGround,
+      tris: cullGround
+        ? (counts) => {
+            const next = module.tris.map((t, v) => counts.get(v) ?? t);
+            if (next.some((t, v) => t !== module.tris[v])) {
+              module.tris = next;
+              manifestChanged = true;
+            }
+          }
+        : undefined,
+    });
     writeFileSync(path, output);
     before += input.byteLength;
     after += output.byteLength;
   }
   if (manifest.atlas?.file) {
     manifest.atlas.file = await optimizeAtlas(kitDir, manifest.atlas.file, mode, ktxTool, keepPng);
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    manifestChanged = true;
   }
+  if (manifestChanged) writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   log(`  ${basename(kitDir)}: ${files.length} GLBs, ${before} -> ${after} bytes, textures ${mode}`);
   return { before, after, mode };
 }

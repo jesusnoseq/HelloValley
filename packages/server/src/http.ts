@@ -53,7 +53,7 @@ export function registerHttpRoutes(app: Application, deps: HttpDeps): void {
   );
   app.use("/api", shardsRouter({ registry: deps.registry }));
   app.use("/api", reviewRouter({ streaks: deps.streaks }));
-  // TODO(M37): POST /api/langs (add a target language).
+  // TODO(backlog): POST /api/langs (add a target language).
 
   // Malformed JSON, oversized bodies and anything else thrown on /api answer with JSON.
   app.use("/api", (err: unknown, _req: Request, res: Response, next: NextFunction) => {

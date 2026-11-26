@@ -1,6 +1,13 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { applySettings, watchSystemMotion } from "./settings/settingsStore";
+import "./ui/theme.css";
+
+// Build plan M37: text size, accents and reduced motion apply before anything renders (the last
+// player's settings on this device until someone signs in).
+applySettings();
+watchSystemMotion();
 
 const root = createRoot(document.getElementById("root")!);
 const render = (node: ReactNode) => root.render(<StrictMode>{node}</StrictMode>);

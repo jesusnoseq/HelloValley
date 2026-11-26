@@ -7,7 +7,9 @@ import { useDiorama } from "../state/dioramaStore";
  * only catches emissive lamps (threshold 1), an optional tilt-shift blur band and ACES tone mapping
  * (the composer renders to float targets, so the renderer's own tone mapping does not apply).
  * Settings lean towards integrated GPUs: half-resolution AO and the "performance" preset.
- * TODO(M37): tune against real frame times and add a quality setting.
+ * The Settings panel's quality (low = no post-processing) and tilt-shift toggle drive `effects` and
+ * `tiltShift` (settings/settingsStore, M37); tuning against frame times on a real integrated GPU is
+ * still open (docs/perf.md).
  */
 export function DioramaEffects() {
   const enabled = useDiorama((s) => s.effects);

@@ -316,7 +316,19 @@ export const TOWN_PROPS_LAYOUT: readonly TownProp[] = [
     [38.5, 32.5],
   ].map(([x, z]) => centred("lantern.stone", x!, z!)),
   // Style-only decorations: a vine pergola in a corner of the square and a bougainvillea on the
-  // gossip's front wall (Mediterranean), an arcade on the square's south-east edge (Arabic).
+  // gossip's front wall (Mediterranean), an arcade on the square's south-east edge (Arabic). They
+  // block nothing themselves (dressing.ts): each stands in a flower bed that every style shows,
+  // which blocks at least the cells the decoration covers, so walking is the same, and visibly so,
+  // in every town (M37; a test checks the cells).
+  ...[
+    [32, 53],
+    [33, 53],
+    [32, 54],
+    [33, 54],
+    [45.5, 54],
+    [46.5, 54],
+  ].map(([x, z]) => centred("flowers", x!, z!, 0, 0)),
+  centred("flowers", 47.5, 44.5, 3, 0),
   only(["mediterranean"], centred("pergola", 32.5, 53.5)),
   only(["mediterranean"], centred("bougainvillea", 47.5, 44.5, 3)),
   only(["arabic"], centred("arcade", 46, 54, 0, 2)),

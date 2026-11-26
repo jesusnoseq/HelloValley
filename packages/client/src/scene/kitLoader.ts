@@ -15,6 +15,7 @@ import {
 import type { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { COMMON_KIT_ID, type KitId, type KitManifest, type KitModule, type StyleId } from "@hellovalley/shared";
 import { createKitGltfLoader, fetchKitManifest, type FetchLike, loadKitModule, type LoadedKitModule } from "../assets/kitGlb";
+import { trackedFetch, trackLoad } from "../assets/loadProgress";
 
 /**
  * The style-aware kit loader (GDD §7.2): lazily fetches `kits/{kit}/kit-manifest.json`, the
@@ -125,7 +126,7 @@ export function kitUrl(kit: KitId, baseUrl: string = import.meta.env.BASE_URL ??
 }
 
 async function defaultLoadTexture(url: string): Promise<Texture> {
-  return new TextureLoader().loadAsync(url);
+  return trackLoad(new TextureLoader().loadAsync(url));
 }
 
 /** A loaded kit: its manifest, one shared material per slot, and cached module variants. */
@@ -229,7 +230,8 @@ export interface KitLoader {
 }
 
 export function createKitLoader(options: KitLoaderOptions = {}): KitLoader {
-  const fetchImpl = options.fetchImpl ?? ((url: string) => fetch(url));
+  // Counted by the preloading screen (build plan M37).
+  const fetchImpl = options.fetchImpl ?? trackedFetch;
   const loadTexture = options.loadTexture ?? defaultLoadTexture;
   const gltfLoader = options.gltfLoader ?? createKitGltfLoader();
   const cache = new Map<KitId, Promise<LoadedKit>>();
@@ -242,7 +244,9 @@ export function createKitLoader(options: KitLoaderOptions = {}): KitLoader {
     let atlas: Texture | null = null;
     if (manifest.atlas) {
       if (manifest.atlas.file.endsWith(".ktx2")) {
-        // TODO(M37): KTX2Loader with the Basis transcoder once the pipeline ships KTX2 atlases.
+        // Not supported: the pipeline ships WebP atlases, because KTX2 needs the KTX-Software CLI,
+        // which this repo's tooling cannot install (pending.md, M37). A KTX2 atlas would need
+        // KTX2Loader with the Basis transcoder here.
         throw new Error(`kit ${id}: KTX2 atlases are not supported yet (${manifest.atlas.file})`);
       }
       atlas = await loadTexture(`${url}${manifest.atlas.file}`);

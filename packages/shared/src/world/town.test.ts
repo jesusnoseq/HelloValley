@@ -8,7 +8,7 @@ import { BUILDING_RECIPE_IDS } from "../buildings/schema";
 import { FORAGE_ZONES } from "../data/forage";
 import { PLACE_IDS } from "../data/world";
 import { findPath, segmentWalkable } from "./astar";
-import { buildTownNavGrid, cellOf, isWalkable, NAV_CELL_M, townBlockers, townDecks, townNavGrid } from "./navgrid";
+import { type Blocker, buildTownNavGrid, cellOf, isWalkable, NAV_CELL_M, townBlockers, townDecks, townNavGrid } from "./navgrid";
 import { STYLE_IDS, type StyleId } from "../data/styles";
 import { dressTownProp, isDressedProp, STYLE_TOWN_DRESSING, townPropBlocks, townPropFills } from "./dressing";
 import { type Rect, TOWN_PROPS, type TownPropDef, type TownPropModuleId } from "./props";
@@ -385,6 +385,7 @@ describe("per-style town dressing (M34)", () => {
   it("blocks the union of every style's fill, so walking is the same in every style", () => {
     const blockers = townBlockers().filter((b) => b.kind === "prop");
     for (const p of TOWN_PROPS_LAYOUT) {
+      if (p.styles) continue;
       for (const fill of townPropFills(p)) {
         const blocks = defOf(fill).blocks;
         if (!blocks) continue;
@@ -392,6 +393,36 @@ describe("per-style town dressing (M34)", () => {
         expect(blockers.some((b) => b.area.every((v, i) => Math.abs(v - area[i]!) < 1e-9)), `${p.module} → ${fill}`).toBe(true);
       }
       expect(townPropBlocks(p).length).toBeLessThanOrEqual(townPropFills(p).length);
+    }
+  });
+
+  it.each(STYLE_IDS)("blocks exactly what the %s town shows, so nothing blocks invisibly (M37)", (style) => {
+    // The grid built only from what this style draws (each prop's shown fill with its own
+    // blocker, style-only decorations included) is the one shared grid the server walks.
+    const shown: Blocker[] = townBlockers().filter((b) => b.kind !== "prop");
+    for (const p of TOWN_PROPS_LAYOUT) {
+      const m = dressTownProp(p, style);
+      const blocks = m ? defOf(m).blocks : undefined;
+      if (m && blocks) shown.push({ kind: "prop", source: m, area: rectToTown(p, blocks) });
+    }
+    const visible = buildTownNavGrid(NAV_CELL_M, shown);
+    const shared = townNavGrid();
+    const differ: string[] = [];
+    for (let k = 0; k < shared.walk.length; k++) {
+      if (visible.walk[k] !== shared.walk[k]) differ.push(`${(k % shared.w) * NAV_CELL_M},${Math.floor(k / shared.w) * NAV_CELL_M}`);
+    }
+    expect(differ).toEqual([]);
+  });
+
+  it("keeps style-only decorations from blocking, standing them where every style blocks already", () => {
+    const decorations = TOWN_PROPS_LAYOUT.filter((p) => p.styles);
+    expect(decorations.map((p) => p.module).sort()).toEqual(["arcade", "bougainvillea", "pergola"]);
+    const grid = townNavGrid();
+    for (const p of decorations) {
+      expect(townPropBlocks(p), p.module).toEqual([]);
+      // The cells the decoration would block on its own are blocked without it.
+      const only = buildTownNavGrid(NAV_CELL_M, [{ kind: "prop", source: p.module, area: rectToTown(p, defOf(p.module).blocks!) }]);
+      for (let k = 0; k < grid.walk.length; k++) if (only.walk[k] === 0 && grid.walk[k] === 1) throw new Error(`${p.module} would block cell ${k} invisibly`);
     }
   });
 
@@ -427,15 +458,18 @@ describe("render plan", () => {
     expect(visible).toBeGreaterThan((TOWN_W - 1) * (TOWN_D - 1) - 300);
   });
 
-  it.each(STYLE_IDS)("keeps the whole %s town, buildings included, under the GDD budget of 300k triangles", (style) => {
+  it.each(STYLE_IDS)("keeps the whole %s town, buildings included, under the GDD budget of 300k triangles with headroom", (style) => {
     const kit = styleKits[style];
     const p = townRenderPlan(style);
     let triangles = 0;
     for (const m of p.modules) triangles += moduleOf(kitOf(m.kit, style), m.module).tris[m.variant]!;
-    triangles += p.flats.reduce((n, f) => n + (f.ground === "water" ? 4 : 2), 0);
+    // One quad per flat tile (water tiles are only their surface since M37).
+    triangles += p.flats.length * 2;
     for (const b of TOWN_BUILDINGS) {
       for (const pl of assembleBuilding(buildingRecipe(b.id), kit).placements) triangles += moduleOf(kit, pl.module).tris[pl.variant]!;
     }
     expect(triangles).toBeLessThan(300_000);
+    // M37: with headroom (the M34 Arabic town was at ~299.9k): at least 5 % under the budget.
+    expect(triangles, `${style}: ${triangles}`).toBeLessThan(300_000 * 0.95);
   });
 });

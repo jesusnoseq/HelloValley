@@ -7,6 +7,7 @@ import { sendFurnitureEdit, useApartmentSession } from "../../net/apartmentSessi
 import { answerVisit, closeIntercom, openIntercom, ringApartment, useVisitSession } from "../../net/visitSession";
 import { placementStore, usePlacement } from "../../state/placementStore";
 import { useWorld } from "../../state/worldStore";
+import { useActionKey } from "../../settings/keyNames";
 
 const surface: CSSProperties = {
   borderRadius: 12,
@@ -73,6 +74,7 @@ export function ApartmentHud() {
 
 function IntercomLayer() {
   const { t } = useI18n();
+  const interactKey = useActionKey("interact");
   const nearby = useWorld((s) => s.nearby);
   const open = useVisitSession((s) => s.intercomOpen);
   const players = useVisitSession((s) => s.players);
@@ -94,7 +96,7 @@ function IntercomLayer() {
     if (nearby?.kind !== "intercom") return null;
     return (
       <button type="button" style={prompt} aria-label={t("interact.intercom.button")} onClick={openIntercom}>
-        {t("interact.intercom")}
+        {t("interact.intercom", { key: interactKey.name })}
       </button>
     );
   }

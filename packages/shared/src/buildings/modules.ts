@@ -61,7 +61,7 @@ export type RecipeModuleId = (typeof RECIPE_MODULE_IDS)[number];
 
 /**
  * Shop icons for `sign.hanging` boards. The client draws them at the sign's `icon` sockets; the
- * hand-drawn icon set is TODO(M37).
+ * hand-drawn icon set is TODO(backlog).
  */
 export const SIGN_ICONS = ["bread", "wheat", "basket", "cross", "coffee", "heart", "scroll", "book", "teapot", "home"] as const;
 export type SignIcon = (typeof SIGN_ICONS)[number];

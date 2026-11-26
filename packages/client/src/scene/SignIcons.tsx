@@ -5,7 +5,7 @@ import type { BuildingSign } from "./buildingMeshes";
 
 /**
  * Shop icons on `sign.hanging` boards, drawn at the board's `icon` sockets. Placeholder glyphs
- * painted on a canvas; TODO(M37): the hand-drawn icon set (art.md) as an atlas.
+ * painted on a canvas; TODO(backlog): the hand-drawn icon set (art.md) as an atlas.
  */
 export const SIGN_ICON_GLYPHS: Readonly<Record<SignIcon, string>> = {
   bread: "🥖",

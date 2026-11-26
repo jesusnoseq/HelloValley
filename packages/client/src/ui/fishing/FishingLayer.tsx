@@ -14,6 +14,8 @@ import { CatchCard } from "./CatchCard";
 import { createFishingController, type FishingController } from "./controller";
 import { FishBook } from "./FishBook";
 import "./fishing.css";
+import { isAction } from "../../settings/settingsStore";
+import { useActionKey } from "../../settings/keyNames";
 
 /** Space belongs to text fields and to buttons of other panels; the hotbar's and ours are fine. */
 function spaceIsTaken(target: EventTarget | null): boolean {
@@ -48,6 +50,7 @@ export interface FishingLayerProps {
  */
 export function FishingLayer({ store = fishingStore, inventory = inventoryStore, controller: injected }: FishingLayerProps) {
   const { t } = useI18n();
+  const useKey = useActionKey("use");
   const phase = useFishing((s) => s.phase, store);
   const notice = useFishing((s) => s.notice, store);
   const cast = useFishing((s) => s.cast, store);
@@ -86,7 +89,7 @@ export function FishingLayer({ store = fishingStore, inventory = inventoryStore,
         }
         return;
       }
-      if (e.code !== "Space" || e.ctrlKey || e.metaKey || e.altKey || spaceIsTaken(e.target)) return;
+      if (!isAction(e, "use") || e.ctrlKey || e.metaKey || e.altKey || spaceIsTaken(e.target)) return;
       const s = store.getState();
       if (s.phase === "idle" && (rodSlot(inventory.getState()) === null || otherPanelOpen())) return;
       if (s.phase === "result" || s.bookOpen) return;
@@ -94,7 +97,7 @@ export function FishingLayer({ store = fishingStore, inventory = inventoryStore,
       if (!e.repeat) controller.press();
     };
     const up = (e: KeyboardEvent) => {
-      if (e.code !== "Space") return;
+      if (!isAction(e, "use")) return;
       // A focused hotbar button would otherwise toggle the rod on key-up.
       if (store.getState().phase !== "idle" && !spaceIsTaken(e.target)) e.preventDefault();
       controller.release();
@@ -137,8 +140,8 @@ export function FishingLayer({ store = fishingStore, inventory = inventoryStore,
               {notice ? <p className="hv-fishing__notice">{t(`fishing.notice.${notice}` as MessageKey)}</p> : null}
               {spot ? (
                 <>
-                  <p>{t("fishing.hint.cast")}</p>
-                  <button type="button" className="hv-fishing__button" aria-keyshortcuts="Space" onPointerDown={pointerDown} onPointerUp={pointerUp} onPointerLeave={pointerUp}>
+                  <p>{t("fishing.hint.cast", { key: useKey.name })}</p>
+                  <button type="button" className="hv-fishing__button" aria-keyshortcuts={useKey.aria} onPointerDown={pointerDown} onPointerUp={pointerUp} onPointerLeave={pointerUp}>
                     🎣 {t("fishing.button.cast")}
                   </button>
                 </>
@@ -158,18 +161,18 @@ export function FishingLayer({ store = fishingStore, inventory = inventoryStore,
           {phase === "bite" ? (
             <>
               <p className="hv-fishing__bite" role="alert">
-                {t("fishing.bite")}
+                {t("fishing.bite", { key: useKey.name })}
               </p>
-              <button type="button" className="hv-fishing__button hv-fishing__button--hook" aria-keyshortcuts="Space" onPointerDown={pointerDown} onPointerUp={pointerUp}>
+              <button type="button" className="hv-fishing__button hv-fishing__button--hook" aria-keyshortcuts={useKey.aria} onPointerDown={pointerDown} onPointerUp={pointerUp}>
                 ❗ {t("fishing.button.hook")}
               </button>
             </>
           ) : null}
           {phase === "reeling" ? (
             <>
-              <p>{t("fishing.reel")}</p>
+              <p>{t("fishing.reel", { key: useKey.name })}</p>
               <ReelBar store={store} label={t("fishing.reel.bar")} progressLabel={t("fishing.reel.progress")} />
-              <button type="button" className="hv-fishing__button" aria-keyshortcuts="Space" onPointerDown={pointerDown} onPointerUp={pointerUp} onPointerLeave={pointerUp}>
+              <button type="button" className="hv-fishing__button" aria-keyshortcuts={useKey.aria} onPointerDown={pointerDown} onPointerUp={pointerUp} onPointerLeave={pointerUp}>
                 🎣 {t("fishing.button.reel")}
               </button>
             </>

@@ -1,0 +1,84 @@
+{
+  "measuredAt": "2026-11-26T20:39:21.320Z",
+  "chrome": "Chrome/158.0.8127.37",
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "production": {
+    "ttfbMs": 6,
+    "domContentLoadedMs": 86,
+    "loadMs": 86,
+    "fcpMs": 360,
+    "lcpMs": 360,
+    "cls": 0,
+    "longTasks": 0,
+    "totalBlockingMs": 0,
+    "requests": 15,
+    "transferKB": 254,
+    "jsKB": 252
+  },
+  "town": [
+    {
+      "style": "european",
+      "view": "overview",
+      "text": "0 fps · worst 2458.1 ms86 draw calls · 458.6k tris · dpr 1",
+      "fps": 0,
+      "drawCalls": 86,
+      "triangles": 458600
+    },
+    {
+      "style": "european",
+      "view": "square, far zoom",
+      "text": "1 fps · worst 937.2 ms86 draw calls · 447.3k tris · dpr 1",
+      "fps": 1,
+      "drawCalls": 86,
+      "triangles": 447300
+    },
+    {
+      "style": "mediterranean",
+      "view": "overview",
+      "text": "1 fps · worst 795.6 ms88 draw calls · 453.7k tris · dpr 1",
+      "fps": 1,
+      "drawCalls": 88,
+      "triangles": 453700
+    },
+    {
+      "style": "mediterranean",
+      "view": "square, far zoom",
+      "text": "1 fps · worst 936.6 ms88 draw calls · 442.4k tris · dpr 1",
+      "fps": 1,
+      "drawCalls": 88,
+      "triangles": 442400
+    },
+    {
+      "style": "arabic",
+      "view": "overview",
+      "text": "1 fps · worst 794.2 ms88 draw calls · 489.1k tris · dpr 1",
+      "fps": 1,
+      "drawCalls": 88,
+      "triangles": 489100
+    },
+    {
+      "style": "arabic",
+      "view": "square, far zoom",
+      "text": "1 fps · worst 901.0 ms88 draw calls · 478.4k tris · dpr 1",
+      "fps": 1,
+      "drawCalls": 88,
+      "triangles": 478400
+    },
+    {
+      "style": "japanese",
+      "view": "overview",
+      "text": "1 fps · worst 810.7 ms88 draw calls · 454.4k tris · dpr 1",
+      "fps": 1,
+      "drawCalls": 88,
+      "triangles": 454400
+    },
+    {
+      "style": "japanese",
+      "view": "square, far zoom",
+      "text": "1 fps · worst 923.2 ms88 draw calls · 443.3k tris · dpr 1",
+      "fps": 1,
+      "drawCalls": 88,
+      "triangles": 443300
+    }
+  ]
+}

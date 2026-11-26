@@ -12,6 +12,8 @@ import { useWorld } from "../../state/worldStore";
 import { itemName } from "../items/items";
 import { type NoticeLoader, QuestCard } from "./QuestCard";
 import "./quests.css";
+import { isAction } from "../../settings/settingsStore";
+import { useActionKey } from "../../settings/keyNames";
 
 /** Result notices fade after this long (ms). */
 export const QUEST_NOTICE_MS = 5000;
@@ -50,6 +52,7 @@ export function QuestLayer({
   handOver = (conversationId, questId) => sendHandOver(conversationId, questId, store),
 }: QuestLayerProps) {
   const { t } = useI18n();
+  const interactKey = useActionKey("interact");
   const day = useQuests((s) => s.day, store);
   const level = useQuests((s) => s.level, store) ?? "A1";
   const board = useQuests((s) => s.board, store);
@@ -100,7 +103,7 @@ export function QuestLayer({
         store.setState(s.boardOpen ? { boardOpen: false } : { logOpen: false });
         return;
       }
-      if (e.code === "KeyJ" && !e.repeat && s.day !== null) store.setState({ logOpen: !s.logOpen });
+      if (isAction(e, "quests") && !e.repeat && s.day !== null) store.setState({ logOpen: !s.logOpen });
     };
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
@@ -138,7 +141,7 @@ export function QuestLayer({
           {atBoard && !boardOpen ? (
             <p>
               <button type="button" aria-keyshortcuts="F" onClick={() => store.setState({ boardOpen: true })}>
-                📋 {t("quests.board.open")}
+                📋 {t("quests.board.open", { key: interactKey.name })}
               </button>
             </p>
           ) : null}

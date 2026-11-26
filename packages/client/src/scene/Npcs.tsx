@@ -33,6 +33,8 @@ import { dioramaStore } from "../state/dioramaStore";
 import { useWorld } from "../state/worldStore";
 import { cameraRig } from "./cameraRig";
 import { ChattingIndicator } from "./ChattingIndicator";
+import { type AppliedLod, shirtColor, syncCrowdMember } from "./Crowd";
+import { crowd } from "./crowdPlan";
 import { createNameTag, disposeNameTag, NAME_TAG } from "./nameTag";
 import { dampAngle } from "./playerMath";
 
@@ -116,6 +118,7 @@ function Npc({ spot, live = false }: { spot: NpcSpot; live?: boolean }) {
   const [character, setCharacter] = useState<Character | null>(null);
   const [tagY, setTagY] = useState(1.6);
   const nativeLang = useAvatar((s) => s.profile?.nativeLang);
+  const targetLang = useAvatar((s) => s.profile?.targetLangs[0]);
   const name = translate(uiLocaleFor(nativeLang), `npc.name.${spot.npcId}` as MessageKey);
   const talkingToMe = useConversation((s) => s.phase !== "idle" && s.phase !== "unavailable" && s.npcId === spot.npcId);
   const othersTalking = useTownSession((s) => Object.values(s.remotes).some((r) => r.talkingTo === spot.npcId && r.space === spot.space));
@@ -123,6 +126,10 @@ function Npc({ spot, live = false }: { spot: NpcSpot; live?: boolean }) {
   const talking = useRef(false);
   const wasThinking = useRef(false);
   const activity = useRef(spot.activity);
+  const tagRef = useRef<Sprite | null>(null);
+  const lodRef = useRef<AppliedLod | null>(null);
+  const crowdId = `npc:${spot.npcId}`;
+  useEffect(() => () => crowd.remove(crowdId), [crowdId]);
   useEffect(() => {
     talking.current = talkingToMe || othersTalking || bubble !== null;
   }, [talkingToMe, othersTalking, bubble]);
@@ -177,6 +184,14 @@ function Npc({ spot, live = false }: { spot: NpcSpot; live?: boolean }) {
       motion = sample.motion;
     }
     g.position.set(pos[0], 0, pos[1]);
+    const state0 = conversationStore.getState();
+    // Crowd level of detail (M37): the villager the player talks to is always drawn in full.
+    syncCrowdMember(
+      crowdId,
+      { x: pos[0], z: pos[1], visible: g.visible || !live, color: shirtColor(character), pinned: state0.npcId === spot.npcId && state0.phase !== "idle" },
+      { root: character?.root ?? null, tag: tagRef.current },
+      lodRef,
+    );
     // Face the local player while talking with them (GDD §8.1: "the NPC turns").
     const state = conversationStore.getState();
     const me = cameraRig.follow;
@@ -199,9 +214,9 @@ function Npc({ spot, live = false }: { spot: NpcSpot; live?: boolean }) {
   return (
     <group ref={group} name={`npc-${spot.npcId}`} position={[spot.pos[0], 0, spot.pos[1]]} rotation={[0, spot.facing, 0]} visible={!live}>
       {character ? <primitive object={character.root} /> : null}
-      <primitive object={tag} position={[0, tagY, 0]} />
+      <primitive ref={tagRef} object={tag} position={[0, tagY, 0]} />
       {othersTalking && !talkingToMe ? <ChattingIndicator y={tagY + 0.35} /> : null}
-      {bubble && !talkingToMe ? <BarkBubble y={tagY + 0.45} text={bubble.line.text} reading={bubble.line.reading} translation={bubble.line.translation} /> : null}
+      {bubble && !talkingToMe ? <BarkBubble y={tagY + 0.45} lang={targetLang} nativeLang={nativeLang} text={bubble.line.text} reading={bubble.line.reading} translation={bubble.line.translation} /> : null}
     </group>
   );
 }
@@ -222,16 +237,19 @@ const bubbleStyle: CSSProperties = {
  * An ambient bark above a villager (build plan M31): the line in the player's target language;
  * hovering shows the reading and the translation into their native language.
  */
-function BarkBubble({ y, text, reading, translation }: { y: number; text: string; reading?: string | undefined; translation: string }) {
+function BarkBubble({ y, lang, nativeLang, text, reading, translation }: { y: number; lang?: string | undefined; nativeLang?: string | undefined; text: string; reading?: string | undefined; translation: string }) {
   const [hover, setHover] = useState(false);
   return (
     <Html position={[0, y, 0]} center zIndexRange={[19, 0]} style={{ transform: "translateY(-50%)" }}>
       <div style={bubbleStyle} role="status" onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)} title={translation || undefined}>
-        <div dir="auto">{text}</div>
+        {/* WCAG 3.1.2: the line is in the target language, the translation in the native one. */}
+        <div dir="auto" lang={lang}>
+          {text}
+        </div>
         {hover && (reading || translation) ? (
           <div style={{ fontSize: 12, opacity: 0.75, fontStyle: "normal" }}>
             {reading ? <div>{reading}</div> : null}
-            {translation ? <div>{translation}</div> : null}
+            {translation ? <div lang={nativeLang}>{translation}</div> : null}
           </div>
         ) : null}
       </div>

@@ -13,6 +13,7 @@ import {
   parseCharacterManifest,
 } from "@hellovalley/shared";
 import { createKitGltfLoader, parseKitGlb } from "../assets/kitGlb";
+import { trackedFetch } from "../assets/loadProgress";
 
 /**
  * Loading and assembling the generated characters (tools/blender, M07): body.glb carries the
@@ -75,7 +76,7 @@ function joinUrl(base: string, file: string): string {
 type FetchLike = (url: string) => Promise<Pick<Response, "ok" | "status" | "json" | "arrayBuffer">>;
 
 /** Fetches and parses one GLB of the character set (an animal or outfit file loaded on demand). */
-export async function loadCharacterGlb(baseUrl: string, file: string, fetchImpl: FetchLike = fetch as FetchLike): Promise<GLTF> {
+export async function loadCharacterGlb(baseUrl: string, file: string, fetchImpl: FetchLike = trackedFetch as FetchLike): Promise<GLTF> {
   const r = await fetchImpl(joinUrl(baseUrl, file));
   if (!r.ok) throw new Error(`${file}: HTTP ${r.status}`);
   return parseKitGlb(await r.arrayBuffer());
@@ -84,7 +85,7 @@ export async function loadCharacterGlb(baseUrl: string, file: string, fetchImpl:
 /** Fetches the manifest, the body and the requested animals and outfits (all by default). */
 export async function loadCharacterAssets(
   baseUrl: string,
-  { animals, outfits, fetchImpl = fetch as FetchLike }: { animals?: readonly string[]; outfits?: readonly string[]; fetchImpl?: FetchLike } = {},
+  { animals, outfits, fetchImpl = trackedFetch as FetchLike }: { animals?: readonly string[]; outfits?: readonly string[]; fetchImpl?: FetchLike } = {},
 ): Promise<CharacterAssets> {
   const res = await fetchImpl(joinUrl(baseUrl, CHARACTER_MANIFEST_FILE));
   if (!res.ok) throw new Error(`character manifest: HTTP ${res.status}`);

@@ -1,0 +1,208 @@
+{
+  "measuredAt": "2026-11-26T20:38:30.460Z",
+  "crowd": {
+    "members": 49,
+    "draws": 32,
+    "full": 3
+  },
+  "styles": [
+    {
+      "style": "european",
+      "triangles": {
+        "total": 263043,
+        "common": 72381,
+        "style": 172060,
+        "vegetation": 18602,
+        "budget": 300000
+      },
+      "meshes": {
+        "common": 12,
+        "style": 12,
+        "shadowCasters": 11
+      },
+      "drawCalls": {
+        "town": {
+          "main": 48,
+          "shadow": 23,
+          "post": 36,
+          "total": 107
+        },
+        "fullShard": {
+          "main": 80,
+          "shadow": 23,
+          "post": 36,
+          "total": 139
+        },
+        "budget": 150
+      }
+    },
+    {
+      "style": "mediterranean",
+      "triangles": {
+        "total": 260593,
+        "common": 72381,
+        "style": 169610,
+        "vegetation": 18602,
+        "budget": 300000
+      },
+      "meshes": {
+        "common": 12,
+        "style": 12,
+        "shadowCasters": 11
+      },
+      "drawCalls": {
+        "town": {
+          "main": 49,
+          "shadow": 24,
+          "post": 36,
+          "total": 109
+        },
+        "fullShard": {
+          "main": 81,
+          "shadow": 24,
+          "post": 36,
+          "total": 141
+        },
+        "budget": 150
+      }
+    },
+    {
+      "style": "arabic",
+      "triangles": {
+        "total": 278411,
+        "common": 72381,
+        "style": 187428,
+        "vegetation": 18602,
+        "budget": 300000
+      },
+      "meshes": {
+        "common": 12,
+        "style": 12,
+        "shadowCasters": 11
+      },
+      "drawCalls": {
+        "town": {
+          "main": 49,
+          "shadow": 24,
+          "post": 36,
+          "total": 109
+        },
+        "fullShard": {
+          "main": 81,
+          "shadow": 24,
+          "post": 36,
+          "total": 141
+        },
+        "budget": 150
+      }
+    },
+    {
+      "style": "japanese",
+      "triangles": {
+        "total": 260941,
+        "common": 72381,
+        "style": 169958,
+        "vegetation": 18602,
+        "budget": 300000
+      },
+      "meshes": {
+        "common": 12,
+        "style": 12,
+        "shadowCasters": 11
+      },
+      "drawCalls": {
+        "town": {
+          "main": 49,
+          "shadow": 24,
+          "post": 36,
+          "total": 109
+        },
+        "fullShard": {
+          "main": 81,
+          "shadow": 24,
+          "post": 36,
+          "total": 141
+        },
+        "budget": 150
+      }
+    }
+  ],
+  "bundle": {
+    "totalKB": 2926.7,
+    "totalGzipKB": 923.6,
+    "entryKB": 794.5,
+    "entryGzipKB": 247.9,
+    "largest": [
+      {
+        "file": "index-TbkKOKPd.js",
+        "kB": 554.4,
+        "gzipKB": 172
+      },
+      {
+        "file": "events-e51d7528.esm-DdxQHnYN.js",
+        "kB": 522.8,
+        "gzipKB": 137.8
+      },
+      {
+        "file": "firestore-B4CCWYAM.js",
+        "kB": 455.8,
+        "gzipKB": 136
+      },
+      {
+        "file": "three.core-BF58tRDi.js",
+        "kB": 374.5,
+        "gzipKB": 98.8
+      },
+      {
+        "file": "DioramaCanvas-D_TYwHKp.js",
+        "kB": 297.2,
+        "gzipKB": 128.6
+      },
+      {
+        "file": "kit-CeIZJk-t.js",
+        "kB": 101.8,
+        "gzipKB": 29.7
+      },
+      {
+        "file": "runtime-CTyq9dCl.js",
+        "kB": 77.5,
+        "gzipKB": 25.1
+      },
+      {
+        "file": "kitGlb-DjRCCoCt.js",
+        "kB": 76.2,
+        "gzipKB": 21.6
+      },
+      {
+        "file": "I18nProvider-CYRzTmrY.js",
+        "kB": 59.2,
+        "gzipKB": 17.3
+      },
+      {
+        "file": "World-XlwJe7nO.js",
+        "kB": 57.7,
+        "gzipKB": 21.4
+      },
+      {
+        "file": "world-XOgQ4pof.js",
+        "kB": 37,
+        "gzipKB": 11.3
+      },
+      {
+        "file": "ConversationLayer-DyGPyjzw.js",
+        "kB": 30.4,
+        "gzipKB": 10.6
+      }
+    ]
+  },
+  "assets": {
+    "kits/arabic": 1204,
+    "kits/common": 1680,
+    "kits/european": 874,
+    "kits/interior": 1461,
+    "kits/japanese": 1208,
+    "kits/mediterranean": 1237,
+    "characters": 574,
+    "audio": 1525
+  }
+}

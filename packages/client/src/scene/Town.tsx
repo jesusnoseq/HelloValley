@@ -7,7 +7,7 @@ import type { DrawItem } from "./drawCalls";
 import { type KitLoader, kitLoader, type LoadedKit } from "./kitLoader";
 import { SignIcons } from "./SignIcons";
 import { createRiverMaterial, disposeRiverMaterial } from "./riverMaterial";
-import { buildCommonLayer, buildStyleLayer, disposeTownLayer, sampleFlats, type TownLayer } from "./townMeshes";
+import { buildCommonLayer, buildStyleLayer, castsShadow, disposeTownLayer, sampleFlats, type TownLayer } from "./townMeshes";
 import { buildVegetation, createSwayMaterial, createVegetationMesh, disposeVegetation, type VegetationBatch } from "./vegetation";
 
 interface Loaded {
@@ -88,7 +88,7 @@ function LayerMeshes({ loaded, water }: { loaded: Loaded; water?: Material }) {
           key={`${layer.kitId}:${part.kit}:${part.chunk}:${part.kind}:${part.ground ? "g" : "o"}`}
           geometry={part.geometry}
           material={part.kind === "water" && water ? water : (kits.get(part.kit) ?? kit).materials[part.kind]}
-          castShadow={!part.ground && part.kind !== "water"}
+          castShadow={castsShadow(part)}
           receiveShadow
         />
       ))}
@@ -159,7 +159,7 @@ export function baseWallsGeometry(bounds: readonly number[] = TOWN_BOUNDS, depth
 export function townDrawItems(common: TownLayer, style: TownLayer, vegetation: VegetationBatch | null): DrawItem[] {
   const items: DrawItem[] = [];
   for (const layer of [common, style]) {
-    for (const p of layer.parts) items.push({ label: `${layer.kitId}:${p.kit}:${p.chunk}:${p.kind}`, castShadow: !p.ground && p.kind !== "water" });
+    for (const p of layer.parts) items.push({ label: `${layer.kitId}:${p.kit}:${p.chunk}:${p.kind}`, castShadow: castsShadow(p) });
   }
   if (vegetation && vegetation.instances.length > 0) items.push({ label: "vegetation", castShadow: true });
   for (const v of style.vegetation) if (v.batch.instances.length > 0) items.push({ label: `vegetation ${v.kit}`, castShadow: true });

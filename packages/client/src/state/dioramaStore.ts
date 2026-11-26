@@ -19,7 +19,7 @@ export interface DioramaState {
   worldTime: number;
   /** Multiplier on the real 40-minute day for the local clock; 0 pauses it (dev tools). */
   timeScale: number;
-  /** Optional tilt-shift depth of field. TODO(M37): expose in Settings with the other quality options. */
+  /** Optional tilt-shift depth of field (Settings: on unless quality is low or motion is reduced, M37). */
   tiltShift: boolean;
   /** All post-processing (AO, bloom, tilt-shift); off is the low-end fallback. */
   effects: boolean;

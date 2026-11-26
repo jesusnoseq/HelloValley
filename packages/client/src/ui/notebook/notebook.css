@@ -53,7 +53,7 @@
 .hv-notebook button:focus-visible,
 .hv-notebook-button:focus-visible,
 .hv-notebook h2:focus-visible {
-  outline: 2px solid #6b5cd6;
+  outline: 2px solid var(--hv-focus);
   outline-offset: 2px;
 }
 

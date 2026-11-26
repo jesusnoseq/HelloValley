@@ -41,7 +41,9 @@
     "seed:barks": "tsx tools/seed/seed-barks.ts",
     "seed:quests": "tsx tools/seed/seed-quests.ts",
     "seed:ambient": "tsx tools/seed/seed-ambient.ts",
-    "test:blender": "python -B -m unittest discover -s tools/blender/tests -t tools/blender"
+    "test:blender": "python -B -m unittest discover -s tools/blender/tests -t tools/blender",
+    "perf:measure": "node scripts/perf-measure.mjs",
+    "perf:browser": "node scripts/perf-browser.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

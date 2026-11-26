@@ -3,6 +3,7 @@ import { useI18n } from "../../i18n/I18nProvider";
 import { avatarStore, useAvatar } from "../../state/avatarStore";
 import { useWorld } from "../../state/worldStore";
 import type { SaveAppearance } from "./MirrorPanel";
+import { useActionKey } from "../../settings/keyNames";
 
 const MirrorPanel = lazy(() => import("./MirrorPanel"));
 
@@ -28,6 +29,7 @@ const prompt: CSSProperties = {
  */
 export function MirrorLayer({ save }: { save: SaveAppearance }) {
   const { t } = useI18n();
+  const interactKey = useActionKey("interact");
   const nearby = useWorld((s) => s.nearby);
   const open = useAvatar((s) => s.mirrorOpen);
   const profile = useAvatar((s) => s.profile);
@@ -42,7 +44,7 @@ export function MirrorLayer({ save }: { save: SaveAppearance }) {
   if (nearby?.kind !== "mirror") return null;
   return (
     <button type="button" style={prompt} aria-label={t("interact.mirror.button")} onClick={() => avatarStore.getState().openMirror()}>
-      {t("interact.mirror")}
+      {t("interact.mirror", { key: interactKey.name })}
     </button>
   );
 }

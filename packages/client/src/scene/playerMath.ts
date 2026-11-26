@@ -4,28 +4,38 @@
  * walls the interior cut-away lowers, and heading easing. No three.js, no shared values.
  */
 
+import { actionForKey, ARROW_MOVES, DEFAULT_KEYMAP, type GameAction, type Keymap, matchesAction } from "../input/keymap";
+
 export type Vec2 = [number, number];
 
-/** Keys (KeyboardEvent.code) for each screen direction: WASD and the arrows (GDD §10). */
-export const MOVE_KEYS: Readonly<Record<string, Vec2>> = {
-  KeyW: [0, 1],
-  ArrowUp: [0, 1],
-  KeyS: [0, -1],
-  ArrowDown: [0, -1],
-  KeyA: [-1, 0],
-  ArrowLeft: [-1, 0],
-  KeyD: [1, 0],
-  ArrowRight: [1, 0],
+/** Screen direction of each move action (GDD §10: WASD and the arrows by default). */
+const MOVE_DIRS: Readonly<Partial<Record<GameAction, Vec2>>> = {
+  moveUp: [0, 1],
+  moveDown: [0, -1],
+  moveLeft: [-1, 0],
+  moveRight: [1, 0],
 };
+
+/** Keys (KeyboardEvent.code) for each screen direction with the default keymap. */
+export const MOVE_KEYS: Readonly<Record<string, Vec2>> = Object.fromEntries(
+  [...Object.entries(ARROW_MOVES), ...(Object.entries(MOVE_DIRS) as [GameAction, Vec2][]).map(([a]) => [DEFAULT_KEYMAP[a], a] as const)].map(([code, a]) => [code, MOVE_DIRS[a as GameAction]!]),
+);
 export const RUN_KEYS = ["ShiftLeft", "ShiftRight"] as const;
 
-/** Screen direction (x right, y up) of the held keys, unit length or zero. */
-export function screenDirection(held: Iterable<string>): Vec2 {
+/** Whether the held keys include the run key of `keymap` (either Shift by default). */
+export function runHeld(held: Iterable<string>, keymap: Keymap = DEFAULT_KEYMAP): boolean {
+  for (const code of held) if (matchesAction(keymap, "run", code)) return true;
+  return false;
+}
+
+/** Screen direction (x right, y up) of the held keys under `keymap`, unit length or zero. */
+export function screenDirection(held: Iterable<string>, keymap: Keymap = DEFAULT_KEYMAP): Vec2 {
   let x = 0;
   let y = 0;
   const seen = new Set<string>();
   for (const code of held) {
-    const d = MOVE_KEYS[code];
+    const action = actionForKey(keymap, code);
+    const d = action ? MOVE_DIRS[action] : undefined;
     // W and ArrowUp together still count once.
     if (!d || seen.has(`${d[0]},${d[1]}`)) continue;
     seen.add(`${d[0]},${d[1]}`);
