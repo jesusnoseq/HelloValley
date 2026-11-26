@@ -1,0 +1,2 @@
+# Prompt templates are parsed byte-for-byte by tests and the AI Logic console; keep LF on every platform.
+*.prompt text eol=lf
