@@ -1,11 +1,12 @@
 import { aiStatusStore, refreshOnDeviceStatus } from "./availability";
-import type { GrammarFeedback, GrammarPromptInput } from "@hellovalley/shared";
+import type { FishId, GrammarFeedback, GrammarPromptInput } from "@hellovalley/shared";
 import type { NpcAi } from "../net/npcConversation";
 import type { TaskResult } from "./hybrid";
 import type { ChatModeration } from "./moderation";
 import type { TranslateResult, Translator } from "./translate";
 import type { TtsResult, TtsSpeaker } from "./tts";
 import type { LabelLoad } from "../labels/labelSource";
+import type { BarkLine } from "./barks";
 
 /**
  * Entry-chunk access to the AI module. The runtime (Firebase AI Logic, zod) is a lazy chunk
@@ -109,4 +110,11 @@ export function loadWorldLabels(lang: string): Promise<LabelLoad> {
   return loadAiRuntime()
     .then((r) => r.labels().load(lang))
     .catch((): LabelLoad => ({ labels: {}, complete: false }));
+}
+
+/** The Elder's comment on a catch (build plan M27); null when there is none (offline, no AI backend). */
+export function loadElderBark(input: { fishId: FishId; targetLang: string; nativeLang: string }): Promise<BarkLine | null> {
+  return loadAiRuntime()
+    .then((r) => r.elderBarks().get(input))
+    .catch(() => null);
 }

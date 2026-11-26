@@ -29,6 +29,7 @@ export const HYBRID_TASKS = [
   "personaliseOpener",
   "detectLanguage",
   "worldLabels",
+  "elderBark",
 ] as const;
 export type HybridTask = (typeof HYBRID_TASKS)[number];
 
@@ -84,6 +85,9 @@ export const ROUTING_TABLE: Readonly<Record<HybridTask, TaskRoute>> = {
   // Build plan M25 / architecture §5.2 "shared content … per-player generation on a cache miss":
   // world labels missing from the seeded cache/labels/{lang}, cloud first, kept in the player's IndexedDB.
   worldLabels: { mode: M.PREFER_IN_CLOUD, fallback: "unavailable-chip", cache: "persist", temperature: 0.2 },
+  // Build plan M27: the Elder's comment on a catch (shared content, npc-runtime.md §9.5). Seeded
+  // lines first (cache/lines, admin tool); on a miss generated for this player, kept in IndexedDB.
+  elderBark: { mode: M.PREFER_IN_CLOUD, fallback: "skip", cache: "persist", temperature: 0.8 },
 };
 
 /** Architecture §5.2: text up to this many words is "short" (on-device first). */

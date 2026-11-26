@@ -203,7 +203,8 @@ const PLANTS_AND_MUSHROOMS: ForageKind[] = ["flower", "mushroom", "berry", "herb
  * transaction after the player confirms them (build plans M21, M26).
  * The GDD's "clothing colours" at the general store are not sold: the mirror (M15) already lets
  * every player pick any colour for free, so there is nothing to unlock (decision in pending.md).
- * Fish have no specialist buyer yet (only the Shopkeeper's lowball). TODO(M27): who buys fish.
+ * Fish (build plan M27): the Farmer buys them at full price (she teaches the fish stew, GDD §5.4;
+ * my choice, see pending.md), the Shopkeeper at his lowball like everything else.
  */
 export const SHOPS: Partial<Record<NpcId, ShopDef>> = {
   baker: {
@@ -212,7 +213,7 @@ export const SHOPS: Partial<Record<NpcId, ShopDef>> = {
   },
   farmer: {
     sells: ["carrot", "potato", "tomato", "cabbage", "onion", "egg", "milk", "flower_seeds", "herb_seeds"],
-    buys: forageIdsOfKind(...PLANTS_AND_MUSHROOMS),
+    buys: [...forageIdsOfKind(...PLANTS_AND_MUSHROOMS), ...FISH.map((f) => f.id)],
   },
   shopkeeper: {
     sells: [

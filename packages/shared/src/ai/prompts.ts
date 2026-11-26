@@ -98,6 +98,13 @@ singular, no article, normal capitalisation for {{target}}. Give "reading" only 
 Latin ({{romanization_scheme}}), otherwise "". Keep each "key" exactly as given.
 Words: {{items}}
 Return JSON: {"labels":[{"key":"…","word":"…","reading":"…"}]}`,
+  // Build plan M27 (npc-runtime.md §9.5): the Elder comments on a catch. Game data only, no player text.
+  elderBark: `You are the Elder of a cozy village: a slow, poetic old storyteller who loves fishing and proverbs.
+A player just caught a {{fish}} ({{rarity}}) next to you on the fishing dock. Write 3 different short
+reactions in {{target}} at CEFR A2 (at most 12 words each): praise, gentle teasing or a simple proverb
+about the catch. Name the fish in {{target}}. Give "reading" only if the script is not Latin
+({{romanization_scheme}}), otherwise "". Give a natural "translation" into {{native}}.
+Return JSON: {"lines":[{"text":"…","reading":"…","translation":"…"}]}`,
 } as const;
 
 export interface GlossPromptInput {
@@ -226,3 +233,21 @@ export function worldLabelsPrompt(i: WorldLabelsPromptInput): string {
     items: JSON.stringify(i.items.map((x) => ({ key: x.key, en: x.english }))),
   });
 }
+
+/** Build plan M27: what the Elder's catch comment is about. */
+export interface ElderBarkPromptInput {
+  targetLang: string;
+  nativeLang: string;
+  /** English fish name and rarity (game data). */
+  fishEnglish: string;
+  rarity: string;
+}
+
+export const elderBarkPrompt = (i: ElderBarkPromptInput) =>
+  fillTemplate(PROMPT_TEMPLATES.elderBark, {
+    fish: i.fishEnglish.toLowerCase(),
+    rarity: i.rarity,
+    target: languageName(i.targetLang),
+    native: languageName(i.nativeLang),
+    romanization_scheme: romanizationScheme(i.targetLang),
+  });

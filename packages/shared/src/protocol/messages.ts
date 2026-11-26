@@ -9,6 +9,11 @@ import type { ActionRejectReason, ApprovedAction, NpcActionInput, NpcActionType,
 import type { GiftReaction, GiftRefusal } from "../npc/friendship";
 import type { MoveSlotRefusal, SlotEntry } from "../npc/inventory";
 import type { ConversationTelemetryInput } from "../npc/memory";
+import type { FishId, FishingSpot } from "../data/fish";
+import type { Rarity } from "../data/rarity";
+import type { FishCastRefusal, FishReelRefusal } from "../fishing/cast";
+import type { FishLog, FishLogEntry } from "../fishing/log";
+import type { FishShadow } from "../fishing/roll";
 import type { Motion, SpaceId } from "../world/player";
 
 /** Colyseus room names registered by the server (architecture §7.1). */
@@ -68,6 +73,13 @@ export const ClientMessage = {
   NpcGift: "npc:gift",
   /** Drag a stack from one inventory slot to another (bag or hotbar, build plan M26). The server answers with `inventory:state`. */
   InventoryMove: "inventory:move",
+  /**
+   * Cast the line (build plan M27) with the rod in a hotbar slot, at a charge (0–1, the hold-to-cast
+   * distance) and heading. The server checks the rod, the spot and the water and rolls the fish.
+   */
+  FishCast: "fish:cast",
+  /** How the cast ended: the mini-game landed the fish, or it got away (or the player gave up). */
+  FishReel: "fish:reel",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -116,6 +128,12 @@ export const ServerMessage = {
    * join, after every trade, gift or move, and as the answer to `inventory:move`.
    */
   InventoryState: "inventory:state",
+  /** Answer to `fish:cast`: where the bobber landed, when the fish bites and how hard it pulls, or why not. */
+  FishCast: "fish:cast",
+  /** Answer to `fish:reel`: the fish (when caught), whether it went into the bag, and the encyclopedia entry. */
+  FishResult: "fish:result",
+  /** The player's fish encyclopedia (after the join and after every catch). */
+  FishLog: "fish:log",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -203,6 +221,11 @@ export interface TownPlayerView {
    * away and on leaving.
    */
   talkingTo: string;
+  /**
+   * What the player is doing in place (build plan M27): "" or "fishing" (cast, wait, bite) or
+   * "reeling". Remote avatars play the fish_cast / fish_reel clips from it.
+   */
+  activity: string;
 }
 
 /** The synced world clock and weather (the server's `TownWorld` schema). */
@@ -597,6 +620,67 @@ export interface InventoryStateMessage {
   moveId?: number;
   /** With `moveId`: why the move did not happen (the slots are then unchanged). */
   refused?: InventoryMoveRefusal;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fishing (build plan M27, GDD §5.2)
+
+/** Payload of `ClientMessage.FishCast`. */
+export interface FishCastMessage {
+  /** The hotbar slot holding the rod (24–29). */
+  slot: number;
+  /** Hold-to-cast charge, 0–1 (shared `castCharge`). */
+  charge: number;
+  heading: number;
+}
+
+/** Payload of `ClientMessage.FishReel`. */
+export interface FishReelMessage {
+  castId: string;
+  outcome: "caught" | "escaped";
+}
+
+/** Payload of `ServerMessage.FishCast`. */
+export type FishCastResultMessage =
+  | {
+      ok: true;
+      castId: string;
+      spot: FishingSpot;
+      /** Where the bobber landed (town frame). */
+      bobber: { x: number; z: number };
+      /** The landed cast distance in metres. */
+      distance: number;
+      /** From now until the bite. */
+      biteInMs: number;
+      /** How hard the fish pulls: the mini-game's parameters follow from it (shared REEL_PARAMS). */
+      rarity: Rarity;
+      shadow: FishShadow;
+      /** Seeds the reel zone (shared `zoneCentre`). */
+      reelSeed: number;
+    }
+  | { ok: false; reason: FishCastRefusal };
+
+/** Payload of `ServerMessage.FishResult`. */
+export type FishResultMessage =
+  | { castId: string; outcome: "escaped" }
+  | {
+      castId: string;
+      outcome: "caught";
+      fishId: FishId;
+      rarity: Rarity;
+      /** A species the encyclopedia did not have yet. */
+      first: boolean;
+      /** It went into the bag (false: the bag was full and the fish was released). */
+      kept: boolean;
+      entry: FishLogEntry;
+      /** The Elder is on the dock nearby and comments on the catch (a cached bark, client side). */
+      elderNearby: boolean;
+    }
+  | { castId: string; outcome: "refused"; reason: FishReelRefusal | "unavailable" };
+
+/** Payload of `ServerMessage.FishLog`. */
+export interface FishLogMessage {
+  species: FishLog;
 }
 
 export const CLIENT_MESSAGE_TYPES: readonly ClientMessage[] = Object.values(ClientMessage);

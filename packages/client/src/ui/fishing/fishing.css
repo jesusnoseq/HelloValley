@@ -1,0 +1,376 @@
+/* Fishing (build plan M27): the cast hint and reel bar at the bottom, the catch card, the fish book. Same cream card look as the other HUDs. */
+.hv-fishing,
+.hv-catch,
+.hv-fishbook,
+.hv-fishbook-button {
+  background: rgba(255, 250, 240, 0.94);
+  color: #3d3a44;
+  font: 14px/1.4 system-ui, sans-serif;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.hv-fishing {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 24;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.hv-fishing p {
+  margin: 0;
+}
+
+.hv-fishing__notice {
+  font-weight: 600;
+  color: #8a4b2a;
+}
+
+.hv-fishing__shadow {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.hv-fishing__bite {
+  font-size: 18px;
+  font-weight: 700;
+  color: #c0392b;
+}
+
+.hv-fishing__button {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 16px;
+  background: #4f8a6e;
+  color: #fff;
+  font: 600 14px/1.2 system-ui, sans-serif;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.hv-fishing__button--hook {
+  background: #c0392b;
+}
+
+.hv-fishing__cancel {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.hv-fishing__charge {
+  width: 220px;
+  height: 12px;
+  border-radius: 6px;
+  background: #e5dccb;
+  overflow: hidden;
+}
+
+.hv-fishing__charge-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #7fb59a, #2f6f52);
+  transform-origin: left;
+  animation: hv-fish-charge 1.2s linear forwards;
+}
+
+@keyframes hv-fish-charge {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.hv-reel {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  height: 180px;
+}
+
+.hv-reel__bar {
+  position: relative;
+  width: 34px;
+  border-radius: 8px;
+  background: linear-gradient(#cfe6f0, #5d8fa8);
+  overflow: hidden;
+}
+
+.hv-reel__zone {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 6px;
+  background: rgba(98, 196, 110, 0.75);
+  box-shadow: inset 0 0 0 2px rgba(40, 110, 50, 0.6);
+}
+
+.hv-reel__bobber {
+  position: absolute;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: 0 0 -8px -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff 0 25%, #e8483b 26%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.hv-reel__progress {
+  position: relative;
+  width: 10px;
+  border-radius: 5px;
+  background: #e5dccb;
+  overflow: hidden;
+}
+
+.hv-reel__progress span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #f2b33d;
+}
+
+.hv-catch {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 16px 20px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.hv-catch__title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.hv-catch__fish {
+  font-size: 54px;
+  line-height: 1;
+}
+
+.hv-catch__fish--uncommon {
+  filter: hue-rotate(60deg);
+}
+
+.hv-catch__fish--rare {
+  filter: hue-rotate(160deg) saturate(1.4);
+}
+
+.hv-catch__fish--legendary {
+  filter: hue-rotate(260deg) saturate(1.8) drop-shadow(0 0 6px #f6d365);
+}
+
+.hv-catch__name {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  font-size: 18px;
+}
+
+.hv-catch__english {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.hv-catch__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.hv-catch__new {
+  font-weight: 700;
+  color: #b8730a;
+}
+
+.hv-catch__bag {
+  margin: 0;
+  font-size: 13px;
+}
+
+.hv-catch__elder {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid #a08a5c;
+  border-radius: 6px;
+  background: rgba(160, 138, 92, 0.12);
+  text-align: left;
+  font-style: italic;
+}
+
+.hv-catch__elder-who {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hv-catch__elder-reading,
+.hv-catch__elder-translation {
+  font-style: normal;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.hv-catch__elder-play {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hv-catch__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hv-catch__actions button {
+  border: 1px solid #c9bda6;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: #fffdf8;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.hv-catch__actions button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.hv-rarity {
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #e5dccb;
+}
+
+.hv-rarity--uncommon {
+  background: #cfe8d3;
+}
+
+.hv-rarity--rare {
+  background: #cfdcf3;
+}
+
+.hv-rarity--legendary {
+  background: #f6e2a8;
+}
+
+.hv-fishbook-button {
+  position: fixed;
+  right: 12px;
+  bottom: 64px;
+  z-index: 25;
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.hv-fishbook-button span {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+.hv-fishbook {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 41;
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 14px 18px;
+  border-radius: 16px;
+}
+
+.hv-fishbook__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.hv-fishbook__header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.hv-fishbook__header button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.hv-fishbook__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hv-fishbook__fish {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #fffdf8;
+  text-align: center;
+  font-size: 13px;
+}
+
+.hv-fishbook__fish--unknown {
+  opacity: 0.7;
+}
+
+.hv-fishbook__icon {
+  font-size: 28px;
+}
+
+.hv-fishbook__word {
+  font-weight: 600;
+}
+
+.hv-fishbook__reading,
+.hv-fishbook__count,
+.hv-fishbook__when {
+  font-size: 11px;
+  opacity: 0.75;
+}

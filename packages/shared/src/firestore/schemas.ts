@@ -4,6 +4,7 @@ import { FURNITURE_IDS } from "../apartment/furniture";
 import { AnimalIdSchema, isFurTintFor } from "../data/animals";
 import { ApartmentIdSchema } from "../data/apartment";
 import { LevelSchema, MAX_LEVEL_STEP } from "../data/difficulty";
+import { FISH_IDS, type FishId } from "../data/fish";
 import { ItemIdSchema } from "../data/items";
 import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
@@ -253,6 +254,18 @@ export const BlockListSchema = z.strictObject({
   players: z.array(z.strictObject({ uid: uidField, name: nameField })).max(MAX_BLOCKED_PLAYERS),
 });
 export type BlockList = z.infer<typeof BlockListSchema>;
+
+/**
+ * `users/{uid}/collections/fish`: the fish encyclopedia (build plan M27). Server-only like the
+ * block list (no rule matches the path); the TownRoom sends it to its owner (`fish:log`).
+ */
+export const FishLogDocSchema = z.strictObject({
+  species: z.partialRecord(
+    z.enum(FISH_IDS as [FishId, ...FishId[]]),
+    z.strictObject({ count: z.number().int().min(1), first: TimestampSchema, last: TimestampSchema }),
+  ),
+});
+export type FishLogDoc = z.infer<typeof FishLogDocSchema>;
 
 /** Lines of the reported player attached to a report, newest last (the server's own copies). */
 export const REPORT_MAX_MESSAGES = 5;

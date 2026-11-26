@@ -9,8 +9,10 @@ import { adminApp } from "./firebase/admin";
 import { type HttpDeps, registerHttpRoutes } from "./http";
 import type { ChatModerator } from "./moderation/chat";
 import { InventoryService } from "./economy/inventory";
+import { FishingService, type FishingServiceOptions } from "./fishing/fishing";
+import { createMemoryFishingStore, type FishingStore, firestoreFishingStoreFor } from "./fishing/fishingStore";
 import { NpcDialogueService } from "./npc/dialogue";
-import { createMemoryNpcStore, firestoreNpcStoreFor, type NpcStore } from "./npc/npcStore";
+import { createMemoryNpcStore, firestoreNpcStoreFor, type MemoryNpcStore, type NpcStore } from "./npc/npcStore";
 import { createMemoryStreakStore, firestoreStreakStoreFor, type StreakStore } from "./notebook/streakStore";
 import { createMemorySafetyStore, firestoreSafetyStoreFor, type SafetyStore } from "./safety/safetyStore";
 import { firestoreProfileStoreFor, type ProfileStore } from "./profiles/profileStore";
@@ -49,6 +51,11 @@ export interface GameServerOptions {
   npcStore?: NpcStore;
   /** The review streak (build plan M25); Firestore by default, in memory like the others in tests. */
   streaks?: StreakStore;
+  /**
+   * Fishing (build plan M27): the store defaults to Firestore through firebase-admin (in memory,
+   * over an in-memory `npcStore`, in tests); tests also fix the clock and the seed.
+   */
+  fishing?: FishingServiceOptions & { store?: FishingStore };
 }
 
 export interface GameServer extends Server {
@@ -71,6 +78,10 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   const npcStore = options.npcStore ?? (firebase ? firestoreNpcStoreFor(adminApp(firebase)) : createMemoryNpcStore());
   const npc = new NpcDialogueService(npcStore);
   const inventory = new InventoryService(npcStore);
+  const fishingStore =
+    options.fishing?.store ??
+    (firebase ? firestoreFishingStoreFor(adminApp(firebase)) : createMemoryFishingStore("players" in npcStore ? (npcStore as MemoryNpcStore) : createMemoryNpcStore()));
+  const fishing = new FishingService(fishingStore, options.fishing);
   const streaks = options.streaks ?? (firebase ? firestoreStreakStoreFor(adminApp(firebase)) : createMemoryStreakStore());
   const towns = new TownRegistry();
   const apartments = new ApartmentRegistry();
@@ -84,7 +95,7 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   // A full shard is locked by Colyseus, so joinOrCreate creates the next one. Joining a friend's
   // shard goes through GET /api/shards?friend=<uid> and joinById.
   server
-    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory }, options.town))
+    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing }, options.town))
     .sortBy({ "metadata.shard": 1 });
   // Build plan M17: one private ApartmentRoom per owner. Visitors get in with a pass the owner
   // granted at the lobby intercom (TownRoom).

@@ -1,7 +1,21 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box3, type Group, type Sprite } from "three";
-import { AnimationStateMachine, type CharacterManifest, type ClipTimings, getNpc, headingTowards, type NpcPost, npcsInSpace, type SpaceId } from "@hellovalley/shared";
+import {
+  type ActivityAnimState,
+  AnimationStateMachine,
+  type CharacterManifest,
+  clockMinutesForPhase,
+  type ClipTimings,
+  ELDER_DOCK_FACING,
+  elderAtDock,
+  elderDockSpot,
+  getNpc,
+  headingTowards,
+  type NpcPost,
+  npcsInSpace,
+  type SpaceId,
+} from "@hellovalley/shared";
 import { characterAssetsWith } from "../characters/assetCache";
 import { assembleCharacter, type Character } from "../characters/characterGlb";
 import { translate, uiLocaleFor } from "../i18n/i18n";
@@ -9,6 +23,7 @@ import type { MessageKey } from "../i18n/messages.en";
 import { useTownSession } from "../net/townSession";
 import { useAvatar } from "../state/avatarStore";
 import { conversationStore, useConversation } from "../state/conversationStore";
+import { dioramaStore } from "../state/dioramaStore";
 import { useWorld } from "../state/worldStore";
 import { cameraRig } from "./cameraRig";
 import { ChattingIndicator } from "./ChattingIndicator";
@@ -32,16 +47,42 @@ function clipTimings(manifest: CharacterManifest): ClipTimings {
 export function Npcs() {
   const space = useWorld((s) => s.space);
   const posts = useMemo(() => npcsInSpace(space as SpaceId), [space]);
+  const elderFishing = useElderOnDock();
+  const dock = useMemo<NpcSpot>(() => ({ npcId: "elder", space: "town", pos: elderDockSpot(), facing: ELDER_DOCK_FACING, activity: "fish_cast" }), []);
   return (
     <>
       {posts.map((post) => (
         <Npc key={post.npcId} post={post} />
       ))}
+      {space === "town" && elderFishing ? <Npc key="elder-dock" post={dock} /> : null}
     </>
   );
 }
 
-function Npc({ post }: { post: NpcPost }) {
+/** How often the dock check reads the clock (ms). */
+const DOCK_CHECK_MS = 2000;
+
+/**
+ * Build plan M27 (GDD §5.2 "the Elder is often on the dock"): while his schedule says
+ * `fishing_dock`, the Elder also fishes on the dock (the world clock: synced online, local offline).
+ * TODO(M31): NPCs walk their schedules (he is still at his cottage post too, and the dock figure
+ * cannot be talked to yet; the server hears catches next to him: `elderNearby`).
+ */
+function useElderOnDock(): boolean {
+  const [on, setOn] = useState(elderOnDockNow);
+  useEffect(() => {
+    const timer = setInterval(() => setOn(elderOnDockNow()), DOCK_CHECK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return on;
+}
+
+const elderOnDockNow = () => elderAtDock(getNpc("elder"), clockMinutesForPhase(dioramaStore.getState().worldTime));
+
+/** Where an NPC stands: its post, or (the Elder on the dock) a spot in the town with an activity clip. */
+type NpcSpot = Pick<NpcPost, "npcId" | "pos" | "facing"> & { space: SpaceId; activity?: ActivityAnimState };
+
+function Npc({ post }: { post: NpcSpot }) {
   const group = useRef<Group>(null);
   const machine = useRef<AnimationStateMachine | null>(null);
   const heading = useRef(post.facing);
@@ -103,7 +144,7 @@ function Npc({ post }: { post: NpcPost }) {
     if (thinking && !wasThinking.current) m?.playEmote("think");
     wasThinking.current = thinking;
     if (m) {
-      const change = m.update({ motion: "idle", talking: talking.current }, dt);
+      const change = m.update({ motion: "idle", talking: talking.current, ...(post.activity ? { activity: post.activity } : {}) }, dt);
       if (change && character) character.play(change.clip, change.fade, change.restart);
     }
     character?.mixer.update(dt);

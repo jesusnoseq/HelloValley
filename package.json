@@ -37,6 +37,7 @@
     "assets:fixtures": "node tools/fixtures/make-test-kit.mjs",
     "seed:tts": "tsx tools/seed/seed-tts.ts",
     "seed:labels": "tsx tools/seed/seed-labels.ts",
+    "seed:barks": "tsx tools/seed/seed-barks.ts",
     "test:blender": "python -B -m unittest discover -s tools/blender/tests -t tools/blender"
   },
   "devDependencies": {

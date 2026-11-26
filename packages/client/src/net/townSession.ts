@@ -20,6 +20,7 @@ import {
 } from "@hellovalley/shared";
 import { RemoteTrack, type RemoteSample } from "./interpolation";
 import { chat } from "./chatSession";
+import { attachFishing } from "./fishingSession";
 import { attachInventory } from "./inventorySession";
 import { attachVisitMessages } from "./visitSession";
 
@@ -39,6 +40,8 @@ export interface RemotePlayerInfo {
   space: SpaceId;
   /** The NPC they are talking to, or "" (build plan M23: the "chatting" indicator). */
   talkingTo: string;
+  /** "" or "fishing" / "reeling" (build plan M27): the fishing clips. */
+  activity: string;
 }
 
 export interface TownSessionState {
@@ -105,7 +108,7 @@ function sampleOf(p: TownPlayerView): RemoteSample {
 /**
  * Mirrors `room` into the stores until the returned function is called (or the room is left):
  * other players' info and interpolation tracks, the welcome, corrections, emotes and the clock
- * sync, plus the chat (net/chatSession.ts) and the inventory (net/inventorySession.ts). `onWelcome` gets the welcome message (uid and shard
+ * sync, plus the chat (net/chatSession.ts), the inventory (net/inventorySession.ts) and fishing (net/fishingSession.ts). `onWelcome` gets the welcome message (uid and shard
  * for the HUD).
  */
 export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage) => void): () => void {
@@ -116,7 +119,7 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
   townLive.welcomed = false;
   townSession.setState({ room, shard: null, remotes: {} });
 
-  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room)];
+  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room)];
   offs.push(
     room.onMessage(ServerMessage.Welcome, (welcome: WelcomeMessage) => {
       townLive.spawn = welcome.spawn;
@@ -141,9 +144,10 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
   const setRemote = (sessionId: string, p: TownPlayerView) => {
     const prev = townSession.getState().remotes[sessionId];
     const talkingTo = p.talkingTo ?? "";
-    if (prev && prev.name === p.name && prev.appearance === p.appearance && prev.space === p.space && prev.talkingTo === talkingTo) return;
+    const activity = p.activity ?? "";
+    if (prev && prev.name === p.name && prev.appearance === p.appearance && prev.space === p.space && prev.talkingTo === talkingTo && prev.activity === activity) return;
     townSession.setState((s) => ({
-      remotes: { ...s.remotes, [sessionId]: { sessionId, name: p.name, appearance: p.appearance, space: p.space, talkingTo } },
+      remotes: { ...s.remotes, [sessionId]: { sessionId, name: p.name, appearance: p.appearance, space: p.space, talkingTo, activity } },
     }));
   };
 

@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box3, type Group, type Sprite } from "three";
 import {
+  activityClip,
   AnimationStateMachine,
   type AvatarAppearance,
   AvatarAppearanceSchema,
@@ -73,6 +74,7 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   const look = useMemo(() => parseRemoteAppearance(info.appearance), [info.appearance]);
   const lookRef = useRef(look);
   const talkingRef = useRef(info.talkingTo !== "");
+  const activityRef = useRef(activityClip(info.activity));
   const animal = look.animal;
 
   // Before the build effect below, so a new character starts with the newest look.
@@ -82,6 +84,9 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   useEffect(() => {
     talkingRef.current = info.talkingTo !== "";
   }, [info.talkingTo]);
+  useEffect(() => {
+    activityRef.current = activityClip(info.activity);
+  }, [info.activity]);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +135,8 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
     if (m) {
       for (const emote of townLive.takeEmotes(info.sessionId)) m.playEmote(emote);
       // Talking to an NPC (build plan M23): the talk clip while standing.
-      const change = m.update({ motion: sample.motion, talking: talkingRef.current }, dt);
+      // Fishing (build plan M27): the cast and reel clips while standing.
+      const change = m.update({ motion: sample.motion, talking: talkingRef.current, activity: activityRef.current }, dt);
       if (change && character) character.play(change.clip, change.fade, change.restart);
     }
     character?.mixer.update(dt);

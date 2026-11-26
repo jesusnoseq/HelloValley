@@ -1,7 +1,7 @@
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 // Type-only: importing values from shared here would pull zod into the entry chunk.
-import type { InteractableKind, SpaceId } from "@hellovalley/shared";
+import type { FishingSpot, InteractableKind, SpaceId } from "@hellovalley/shared";
 
 /**
  * Which space the diorama shows (build plan M13): the town or one interior, plus the door fade.
@@ -18,6 +18,8 @@ export interface WorldState {
   fade: number;
   /** The interactable the player stands next to (F uses it), or null. Set by scene/Player.tsx on change. */
   nearby: { id: string; kind: InteractableKind } | null;
+  /** The fishing spot the player stands at (build plan M27; set by scene/Player.tsx on change), or null. */
+  fishingSpot: FishingSpot | null;
   setSpace: (space: SpaceId) => void;
   setReady: (ready: boolean) => void;
 }
@@ -28,6 +30,7 @@ export function createWorldStore(space: SpaceId = "town") {
     ready: space === "town",
     fade: 0,
     nearby: null,
+    fishingSpot: null,
     setSpace: (next) => set((s) => (s.space === next ? s : { space: next, ready: next === "town" })),
     setReady: (ready) => set({ ready }),
   }));

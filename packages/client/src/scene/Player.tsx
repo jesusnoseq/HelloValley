@@ -10,6 +10,7 @@ import {
   type AvatarAppearance,
   type ClipTimings,
   emoteForKey,
+  fishingSpotAt,
   headingTowards,
   nearestInteractable,
   npcPost,
@@ -30,6 +31,7 @@ import { avatarStore, useAvatar } from "../state/avatarStore";
 import { conversationStore } from "../state/conversationStore";
 import { conversation } from "../ui/conversation/controller";
 import { dioramaStore } from "../state/dioramaStore";
+import { fishingActive, fishingLive, fishingStore } from "../state/fishingStore";
 import { inventoryStore } from "../state/inventoryStore";
 import { notebookStore } from "../state/notebookStore";
 import { placementStore } from "../state/placementStore";
@@ -51,7 +53,7 @@ function isEditable(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-/** A dialog, placement mode, the chat input, the notebook or the bag has the keyboard and mouse: the walker stands still. */
+/** A dialog, placement mode, the chat input, the notebook, the bag or a cast line has the keyboard and mouse: the walker stands still. */
 function inputPaused(): boolean {
   return (
     avatarStore.getState().mirrorOpen ||
@@ -59,7 +61,8 @@ function inputPaused(): boolean {
     placementStore.getState().open ||
     chat.store.getState().typing ||
     notebookStore.getState().open ||
-    inventoryStore.getState().open
+    inventoryStore.getState().open ||
+    fishingActive()
   );
 }
 
@@ -89,7 +92,9 @@ function clipTimings(manifest: CharacterManifest): ClipTimings {
  * NPC conversations (build plan M23): F next to an NPC is handled by the conversation layer;
  * clicking an NPC talks at once when within reach, or walks to its talk spot first. While talking
  * the avatar faces the NPC and plays the talk clip, the camera eases in on the pair, and walking
- * away (keys or a click elsewhere) ends the conversation. TODO(M29): the `seated` input.
+ * away (keys or a click elsewhere) ends the conversation. Fishing (build plan M27): while a line is
+ * out the walker stands still facing the cast and plays fish_cast, then fish_reel in the mini-game;
+ * the fishing layer (ui/fishing) reads where the player stands. TODO(M29): the `seated` input.
  */
 export function Player({ start }: { start: SpacePoint }) {
   // The apartment's walkability follows its furniture layout (build plan M17).
@@ -299,6 +304,11 @@ export function Player({ start }: { start: SpacePoint }) {
     // What F would use: only while standing still in the open (not mid-fade).
     const near = fade.current.phase === "idle" ? nearestInteractable(space, pos) : null;
     if ((near?.id ?? null) !== (world.nearby?.id ?? null)) worldStore.setState({ nearby: near ? { id: near.id, kind: near.kind } : null });
+    // Fishing (build plan M27): where the player could cast from (the server decides the secret spot).
+    const spot = fade.current.phase === "idle" ? fishingSpotAt(space, pos) : null;
+    if (spot !== world.fishingSpot) worldStore.setState({ fishingSpot: spot });
+    fishingLive.pos = space === "town" ? [pos[0], pos[1]] : null;
+    fishingLive.heading = heading.current;
 
     cameraRig.follow = [pos[0], 0, pos[1]];
     // NPC conversations: walking away ends one, arriving at a clicked NPC starts one.
@@ -309,7 +319,15 @@ export function Player({ start }: { start: SpacePoint }) {
     cameraRig.talk = talking ? { target: [(pos[0] + talkingTo.pos[0]) / 2, 0.6, (pos[1] + talkingTo.pos[1]) / 2], viewHeight: TALK_VIEW_HEIGHT } : null;
     // In front of the mirror the avatar turns to the camera to show off the new look; in a
     // conversation it stands facing the NPC.
-    const faceTo = mirrorOpen ? cameraRig.yaw : talking && motion === "idle" ? headingTowards(pos, talkingTo.pos) : controller.state.heading;
+    const fishing = fishingStore.getState();
+    const castHeading = fishingActive(fishing) ? fishing.heading : null;
+    const faceTo = mirrorOpen
+      ? cameraRig.yaw
+      : castHeading !== null
+        ? castHeading
+        : talking && motion === "idle"
+          ? headingTowards(pos, talkingTo.pos)
+          : controller.state.heading;
     heading.current = dampAngle(heading.current, faceTo, TURN_RATE, dt);
     const g = avatar.current;
     if (g) {
@@ -318,7 +336,9 @@ export function Player({ start }: { start: SpacePoint }) {
     }
     const m0 = machine.current;
     if (m0) {
-      const change = m0.update({ motion, talking }, dt);
+      const reeling = fishing.phase === "reeling" || fishing.phase === "landing";
+      const activity = fishingActive(fishing) ? (reeling ? "fish_reel" : "fish_cast") : undefined;
+      const change = m0.update({ motion, talking, activity }, dt);
       if (change && character) character.play(change.clip, change.fade, change.restart);
     }
     character?.mixer.update(dt);

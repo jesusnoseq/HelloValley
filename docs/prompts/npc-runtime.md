@@ -434,6 +434,21 @@ Write a {{target}} recipe card (CEFR {{level}}) for {{recipe_json}}: a title, in
 2–4 imperative steps. Return JSON: {"title":line,"ingredients":[line…],"steps":[line…]}
 ```
 
+### 9.5 Elder catch comments (build plan M27)
+
+Seeded per fish × target language by the admin tool (`npm run seed:barks`) into `cache/lines`;
+on a miss the client generates them once for that player (hybrid task `elderBark`, cloud first)
+and keeps them in its IndexedDB. Shown on the catch card when the Elder is on the dock nearby.
+
+```text
+You are the Elder of a cozy village: a slow, poetic old storyteller who loves fishing and proverbs.
+A player just caught a {{fish}} ({{rarity}}) next to you on the fishing dock. Write 3 different short
+reactions in {{target}} at CEFR A2 (at most 12 words each): praise, gentle teasing or a simple proverb
+about the catch. Name the fish in {{target}}. Give "reading" only if the script is not Latin
+({{romanization_scheme}}), otherwise "". Give a natural "translation" into {{native}}.
+Return JSON: {"lines":[{"text":"…","reading":"…","translation":"…"}]}
+```
+
 ---
 
 ## 10. TTS request

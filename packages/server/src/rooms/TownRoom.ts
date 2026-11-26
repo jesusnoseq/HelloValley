@@ -32,6 +32,11 @@ import {
   type MoveCorrectionMessage,
   type MoveTracker,
   canTalkTo,
+  CAST_MOVE_TOLERANCE_M,
+  type FishCastMessage,
+  type FishCastResultMessage,
+  type FishReelMessage,
+  type FishResultMessage,
   type NpcId,
   NPC_TALK_SLACK_M,
   type NpcRefusedMessage,
@@ -61,6 +66,8 @@ import {
 import { type IdTokenVerifier, InvalidIdTokenError, type VerifiedUser } from "../auth/idToken";
 import { type ChatModerator, moderateChat } from "../moderation/chat";
 import { InventoryService } from "../economy/inventory";
+import { FishingService } from "../fishing/fishing";
+import type { FishingStore } from "../fishing/fishingStore";
 import { NpcDialogueService } from "../npc/dialogue";
 import type { NpcStore } from "../npc/npcStore";
 import type { ProfileStore } from "../profiles/profileStore";
@@ -122,6 +129,13 @@ const noNpcStore: NpcStore = {
   wallet: () => Promise.resolve(null),
   moveSlot: () => Promise.resolve(null),
 };
+/** Knows no players: real rooms get the fishing service through `townRoomWith`. */
+const noFishingStore: FishingStore = {
+  context: () => Promise.resolve(null),
+  log: () => Promise.resolve({}),
+  recordCatch: () => Promise.resolve(null),
+};
+const noFishing = new FishingService(noFishingStore);
 const noNpcs = new NpcDialogueService(noNpcStore);
 const noInventory = new InventoryService(noNpcStore);
 
@@ -164,6 +178,10 @@ interface Session {
   conversationId: string | null;
   /** Inventory reads and moves run one after another, so `inventory:state` messages arrive in order (build plan M26). */
   inventoryChain: Promise<void>;
+  /** Fishing messages run one after another (build plan M27). */
+  fishingChain: Promise<void>;
+  /** Switches the synced activity from "fishing" to "reeling" at the bite. */
+  biteTimer: Delayed | null;
 }
 
 /** A delivered chat line, as the room remembers it for reports. */
@@ -207,6 +225,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected npc: NpcDialogueService = noNpcs;
   /** Coins and inventory slots (build plan M26); shares the NPC store so trades and moves see the same records. */
   protected inventory: InventoryService = noInventory;
+  /** Casts, catches and the fish encyclopedia (build plan M27). */
+  protected fishing: FishingService = noFishing;
   /** Where joining players appear (tests start next to an NPC). */
   protected spawn: SpacePoint = TOWN_SPAWN;
   private readonly sessions = new Map<string, Session>();
@@ -266,6 +286,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       const session = this.sessions.get(client.sessionId);
       if (session) this.queueInventory(client.sessionId, session, () => this.inventory.move(session.uid, session.targetLang, move));
     });
+    this.handle(ClientMessage.FishCast, (client, cast) => this.queueFishing(client.sessionId, () => this.onFishCast(client.sessionId, cast)));
+    this.handle(ClientMessage.FishReel, (client, reel) => this.queueFishing(client.sessionId, () => this.onFishReel(client.sessionId, reel)));
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
     this.handle(ClientMessage.VisitRequest, (client, { sessionId }) => this.onVisitRequest(client, sessionId));
     this.handle(ClientMessage.VisitAnswer, (client, { requestId, accept }) => this.onVisitAnswer(client, requestId, accept));
@@ -325,6 +347,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       talkingTo: null,
       conversationId: null,
       inventoryChain: Promise.resolve(),
+      fishingChain: Promise.resolve(),
+      biteTimer: null,
     });
     this.state.players.set(
       client.sessionId,
@@ -337,6 +361,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
         heading: spawn.heading,
         motion: "idle",
         talkingTo: "",
+        activity: "",
       }),
     );
     // One session per uid: an older tab (in any shard) is disconnected.
@@ -349,6 +374,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     client.send(ServerMessage.Welcome, welcome);
     this.sendSafety(client.sessionId);
     this.refreshInventory(client.sessionId);
+    this.sendFishLog(client.sessionId);
     // Whoever muted this uid sees the new session id in their mute list.
     for (const [sessionId, other] of this.sessions) {
       if (sessionId !== client.sessionId && other.muted.has(uid)) this.sendSafety(sessionId);
@@ -376,7 +402,9 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       if (!this.replaced.has(client.sessionId)) {
         this.npc.end(session.uid);
         this.inventory.forget(session.uid);
+        this.fishing.forget(session.uid);
       }
+      session.biteTimer?.clear();
     }
     for (const visit of [...this.visits.values()]) {
       if (visit.visitor === client.sessionId || visit.owner === client.sessionId) this.closeVisit(visit, "unavailable");
@@ -442,6 +470,12 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     player.z = move.z;
     player.heading = wrapAngle(move.heading);
     player.motion = move.motion;
+    // Walking away from the line ends the cast (build plan M27).
+    const cast = this.fishing.pending(session.uid);
+    if (cast && (move.space !== "town" || Math.hypot(move.x - cast.pos[0], move.z - cast.pos[1]) > CAST_MOVE_TOLERANCE_M)) {
+      this.fishing.cancel(session.uid);
+      this.stopFishing(client.sessionId, session);
+    }
     // Walking away from an NPC (or out of the room) ends the conversation (GDD §8.1 step 4).
     if (session.talkingTo && walkedAway(session.talkingTo, move.space, [move.x, move.z])) {
       this.npc.end(session.uid, session.conversationId ?? undefined);
@@ -844,6 +878,69 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (session) this.queueInventory(sessionId, session, () => this.inventory.state(session.uid, session.targetLang));
   }
 
+  // -------------------------------------------------------------------------------------------
+  // Fishing (build plan M27, GDD §5.2): the server checks the spot and the rod, rolls the fish and
+  // judges the reported catch; the bite and the mini-game run on the client.
+
+  private queueFishing(sessionId: string, task: () => Promise<void>): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    session.fishingChain = session.fishingChain.then(task).catch((err: unknown) => console.error(`[town] fishing for ${session.uid} failed:`, err));
+  }
+
+  /** The synced activity goes back to nothing. */
+  private stopFishing(sessionId: string, session: Session): void {
+    session.biteTimer?.clear();
+    session.biteTimer = null;
+    const player = this.state.players.get(sessionId);
+    if (player) player.activity = "";
+  }
+
+  private async onFishCast(sessionId: string, msg: FishCastMessage): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const t = session.tracker;
+    const where = { space: t.space, pos: [t.pos[0], t.pos[1]] as [number, number], talking: session.talkingTo !== null };
+    const result: FishCastResultMessage = await this.fishing.cast(session.uid, session.targetLang, msg, where);
+    if (this.sessions.get(sessionId) !== session) return;
+    const player = this.state.players.get(sessionId);
+    if (result.ok && player) {
+      player.activity = "fishing";
+      player.heading = wrapAngle(msg.heading);
+      session.biteTimer?.clear();
+      const castId = result.castId;
+      session.biteTimer = this.clock.setTimeout(() => {
+        session.biteTimer = null;
+        if (this.fishing.pending(session.uid)?.castId === castId) player.activity = "reeling";
+      }, result.biteInMs);
+    }
+    this.clientOf(sessionId)?.send(ServerMessage.FishCast, result);
+  }
+
+  private async onFishReel(sessionId: string, msg: FishReelMessage): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const t = session.tracker;
+    const result: FishResultMessage = await this.fishing.reel(session.uid, session.targetLang, msg, { space: t.space, pos: [t.pos[0], t.pos[1]] });
+    if (this.sessions.get(sessionId) !== session) return;
+    if (!this.fishing.pending(session.uid)) this.stopFishing(sessionId, session);
+    this.clientOf(sessionId)?.send(ServerMessage.FishResult, result);
+    if (result.outcome === "caught") {
+      if (result.kept) this.refreshInventory(sessionId);
+      this.sendFishLog(sessionId);
+    }
+  }
+
+  /** Sends the player's fish encyclopedia. */
+  private sendFishLog(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    this.queueFishing(sessionId, async () => {
+      const log = await this.fishing.log(session.uid);
+      if (log && this.sessions.get(sessionId) === session) this.clientOf(sessionId)?.send(ServerMessage.FishLog, log);
+    });
+  }
+
   /** Refreshes the clock and weather in the state (wall time: survives restarts, architecture §3.1). */
   private tickWorld(): void {
     const now = Date.now();
@@ -886,6 +983,8 @@ export interface TownRoomDeps {
   npc?: NpcDialogueService;
   /** Coins and inventory slots (build plan M26), over the same store as `npc`. */
   inventory?: InventoryService;
+  /** Casts, catches and the encyclopedia (build plan M27); shared by every shard so the pacing holds across them. */
+  fishing?: FishingService;
 }
 
 export interface TownRoomOptions {
@@ -901,6 +1000,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
   const apartments = deps.apartments ?? new ApartmentRegistry();
   const npc = deps.npc ?? noNpcs;
   const inventory = deps.inventory ?? noInventory;
+  const fishing = deps.fishing ?? noFishing;
   return class extends TownRoom {
     override maxClients = options.maxClients ?? TOWN_MAX_CLIENTS;
     protected override verifier = deps.verifier;
@@ -911,6 +1011,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override moderateChat = deps.moderateChat ?? moderateChat;
     protected override npc = npc;
     protected override inventory = inventory;
+    protected override fishing = fishing;
     protected override spawn = options.spawn ?? TOWN_SPAWN;
   };
 }

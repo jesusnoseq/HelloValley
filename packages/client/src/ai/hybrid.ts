@@ -5,6 +5,11 @@ import {
   type CompactionResponse,
   contentKeyMaterial,
   detectLanguagePrompt,
+  elderBarkPlayerMaterial,
+  elderBarkPrompt,
+  type ElderBarkPromptInput,
+  type ElderBarkResponse,
+  type FishId,
   glossPrompt,
   type GlossPromptInput,
   type GlossResponse,
@@ -113,6 +118,8 @@ export interface HybridAI {
   detectLanguage(text: string): Promise<TaskResult<{ lang: string }>>;
   /** World labels for one batch of keys (build plan M25): a seeded-cache miss, cloud first, per player. */
   worldLabels(input: WorldLabelsPromptInput): Promise<TaskResult<WorldLabelsResponse>>;
+  /** The Elder's comments on a catch (build plan M27): a seeded-cache miss, cloud first, per player. */
+  elderBark(input: ElderBarkPromptInput & { fishId: FishId }): Promise<TaskResult<ElderBarkResponse>>;
 }
 
 export function createHybridAI(deps: HybridDeps): HybridAI {
@@ -195,6 +202,9 @@ export function createHybridAI(deps: HybridDeps): HybridAI {
       const keys = input.items.map((i) => `${i.key}=${i.english}`).join("|");
       const key = contentKeyMaterial({ kind: "worldLabels", lang: input.targetLang, level: `v${LABELS_VERSION}`, text: keys });
       return shared("worldLabels", worldLabelsPrompt(input), key);
+    },
+    elderBark(input) {
+      return shared("elderBark", elderBarkPrompt(input), elderBarkPlayerMaterial(input.fishId, input.targetLang, input.nativeLang));
     },
   };
 }

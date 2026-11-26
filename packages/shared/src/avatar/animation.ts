@@ -12,11 +12,24 @@ import type { Motion } from "../world/player";
  * (sit) > talking (talk) > idle. Emotes are one-shot overlays on top of idle or talk: they play
  * for `emoteLength` seconds and then fade back, and starting to move or sitting down cancels them.
  * Stopping is debounced by `STOP_GRACE_S` so a path that ends and restarts does not flicker.
- * TODO(M27/M29): fish_cast, fish_reel and eat as activity states.
+ * Activities (build plan M27) are base states too, between moving and sitting: fish_cast while
+ * the line is out (cast, wait, bite) and fish_reel during the mini-game. TODO(M29): eat.
  */
 
 export const BASE_ANIM_STATES = ["idle", "walk", "run", "sit", "talk"] as const satisfies readonly CharacterAnimation[];
 export type BaseAnimState = (typeof BASE_ANIM_STATES)[number];
+
+/** In-place activities (build plan M27). */
+export const ACTIVITY_ANIM_STATES = ["fish_cast", "fish_reel"] as const satisfies readonly CharacterAnimation[];
+export type ActivityAnimState = (typeof ACTIVITY_ANIM_STATES)[number];
+export type AnimState = BaseAnimState | ActivityAnimState;
+
+/** The activity clip for the synced `activity` field ("fishing", "reeling", ""), or undefined. */
+export function activityClip(activity: string | undefined): ActivityAnimState | undefined {
+  if (activity === "fishing") return "fish_cast";
+  if (activity === "reeling") return "fish_reel";
+  return undefined;
+}
 
 export const EMOTES = ["wave", "laugh", "cheer", "clap", "heart", "think"] as const satisfies readonly CharacterAnimation[];
 export type Emote = (typeof EMOTES)[number];
@@ -42,6 +55,8 @@ export interface AnimInput {
   motion: Motion;
   seated?: boolean;
   talking?: boolean;
+  /** An in-place activity (fishing), shown unless the character moves. */
+  activity?: ActivityAnimState;
 }
 
 /** Clip length (seconds) and whether it loops, from the character manifest (`animations`). */
@@ -95,9 +110,10 @@ export function emoteLength(timing: ClipTiming): number {
 }
 
 /** The base state an input asks for. */
-export function targetBaseState(input: AnimInput): BaseAnimState {
+export function targetBaseState(input: AnimInput): AnimState {
   if (input.motion === "run") return "run";
   if (input.motion === "walk") return "walk";
+  if (input.activity) return input.activity;
   if (input.seated) return "sit";
   if (input.talking) return "talk";
   return "idle";
@@ -117,7 +133,7 @@ export interface ActiveEmote {
 }
 
 export class AnimationStateMachine {
-  private baseState: BaseAnimState;
+  private baseState: AnimState;
   private active: ActiveEmote | null = null;
   private pending: Emote | null = null;
   private still = 0;
@@ -136,7 +152,7 @@ export class AnimationStateMachine {
     return this.shown;
   }
 
-  get base(): BaseAnimState {
+  get base(): AnimState {
     return this.baseState;
   }
 

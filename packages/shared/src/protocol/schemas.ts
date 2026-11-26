@@ -143,6 +143,15 @@ const slotIndex = z.number().int().min(0).max(TOTAL_SLOTS - 1);
 /** `inventory:move` (build plan M26): two slot indexes; the server checks the source holds something. */
 export const InventoryMoveSchema = z.strictObject({ from: slotIndex, to: slotIndex, moveId: editId });
 
+/** `fish:cast` (build plan M27): a hotbar slot, the charge and the heading; the server checks the rest. */
+export const FishCastSchema = z.strictObject({
+  slot: slotIndex,
+  charge: z.number().min(0).max(1),
+  heading: z.number().min(-HEADING_LIMIT).max(HEADING_LIMIT),
+});
+/** `fish:reel`: the cast id the server handed out and how it ended. */
+export const FishReelSchema = z.strictObject({ castId: NpcTokenSchema, outcome: z.enum(["caught", "escaped"]) });
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -165,6 +174,8 @@ export const ClientMessageSchemas = {
   [ClientMessage.NpcMemory]: NpcMemoryMessageSchema,
   [ClientMessage.NpcGift]: NpcGiftSchema,
   [ClientMessage.InventoryMove]: InventoryMoveSchema,
+  [ClientMessage.FishCast]: FishCastSchema,
+  [ClientMessage.FishReel]: FishReelSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

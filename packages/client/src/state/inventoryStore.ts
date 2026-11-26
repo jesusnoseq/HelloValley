@@ -18,7 +18,7 @@ export interface InventoryState {
   slots: readonly SlotEntry[];
   /** The bag panel is open (Tab). */
   open: boolean;
-  /** The selected hotbar slot (24–29), or null. TODO(M27/M29): equip the rod, eat from the hotbar. */
+  /** The selected hotbar slot (24–29), or null. Holding the rod equips it (build plan M27, ui/fishing). TODO(M29): eat from the hotbar. */
   selected: number | null;
   /** The slot picked up to move (click, then click the target), or null. */
   held: number | null;

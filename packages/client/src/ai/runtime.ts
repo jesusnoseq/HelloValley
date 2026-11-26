@@ -3,7 +3,8 @@ import { aiCloudEnabled } from "../firebase/config";
 import { db } from "../firebase/firestore";
 import { storage } from "../firebase/storage";
 import { onDeviceReady, reportDownloadProgress, reportWarmUpDone } from "./availability";
-import { type ContentCache, createContentCache, createIdbStore } from "./cache";
+import { createElderBarks, type ElderBarks } from "./barks";
+import { type ContentCache, createContentCache, createIdbStore, sha256Hex } from "./cache";
 import { createFirebaseModelPort, createFirebaseTemplatePorts, createFirebaseTtsPort, sharedAi } from "./firebaseModel";
 import { createHybridAI, type HybridAI } from "./hybrid";
 import { type ChatModeration, hybridModeration } from "./moderation";
@@ -14,6 +15,7 @@ import { createTts, TTS_IDB_MAX_CLIPS, type TtsSpeaker } from "./tts";
 import { createSeededTtsReader } from "./ttsSeeded";
 import { doc, getDoc } from "firebase/firestore";
 import { createLabelSource, type LabelSource, seededLabelsReader } from "../labels/labelSource";
+import { FirestorePaths } from "@hellovalley/shared";
 
 /**
  * The game's hybrid AI instance (a lazy chunk: it carries `firebase/ai` and the shared zod
@@ -33,6 +35,7 @@ let instance: HybridAI | null = null;
 let openerInstance: Openers | null = null;
 let ttsInstance: TtsSpeaker | null = null;
 let labelInstance: LabelSource | null = null;
+let barkInstance: ElderBarks | null = null;
 
 export function setUser(next: string | null) {
   if (next === uid) return;
@@ -42,6 +45,7 @@ export function setUser(next: string | null) {
   openerInstance = null;
   ttsInstance = null;
   labelInstance = null;
+  barkInstance = null;
 }
 
 export function hybrid(): HybridAI {
@@ -94,6 +98,25 @@ export function labels(): LabelSource {
     generate: (input) => hybrid().worldLabels(input),
   });
   return labelInstance;
+}
+
+/**
+ * The Elder's catch comments (build plan M27): seeded `cache/lines/{hash}` (once signed in), then
+ * the player's own generation through the hybrid `elderBark` task.
+ */
+export function elderBarks(): ElderBarks {
+  barkInstance ??= createElderBarks({
+    ...(uid
+      ? {
+          seeded: async (material: string) => {
+            const snap = await getDoc(doc(db, FirestorePaths.cacheEntry("lines", await sha256Hex(material))));
+            return snap.exists() ? snap.data() : null;
+          },
+        }
+      : {}),
+    generate: (input) => hybrid().elderBark(input),
+  });
+  return barkInstance;
 }
 
 // Adapters for the M18 chat hooks; they look the instance up per call, so a uid change applies.

@@ -61,7 +61,8 @@ export interface FishingConditions {
 
 /**
  * The rarity table for a cast: every species that bites in these conditions, weighted by rarity.
- * TODO(M27): the server rolls on this table (seeded RNG, fishing-luck buff, bite timing).
+ * The server rolls on it (fishing/roll.ts, build plan M27: seeded RNG, distance bonus, bite timing).
+ * TODO(M29): the fishing-luck buff.
  */
 export function fishTable(conditions: FishingConditions): WeightedEntry<FishId>[] {
   const table: WeightedEntry<FishId>[] = [];

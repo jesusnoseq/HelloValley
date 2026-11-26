@@ -181,6 +181,27 @@ export const WORLD_LABELS_JSON_SCHEMA: AiJsonSchema = obj(
   ["labels"],
 );
 
+// Build plan M27: the Elder's catch comments. Empty lines are dropped; at most 3 are kept.
+export const ELDER_BARK_MAX_CHARS = 200;
+const barkText = (max: number) => z.string().transform((t) => t.replace(/\s+/g, " ").trim().slice(0, max));
+export const ElderBarkResponseSchema = z.object({
+  lines: z
+    .array(z.object({ text: barkText(ELDER_BARK_MAX_CHARS), reading: barkText(400).optional().nullable(), translation: barkText(400) }))
+    .max(8)
+    .transform((list) =>
+      list
+        .filter((l) => l.text)
+        .slice(0, 3)
+        .map((l) => (l.reading && l.reading !== l.text ? { text: l.text, reading: l.reading, translation: l.translation } : { text: l.text, translation: l.translation })),
+    )
+    .refine((list) => list.length > 0, { message: "no lines" }),
+});
+export type ElderBarkResponse = z.output<typeof ElderBarkResponseSchema>;
+export const ELDER_BARK_JSON_SCHEMA: AiJsonSchema = obj(
+  { lines: { type: "array", maxItems: 3, items: obj({ text: str(), reading: str(), translation: str() }, ["text", "translation"]) } },
+  ["lines"],
+);
+
 /** Each task's JSON schema and zod schema. */
 export const TASK_SCHEMAS = {
   gloss: { json: GLOSS_JSON_SCHEMA, zod: GlossResponseSchema },
@@ -194,6 +215,7 @@ export const TASK_SCHEMAS = {
   personaliseOpener: { json: OPENER_JSON_SCHEMA, zod: OpenerResponseSchema },
   detectLanguage: { json: LANGUAGE_DETECTION_JSON_SCHEMA, zod: LanguageDetectionSchema },
   worldLabels: { json: WORLD_LABELS_JSON_SCHEMA, zod: WorldLabelsResponseSchema },
+  elderBark: { json: ELDER_BARK_JSON_SCHEMA, zod: ElderBarkResponseSchema },
 } as const satisfies Record<HybridTask, { json: AiJsonSchema; zod: z.ZodType }>;
 
 export type TaskOutput<T extends HybridTask> = z.output<(typeof TASK_SCHEMAS)[T]["zod"]>;

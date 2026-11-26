@@ -19,6 +19,8 @@ export const TownPlayer = schema(
     motion: t.string(),
     /** The NPC this player is talking to, or "" (build plan M23: bystanders see "chatting"). */
     talkingTo: t.string(),
+    /** "" or "fishing" / "reeling" (build plan M27): remote avatars play the fishing clips. */
+    activity: t.string(),
   },
   "TownPlayer",
 );
@@ -44,7 +46,7 @@ export type TownWorld = SchemaType<typeof TownWorld>;
 /**
  * Synced TownRoom state. NPCs stand at fixed posts for now (shared npcPosts.ts, build plan M23);
  * TODO(M31): NPC positions and schedule state. TODO(M28): forage spawns
- * and fish shadows (architecture §7.1).
+ * (architecture §7.1). Fish shadows are private to the angler (`fish:cast`), not state.
  */
 export const TownState = schema(
   {
