@@ -4,6 +4,18 @@ Questions and decisions that came up while working through `docs/prompts/build-p
 Each entry gives the question, the default that was chosen so work could continue, and anything that
 could not be verified in this environment.
 
+## Needs you first (summary, 2026-11-27)
+
+All milestones M00–M38 are committed on `main` (not pushed). Lint, typecheck, tests (1671 passed,
+47 skipped), build and deps:check pass. The most important open items, detailed in the sections below:
+
+1. **Review `firestore.rules` and `storage.rules` by hand.** The `firestore-rules-author` subagent cannot start here, so they were written with the rules skill and audited (4/5, M36), but never run.
+2. **Install JDK 21+** so the Firestore/Auth emulator tests (the 47 skipped) and the real sign-in flow can run.
+3. **Create the Firebase project and deploy** by following `docs/deploy.md`: AI Logic prompt templates must be uploaded by hand, plus Remote Config, App Check keys, seeding tools and Fly secrets. Nothing was deployed.
+4. **Browser checks never done:** fps on an integrated GPU, two-browser multiplayer, on-device Gemini Nano, TTS listening, and how everything looks.
+5. **Design deviations to confirm:** the town is 64×100 m, not 120×90 (M11). TTS plays through `<audio>`, not Web Audio (M22). Per-player caches are used instead of Firestore `cache/lines` (M20).
+6. **Not fixed:** the `npm audit` advisories in `@grpc/grpc-js` that come in through `firebase` (M00).
+
 ## Environment (2026-11-25)
 
 - Blender 5.2.1 turned out to be installed (`C:\Program Files\Blender Foundation\Blender 5.2\`, not on PATH), so the generators can run. Should generated GLBs be committed? (see M04)  
