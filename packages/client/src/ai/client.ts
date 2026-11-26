@@ -5,6 +5,7 @@ import type { TaskResult } from "./hybrid";
 import type { ChatModeration } from "./moderation";
 import type { TranslateResult, Translator } from "./translate";
 import type { TtsResult, TtsSpeaker } from "./tts";
+import type { LabelLoad } from "../labels/labelSource";
 
 /**
  * Entry-chunk access to the AI module. The runtime (Firebase AI Logic, zod) is a lazy chunk
@@ -102,3 +103,10 @@ export const lazyTts: TtsSpeaker = {
       .then((r) => r.tts().clip(line))
       .catch((): TtsResult => ({ ok: false, reason: "failed" })),
 };
+
+/** World labels for a target language (build plan M25); a failure leaves the English words. */
+export function loadWorldLabels(lang: string): Promise<LabelLoad> {
+  return loadAiRuntime()
+    .then((r) => r.labels().load(lang))
+    .catch((): LabelLoad => ({ labels: {}, complete: false }));
+}

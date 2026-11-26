@@ -26,6 +26,10 @@ import {
   translatePrompt,
   type TranslatePromptInput,
   translateTaskFor,
+  LABELS_VERSION,
+  worldLabelsPrompt,
+  type WorldLabelsPromptInput,
+  type WorldLabelsResponse,
 } from "@hellovalley/shared";
 import type { ContentCache } from "./cache";
 
@@ -107,6 +111,8 @@ export interface HybridAI {
   personaliseOpener(input: OpenerPromptInput): Promise<TaskResult<{ text: string }>>;
   /** Language detection (§4.2): on failure keep the claimed language. */
   detectLanguage(text: string): Promise<TaskResult<{ lang: string }>>;
+  /** World labels for one batch of keys (build plan M25): a seeded-cache miss, cloud first, per player. */
+  worldLabels(input: WorldLabelsPromptInput): Promise<TaskResult<WorldLabelsResponse>>;
 }
 
 export function createHybridAI(deps: HybridDeps): HybridAI {
@@ -184,6 +190,11 @@ export function createHybridAI(deps: HybridDeps): HybridAI {
     },
     detectLanguage(text) {
       return shared("detectLanguage", detectLanguagePrompt(text), contentKeyMaterial({ kind: "detectLanguage", lang: "", text }));
+    },
+    worldLabels(input) {
+      const keys = input.items.map((i) => `${i.key}=${i.english}`).join("|");
+      const key = contentKeyMaterial({ kind: "worldLabels", lang: input.targetLang, level: `v${LABELS_VERSION}`, text: keys });
+      return shared("worldLabels", worldLabelsPrompt(input), key);
     },
   };
 }

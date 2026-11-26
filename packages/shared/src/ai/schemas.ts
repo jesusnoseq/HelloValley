@@ -154,6 +154,33 @@ export const LanguageDetectionSchema = z.object({
 export type LanguageDetection = z.output<typeof LanguageDetectionSchema>;
 export const LANGUAGE_DETECTION_JSON_SCHEMA: AiJsonSchema = obj({ lang: str("ISO 639-1 code") }, ["lang"]);
 
+// Build plan M25 world labels: entries with an unknown key shape or an empty word are dropped.
+export const WORLD_LABEL_WORD_MAX = 200;
+const WorldLabelSchema = z.object({
+  key: z.string(),
+  word: z.string(),
+  reading: z.string().optional().nullable(),
+});
+export const WorldLabelsResponseSchema = z.object({
+  labels: z
+    .array(WorldLabelSchema)
+    .max(64)
+    .transform((list) =>
+      list.flatMap((l) => {
+        const key = l.key.trim();
+        const word = l.word.replace(/\s+/g, " ").trim().slice(0, WORLD_LABEL_WORD_MAX);
+        const reading = l.reading?.replace(/\s+/g, " ").trim().slice(0, 400);
+        if (!/^[a-z0-9_.-]{1,64}$/.test(key) || !word) return [];
+        return [reading && reading !== word ? { key, word, reading } : { key, word }];
+      }),
+    ),
+});
+export type WorldLabelsResponse = z.output<typeof WorldLabelsResponseSchema>;
+export const WORLD_LABELS_JSON_SCHEMA: AiJsonSchema = obj(
+  { labels: { type: "array", maxItems: 64, items: obj({ key: str(), word: str(), reading: str() }, ["key", "word"]) } },
+  ["labels"],
+);
+
 /** Each task's JSON schema and zod schema. */
 export const TASK_SCHEMAS = {
   gloss: { json: GLOSS_JSON_SCHEMA, zod: GlossResponseSchema },
@@ -166,6 +193,7 @@ export const TASK_SCHEMAS = {
   compactConversation: { json: COMPACTION_JSON_SCHEMA, zod: CompactionResponseSchema },
   personaliseOpener: { json: OPENER_JSON_SCHEMA, zod: OpenerResponseSchema },
   detectLanguage: { json: LANGUAGE_DETECTION_JSON_SCHEMA, zod: LanguageDetectionSchema },
+  worldLabels: { json: WORLD_LABELS_JSON_SCHEMA, zod: WorldLabelsResponseSchema },
 } as const satisfies Record<HybridTask, { json: AiJsonSchema; zod: z.ZodType }>;
 
 export type TaskOutput<T extends HybridTask> = z.output<(typeof TASK_SCHEMAS)[T]["zod"]>;

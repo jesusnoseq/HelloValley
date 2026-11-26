@@ -28,6 +28,7 @@ export const HYBRID_TASKS = [
   "compactConversation",
   "personaliseOpener",
   "detectLanguage",
+  "worldLabels",
 ] as const;
 export type HybridTask = (typeof HYBRID_TASKS)[number];
 
@@ -80,6 +81,9 @@ export const ROUTING_TABLE: Readonly<Record<HybridTask, TaskRoute>> = {
   personaliseOpener: { mode: M.ONLY_ON_DEVICE, fallback: "cached-opener", cache: "none", temperature: 0.5 },
   // npc-runtime.md §4.2 (native-language redirect, chat language).
   detectLanguage: { mode: M.PREFER_ON_DEVICE, fallback: "assume-claimed", cache: "memory", temperature: 0 },
+  // Build plan M25 / architecture §5.2 "shared content … per-player generation on a cache miss":
+  // world labels missing from the seeded cache/labels/{lang}, cloud first, kept in the player's IndexedDB.
+  worldLabels: { mode: M.PREFER_IN_CLOUD, fallback: "unavailable-chip", cache: "persist", temperature: 0.2 },
 };
 
 /** Architecture §5.2: text up to this many words is "short" (on-device first). */

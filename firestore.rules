@@ -34,7 +34,10 @@ rules_version = '2';
 //   - lemma, reading, gloss, example: string (<= 500, optional)
 //   - source: string ('npc:<id>', 'object:<labelKey>' or 'chat', required)
 //   - audioHash: string (64 hex chars, optional)
-//   - fsrs: map (<= 16 keys, optional)
+//   - fsrs: map (optional; the FSRS card, shared srs/fsrs.ts FsrsCardSchema), exactly the keys
+//       due: int (epoch ms, >= 0), stability: number [0, 1e6], difficulty: number [1, 10],
+//       state: int (0 new, 1 learning, 2 review, 3 relearning), reps, lapses: int [0, 1e6],
+//       lastReview: int (epoch ms, >= 0) or null, scheduledDays: int [0, 36500]
 //   - createdAt: timestamp (required, set to request.time on create, immutable)
 //   - updatedAt: timestamp (set to request.time on every update)
 //
@@ -153,6 +156,24 @@ service cloud.firestore {
         && (!('scriptMode' in settings) || settings.scriptMode in ['native', 'both', 'romanized']);
     }
 
+    // The FSRS card of a notebook entry (build plan M25). The client schedules reviews itself;
+    // the card only affects the player's own reviews, so shape and ranges are all that is checked.
+    function isValidFsrsCard(card) {
+      return card is map
+        && card.keys().hasAll(['due', 'stability', 'difficulty', 'state', 'reps', 'lapses',
+                               'lastReview', 'scheduledDays'])
+        && card.keys().hasOnly(['due', 'stability', 'difficulty', 'state', 'reps', 'lapses',
+                                'lastReview', 'scheduledDays'])
+        && card.due is int && card.due >= 0
+        && card.stability is number && card.stability >= 0 && card.stability <= 1000000
+        && card.difficulty is number && card.difficulty >= 1 && card.difficulty <= 10
+        && card.state is int && card.state in [0, 1, 2, 3]
+        && card.reps is int && card.reps >= 0 && card.reps <= 1000000
+        && card.lapses is int && card.lapses >= 0 && card.lapses <= 1000000
+        && (card.lastReview == null || (card.lastReview is int && card.lastReview >= 0))
+        && card.scheduledDays is int && card.scheduledDays >= 0 && card.scheduledDays <= 36500;
+    }
+
     function isValidNotebookEntry(data) {
       return data.keys().hasAll(['surface', 'source', 'createdAt'])
         && data.keys().hasOnly(['surface', 'lemma', 'reading', 'gloss', 'example', 'source',
@@ -165,8 +186,7 @@ service cloud.firestore {
         && data.source is string
         && data.source.matches('^(npc:[a-z0-9_-]{1,64}|object:[a-z0-9_.-]{1,64}|chat)$')
         && (!('audioHash' in data) || (data.audioHash is string && data.audioHash.matches('^[0-9a-f]{64}$')))
-        // TODO(M25): validate the FSRS card fields once the card schema exists.
-        && (!('fsrs' in data) || (data.fsrs is map && data.fsrs.size() <= 16))
+        && (!('fsrs' in data) || isValidFsrsCard(data.fsrs))
         && data.createdAt is timestamp
         && (!('updatedAt' in data) || data.updatedAt is timestamp);
     }

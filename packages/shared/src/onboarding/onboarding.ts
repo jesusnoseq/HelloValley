@@ -28,6 +28,8 @@ export const ApiRoute = {
   Appearance: "/api/profile/appearance",
   /** `GET`: the TownRoom shards and a friend's shard (`?friend=<uid>`, build plan M16, protocol/schemas.ts). */
   Shards: "/api/shards",
+  /** `POST`: a notebook review session finished; the server counts the day for the streak (build plan M25, srs/api.ts). */
+  Review: "/api/review",
   // TODO(M37): Langs: "/api/langs" (add a target language).
 } as const;
 

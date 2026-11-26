@@ -3,7 +3,8 @@ import type { SaveWordDraft } from "@hellovalley/shared";
 /**
  * "Click a word → saved to the notebook" (GDD §6.1, build plan M19). Speech bubbles emit the
  * word here; the notebook subscribes.
- * TODO(M25): the notebook listens and writes `users/{uid}/langs/{lang}/notebook/{entryId}`.
+ * Build plan M25: chat lines and world labels emit here too; the notebook (notebook/startNotebook.ts)
+ * listens and writes `users/{uid}/langs/{lang}/notebook/{entryId}`.
  */
 
 type Listener = (draft: SaveWordDraft) => void;

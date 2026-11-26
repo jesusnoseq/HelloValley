@@ -2,6 +2,7 @@ import { Html } from "@react-three/drei";
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { chat, type ChatLine, useChat } from "../net/chatSession";
 import { bubbleLines, hasHover, nextBubbleExpiry } from "../ui/chat/chatView";
+import { ChatWords } from "../ui/chat/ChatWords";
 
 const bubble: CSSProperties = {
   maxWidth: 240,
@@ -25,9 +26,11 @@ const extra: CSSProperties = { fontSize: 12, opacity: 0.75, borderTop: "1px soli
  * past few seconds, each in the reader's target language. Hovering a line shows the original as
  * written plus its translation into the reader's native language. A DOM overlay (drei `Html`), so
  * it costs no draw calls and any script renders with the system fonts.
- * TODO(M25): chat lines get tokens from the hybrid `gloss` task (M20, npc-runtime §5.1), then render
- * with the M19 speech bubble pieces (ui/speech/SpeechBubble: word hover, click-to-save with
- * source `chat`, script toggle) instead of plain text.
+ * Build plan M25: words of a line shown in the reader's target language can be clicked and saved
+ * to the notebook (source `chat`, ui/chat/ChatWords). The words are split with `Intl.Segmenter`
+ * rather than the hybrid `gloss` task (a model call per chat line for every reader); the notebook
+ * adds a short gloss when a word is saved. Word hover glosses and the script toggle on chat lines
+ * (the M19 speech bubble pieces) have no milestone yet (pending.md, M25).
  */
 export function ChatBubble({ sessionId, y }: { sessionId: string; y: number }) {
   const lines = useChat((s) => s.lines);
@@ -64,7 +67,9 @@ function BubbleLine({ line }: { line: ChatLine }) {
       }}
       onPointerLeave={() => setHover(false)}
     >
-      <span style={pending ? { opacity: 0.6 } : undefined}>{line.shown.text}</span>
+      <span style={pending ? { opacity: 0.6 } : undefined}>
+        <ChatWords line={line} />
+      </span>
       {hover && hasHover(line) ? <HoverDetails line={line} /> : null}
     </div>
   );

@@ -10,6 +10,7 @@ import { type HttpDeps, registerHttpRoutes } from "./http";
 import type { ChatModerator } from "./moderation/chat";
 import { NpcDialogueService } from "./npc/dialogue";
 import { createMemoryNpcStore, firestoreNpcStoreFor, type NpcStore } from "./npc/npcStore";
+import { createMemoryStreakStore, firestoreStreakStoreFor, type StreakStore } from "./notebook/streakStore";
 import { createMemorySafetyStore, firestoreSafetyStoreFor, type SafetyStore } from "./safety/safetyStore";
 import { firestoreProfileStoreFor, type ProfileStore } from "./profiles/profileStore";
 import { apartmentRoomWith } from "./rooms/ApartmentRoom";
@@ -45,6 +46,8 @@ export interface GameServerOptions {
    * firebase-admin (in memory when both the verifier and the profile store are injected).
    */
   npcStore?: NpcStore;
+  /** The review streak (build plan M25); Firestore by default, in memory like the others in tests. */
+  streaks?: StreakStore;
 }
 
 export interface GameServer extends Server {
@@ -64,12 +67,13 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   const layouts = options.layouts ?? (firebase ? firestoreLayoutStoreFor(adminApp(firebase)) : createMemoryLayoutStore());
   const safety = options.safety ?? (firebase ? firestoreSafetyStoreFor(adminApp(firebase)) : createMemorySafetyStore());
   const npc = new NpcDialogueService(options.npcStore ?? (firebase ? firestoreNpcStoreFor(adminApp(firebase)) : createMemoryNpcStore()));
+  const streaks = options.streaks ?? (firebase ? firestoreStreakStoreFor(adminApp(firebase)) : createMemoryStreakStore());
   const towns = new TownRegistry();
   const apartments = new ApartmentRegistry();
   const httpServer = createServer();
   const server = new Server({
     transport: new WebSocketTransport({ server: httpServer }),
-    express: (app) => registerHttpRoutes(app, { verifier, profiles, onboarding: options.onboarding, registry: towns }),
+    express: (app) => registerHttpRoutes(app, { verifier, profiles, onboarding: options.onboarding, registry: towns, streaks }),
     greet: false,
   });
   // Architecture §7.1: fill existing shards before opening a new one, lowest "Valley #n" first.

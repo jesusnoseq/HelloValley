@@ -1,4 +1,5 @@
 import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
+import { ChatWords } from "./ChatWords";
 // Only zod-free values from shared (protocol/messages), so the entry chunk stays small.
 import { CHAT_MAX_LENGTH, CHAT_REPORT_REASONS } from "@hellovalley/shared";
 import { languageDisplayName } from "../../i18n/i18n";
@@ -153,7 +154,9 @@ function LineRow({ line }: { line: ChatLine }) {
         onBlur={() => setHover(false)}
       >
         <strong>{name}:</strong>{" "}
-        <span lang={line.shown.status === "translated" ? line.plan.shownLang : line.lang}>{line.shown.text}</span>
+        <span lang={line.shown.status === "translated" ? line.plan.shownLang : line.lang}>
+          <ChatWords line={line} />
+        </span>
         {line.shown.status === "pending" ? <span style={small}> · {t("chat.translating")}</span> : null}
         {line.shown.status === "unavailable" ? <span style={small}> · {t("chat.translationUnavailable")}</span> : null}
         {!line.own ? (

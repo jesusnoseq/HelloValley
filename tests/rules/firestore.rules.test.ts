@@ -185,6 +185,19 @@ describe.skipIf(!emulator.available)("firestore.rules", () => {
       await assertFails(updateDoc(existing, { gloss: "no timestamp" }));
     });
 
+    it("accepts a valid FSRS card and rejects malformed ones (build plan M25)", async () => {
+      const existing = doc(alice, P.notebookEntry(ALICE, "ja", "e1"));
+      const card = { due: Date.now() + 600_000, stability: 3.17, difficulty: 5.3, state: 1, reps: 1, lapses: 0, lastReview: Date.now(), scheduledDays: 0 };
+      await assertSucceeds(updateDoc(existing, { fsrs: card, updatedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(existing, { fsrs: { ...card, state: 0, reps: 0, lastReview: null }, updatedAt: serverTimestamp() }));
+      await assertFails(updateDoc(existing, { fsrs: { ...card, state: 7 }, updatedAt: serverTimestamp() }));
+      await assertFails(updateDoc(existing, { fsrs: { ...card, difficulty: 11 }, updatedAt: serverTimestamp() }));
+      await assertFails(updateDoc(existing, { fsrs: { ...card, due: "soon" }, updatedAt: serverTimestamp() }));
+      await assertFails(updateDoc(existing, { fsrs: { ...card, extra: 1 }, updatedAt: serverTimestamp() }));
+      const { scheduledDays: _missing, ...partial } = card;
+      await assertFails(updateDoc(existing, { fsrs: partial, updatedAt: serverTimestamp() }));
+    });
+
     it("needs an existing language and the owner", async () => {
       await assertFails(setDoc(doc(alice, P.notebookEntry(ALICE, "fr", "e1")), entry()));
       await assertFails(setDoc(doc(bob, P.notebookEntry(ALICE, "ja", "e4")), entry()));

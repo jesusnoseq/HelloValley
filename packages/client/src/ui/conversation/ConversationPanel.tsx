@@ -1,6 +1,7 @@
 import { type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { type InputMethod, type NpcId, type ScriptCode, type SuggestedReply, PLAYER_TEXT_MAX_LENGTH } from "@hellovalley/shared";
 import type { TtsSpeaker } from "../../ai/tts";
+import { useLabelMap } from "../../labels/labelStore";
 import { languageDisplayName } from "../../i18n/i18n";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { MessageKey } from "../../i18n/messages.en";
@@ -419,19 +420,20 @@ function Cards({ state, name, controller, onDone }: { state: ConversationState; 
 
 function CardView({ card, name, coins, controller, onDone }: { card: Card; name: string; coins: number | null; controller: ConversationController; onDone: () => void }) {
   const { t, locale } = useI18n();
+  const labels = useLabelMap(controller.store.getState().context?.lang ?? null);
   const accept = useRef<HTMLButtonElement>(null);
   const open = card.kind === "trade" && card.status === "open";
   // A new trade card takes focus, so a keyboard player can answer it at once.
   useEffect(() => {
     if (open) accept.current?.focus();
   }, [open]);
-  if (card.kind === "gift") return <p className="hv-card">🎁 {t("convo.card.gift", { name, item: itemName(card.itemId) })}</p>;
-  if (card.kind === "quest") return <p className="hv-card">📜 {t("convo.card.quest", { name, quest: itemName(card.questId) })}</p>;
-  if (card.kind === "recipe") return <p className="hv-card">📖 {t("convo.card.recipe", { name, recipe: itemName(card.recipeId) })}</p>;
+  if (card.kind === "gift") return <p className="hv-card">🎁 {t("convo.card.gift", { name, item: itemName(card.itemId, labels) })}</p>;
+  if (card.kind === "quest") return <p className="hv-card">📜 {t("convo.card.quest", { name, quest: itemName(card.questId, labels) })}</p>;
+  if (card.kind === "recipe") return <p className="hv-card">📖 {t("convo.card.recipe", { name, recipe: itemName(card.recipeId, labels) })}</p>;
   if (card.kind === "given") {
     return (
       <p className="hv-card" role="status">
-        🎁 {t(`convo.gift.${card.reaction}` as MessageKey, { name, item: itemName(card.itemId) })}
+        🎁 {t(`convo.gift.${card.reaction}` as MessageKey, { name, item: itemName(card.itemId, labels) })}
         {card.delta !== 0 ? ` ${formatHeartsDelta(card.delta, locale)} ♥` : ""}
       </p>
     );
@@ -439,7 +441,7 @@ function CardView({ card, name, coins, controller, onDone }: { card: Card; name:
   if (card.kind === "giftFailed") {
     return (
       <p className="hv-card" role="status">
-        🎁 {t(`convo.gift.failed.${card.reason}` as MessageKey, { name, item: itemName(card.itemId) })}
+        🎁 {t(`convo.gift.failed.${card.reason}` as MessageKey, { name, item: itemName(card.itemId, labels) })}
       </p>
     );
   }
@@ -457,7 +459,7 @@ function CardView({ card, name, coins, controller, onDone }: { card: Card; name:
     const key = `convo.trade.failed.${card.reason ?? ""}` as MessageKey;
     status = ["insufficient_coins", "not_owned", "inventory_full"].includes(card.reason ?? "") ? t(key) : t("convo.trade.failed");
   }
-  const label = t(kind === "offer" ? "convo.trade.offer" : "convo.trade.buy", { name, item: itemName(trade.itemId), qty: String(trade.qty) });
+  const label = t(kind === "offer" ? "convo.trade.offer" : "convo.trade.buy", { name, item: itemName(trade.itemId, labels), qty: String(trade.qty) });
   return (
     <div className="hv-card" role="group" aria-label={label}>
       <span className="hv-card__text">

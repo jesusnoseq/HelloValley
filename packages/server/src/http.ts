@@ -3,7 +3,9 @@ import { requireAuth } from "./auth/middleware";
 import type { IdTokenVerifier } from "./auth/idToken";
 import type { ProfileStore } from "./profiles/profileStore";
 import { appearanceRouter } from "./routes/appearance";
+import type { StreakStore } from "./notebook/streakStore";
 import { onboardingRouter, type OnboardingDeps } from "./routes/onboarding";
+import { reviewRouter } from "./routes/review";
 import { shardsRouter } from "./routes/shards";
 import type { TownRegistry } from "./rooms/townRegistry";
 
@@ -16,6 +18,8 @@ export interface HttpDeps {
   onboarding?: Omit<OnboardingDeps, "profiles">;
   /** The live TownRoom shards (GET /api/shards, appearance pushes). */
   registry: TownRegistry;
+  /** The notebook review streak (POST /api/review, build plan M25). */
+  streaks: StreakStore;
 }
 
 /** Express routes served next to Colyseus in the same process (architecture §7.2). */
@@ -34,6 +38,7 @@ export function registerHttpRoutes(app: Application, deps: HttpDeps): void {
     appearanceRouter({ profiles: deps.profiles, onSaved: (uid, profile) => deps.registry.applyProfile(uid, profile) }),
   );
   app.use("/api", shardsRouter({ registry: deps.registry }));
+  app.use("/api", reviewRouter({ streaks: deps.streaks }));
   // TODO(M37): POST /api/langs (add a target language).
 
   // Malformed JSON, oversized bodies and anything else thrown on /api answer with JSON.

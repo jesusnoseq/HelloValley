@@ -91,6 +91,13 @@ Return JSON: {"text":"…"}  — if the memory is not relevant, return the greet
   detectLanguage: `Which language is this text written in? Answer with an ISO 639-1 code.
 {{text}}
 Return JSON: {"lang":"xx"}`,
+  // Build plan M25 world labels (GDD §6.5): the seeding tool and the per-player fallback.
+  worldLabels: `You write picture-dictionary labels for objects in a cozy village game for people learning {{target}}.
+For each English word give the everyday {{target}} word a native speaker would write on the label:
+singular, no article, normal capitalisation for {{target}}. Give "reading" only if the script is not
+Latin ({{romanization_scheme}}), otherwise "". Keep each "key" exactly as given.
+Words: {{items}}
+Return JSON: {"labels":[{"key":"…","word":"…","reading":"…"}]}`,
 } as const;
 
 export interface GlossPromptInput {
@@ -201,3 +208,21 @@ export const personaliseOpenerPrompt = (i: OpenerPromptInput) =>
 /** A rough token estimate (≈ 4 characters per token) for the ~600 token budget. */
 export const estimateTokens = (prompt: string) => Math.ceil(prompt.length / 4);
 export const ON_DEVICE_PROMPT_TOKEN_BUDGET = 600;
+
+/** Label keys per world-labels prompt (keeps the prompt near the on-device budget). */
+export const WORLD_LABELS_BATCH = 24;
+
+export interface WorldLabelsPromptInput {
+  targetLang: string;
+  /** labelKey + English source word (game data, not player text). */
+  items: readonly { key: string; english: string }[];
+}
+
+export function worldLabelsPrompt(i: WorldLabelsPromptInput): string {
+  if (i.items.length > WORLD_LABELS_BATCH) throw new Error(`at most ${WORLD_LABELS_BATCH} labels per prompt`);
+  return fillTemplate(PROMPT_TEMPLATES.worldLabels, {
+    target: languageName(i.targetLang),
+    romanization_scheme: romanizationScheme(i.targetLang),
+    items: JSON.stringify(i.items.map((x) => ({ key: x.key, en: x.english }))),
+  });
+}

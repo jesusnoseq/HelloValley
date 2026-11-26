@@ -25,6 +25,12 @@ import type { SaveAppearance } from "./ui/mirror/MirrorPanel";
 const WorldScene = lazy(() => import("./scene/World").then((m) => ({ default: m.World })));
 // Build plan M23: the NPC conversation panel carries shared game rules too (its own lazy chunk).
 const ConversationLayer = lazy(() => import("./ui/conversation/ConversationLayer").then((m) => ({ default: m.ConversationLayer })));
+// Build plan M25: the notebook panel and review session (shared FSRS rules, its own lazy chunk).
+const NotebookLayer = lazy(() =>
+  Promise.all([import("./ui/notebook/NotebookLayer"), import("./notebook/startNotebook")]).then(([m, n]) => ({
+    default: () => <m.NotebookLayer notebook={n.currentNotebook} />,
+  })),
+);
 
 const card: CSSProperties = {
   position: "fixed",
@@ -82,6 +88,21 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       stop?.();
     };
   }, [user.uid, profile.targetLangs]);
+  // Build plan M25: the notebook of the first target language mirrors users/{uid}/langs/{lang}/notebook
+  // and saves every clicked word (bubbles, chat, world labels). TODO(M37): a target-language switcher.
+  const targetLang = profile.targetLangs[0] ?? null;
+  useEffect(() => {
+    if (!targetLang) return;
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    void import("./notebook/startNotebook").then(({ startNotebook }) => {
+      if (!cancelled) stop = startNotebook(user, targetLang, profile.nativeLang);
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [user, targetLang, profile.nativeLang]);
   // Build plan M20: AI answers are cached in this player's IndexedDB; a returning player whose
   // on-device model is still downloadable starts the download on a click or key press (startWarmUp does nothing otherwise).
   useEffect(() => {
@@ -118,6 +139,9 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       <ChatHud targetLang={profile.targetLangs[0] ?? profile.nativeLang} nativeLang={profile.nativeLang} />
       <Suspense fallback={null}>
         <ConversationLayer />
+      </Suspense>
+      <Suspense fallback={null}>
+        <NotebookLayer />
       </Suspense>
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>

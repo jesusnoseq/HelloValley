@@ -7,6 +7,9 @@ import {
   type OnboardingRequestInput,
   type OnboardingResponse,
   OnboardingResponseSchema,
+  type ReviewDoneRequest,
+  type ReviewDoneResponse,
+  ReviewDoneResponseSchema,
   type ShardsResponse,
   ShardsResponseSchema,
 } from "@hellovalley/shared";
@@ -88,4 +91,9 @@ export function putAppearance(user: TokenSource, appearance: AppearanceUpdateReq
 export function getShards(user: TokenSource, friendUid?: string, options: ApiOptions = {}): Promise<ShardsResponse> {
   const route = friendUid ? `${ApiRoute.Shards}?friend=${encodeURIComponent(friendUid)}` : ApiRoute.Shards;
   return call(user, "GET", route, undefined, ShardsResponseSchema, options);
+}
+
+/** `POST /api/review` (build plan M25): a notebook review session ended; the server answers with the streak. */
+export function postReview(user: TokenSource, request: ReviewDoneRequest, options: ApiOptions = {}): Promise<ReviewDoneResponse> {
+  return call(user, "POST", ApiRoute.Review, request, ReviewDoneResponseSchema, options);
 }

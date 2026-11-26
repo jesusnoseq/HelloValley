@@ -3,9 +3,16 @@ import { friendshipBand, isGiftable, type ItemId, MAX_HEARTS, type NpcContextMes
 import { useI18n } from "../../i18n/I18nProvider";
 import type { MessageKey } from "../../i18n/messages.en";
 import type { ConversationController } from "./controller";
+import type { LabelMap } from "../../labels/labelSource";
+import { useLabelMap } from "../../labels/labelStore";
 
-/** An item id as a readable name. TODO(M25): the item's world label in the target language. */
-export function itemName(id: string): string {
+/**
+ * An item's name: its world label in the target language when loaded (build plan M25, GDD §6.5:
+ * names are practice too), else the id as readable English.
+ */
+export function itemName(id: string, labels?: LabelMap | null): string {
+  const label = labels?.[`item.${id}`]?.word;
+  if (label) return label;
   const words = id.replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
@@ -57,6 +64,7 @@ export interface NpcProfileCardProps {
 export function NpcProfileCard({ context, name, controller, gifting, canGive }: NpcProfileCardProps) {
   const { t, locale } = useI18n();
   const titleId = useId();
+  const labels = useLabelMap(context.lang);
   const band = friendshipBand(context.hearts);
   const giftable = context.inventory.filter((e) => e.qty > 0 && isGiftable(e.itemId));
   const lastSeen = context.lastSeen !== null ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(context.lastSeen)) : null;
@@ -84,7 +92,7 @@ export function NpcProfileCard({ context, name, controller, gifting, canGive }: 
           ) : (
             giftable.map((e) => (
               <button key={e.itemId} type="button" disabled={gifting !== null} aria-busy={gifting === e.itemId || undefined} onClick={() => void controller.gift(e.itemId)}>
-                🎁 {itemName(e.itemId)} ×{e.qty}
+                🎁 {itemName(e.itemId, labels)} ×{e.qty}
               </button>
             ))
           )}

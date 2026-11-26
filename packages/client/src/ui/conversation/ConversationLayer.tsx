@@ -6,6 +6,7 @@ import { chat } from "../../net/chatSession";
 import { visitSession } from "../../net/visitSession";
 import { avatarStore } from "../../state/avatarStore";
 import { useConversation } from "../../state/conversationStore";
+import { notebookStore } from "../../state/notebookStore";
 import { placementStore } from "../../state/placementStore";
 import { useWorld, worldStore } from "../../state/worldStore";
 import type { VoicePlayer } from "../speech/voicePlayer";
@@ -20,9 +21,9 @@ function isEditable(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-/** Another dialog (mirror, intercom, placement mode, chat input) has the keyboard. */
+/** Another dialog (mirror, intercom, placement mode, chat input, notebook) has the keyboard. */
 function otherDialogOpen(): boolean {
-  return avatarStore.getState().mirrorOpen || visitSession.getState().intercomOpen || placementStore.getState().open || chat.store.getState().typing;
+  return avatarStore.getState().mirrorOpen || visitSession.getState().intercomOpen || placementStore.getState().open || chat.store.getState().typing || notebookStore.getState().open;
 }
 
 export interface ConversationLayerProps {

@@ -238,7 +238,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.ChatUnblock, (client, { uid }) => this.onChatUnblock(client, uid));
     this.handle(ClientMessage.ChatReport, (client, report) => this.onChatReport(client, report));
     this.handle(ClientMessage.Interact, (_client, _request) => {
-      // NPC conversations start with `npc:start` (build plan M21). TODO(M25/M26): world objects.
+      // NPC conversations start with `npc:start` (build plan M21). World labels need no server (M25); TODO(M26/M28): world objects you use.
     });
     this.handle(ClientMessage.NpcStart, (client, { npcId }) => void this.onNpcStart(client, npcId));
     this.handle(ClientMessage.NpcReply, (client, reply) => void this.onNpcReply(client, reply));

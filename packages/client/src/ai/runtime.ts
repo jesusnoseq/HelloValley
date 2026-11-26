@@ -12,6 +12,8 @@ import { createNpcTurnRunner, type NpcTurnRunner } from "./templates";
 import { hybridTranslator, type Translator } from "./translate";
 import { createTts, TTS_IDB_MAX_CLIPS, type TtsSpeaker } from "./tts";
 import { createSeededTtsReader } from "./ttsSeeded";
+import { doc, getDoc } from "firebase/firestore";
+import { createLabelSource, type LabelSource, seededLabelsReader } from "../labels/labelSource";
 
 /**
  * The game's hybrid AI instance (a lazy chunk: it carries `firebase/ai` and the shared zod
@@ -30,6 +32,7 @@ let cache: ContentCache = createContentCache(null);
 let instance: HybridAI | null = null;
 let openerInstance: Openers | null = null;
 let ttsInstance: TtsSpeaker | null = null;
+let labelInstance: LabelSource | null = null;
 
 export function setUser(next: string | null) {
   if (next === uid) return;
@@ -38,6 +41,7 @@ export function setUser(next: string | null) {
   instance = null;
   openerInstance = null;
   ttsInstance = null;
+  labelInstance = null;
 }
 
 export function hybrid(): HybridAI {
@@ -73,6 +77,23 @@ export function tts(): TtsSpeaker {
     seeded: uid ? seededTts : null,
   });
   return ttsInstance;
+}
+
+/**
+ * World labels (build plan M25): seeded `cache/labels/{lang}` (readable once signed in), then the
+ * player's own generation of the missing keys through the hybrid `worldLabels` task.
+ */
+export function labels(): LabelSource {
+  labelInstance ??= createLabelSource({
+    seeded: uid
+      ? seededLabelsReader(async (path) => {
+          const snap = await getDoc(doc(db, path));
+          return { exists: snap.exists(), data: snap.data() };
+        })
+      : async () => null,
+    generate: (input) => hybrid().worldLabels(input),
+  });
+  return labelInstance;
 }
 
 // Adapters for the M18 chat hooks; they look the instance up per call, so a uid change applies.

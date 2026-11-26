@@ -7,7 +7,7 @@ import { firebaseApp, firebaseConfig } from "./app";
  * appearance, language settings and notebook; `firestore.rules` rejects everything else
  * (architecture §8.1).
  * The profile gate reads `users/{uid}` (profile/profileSource). TODO(M15): appearance writes from
- * the mirror. TODO(M25): notebook reads and writes.
+ * the mirror. The notebook reads and writes its entries in notebook/firestoreNotebook.ts (M25).
  */
 export const db = getFirestore(firebaseApp);
 

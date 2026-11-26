@@ -11,3 +11,4 @@ export * from "./chat/index";
 export * from "./language/index";
 export * from "./ai/index";
 export * from "./npc/index";
+export * from "./srs/index";

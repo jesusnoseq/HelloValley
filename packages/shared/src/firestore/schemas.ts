@@ -11,6 +11,7 @@ import { ClothingColorSchema } from "../data/palette";
 import { StyleIdSchema } from "../data/styles";
 import { SCRIPT_MODES } from "../language/scriptMode";
 import { CHAT_REPORT_REASONS } from "../protocol/messages";
+import { FsrsCardSchema } from "../srs/fsrs";
 
 /**
  * Zod schemas for the Firestore documents in GDD §9.4 (with the ownership in architecture §8.1).
@@ -147,6 +148,8 @@ export const LangProgressSchema = z.strictObject({
   settings: LangSettingsSchema,
   /** In-game day of the last level change (build plan M24: at most ½ step per in-game day). */
   levelChangedDay: z.number().int().optional(),
+  /** The player's local day number of the last review session that counted for `streak` (build plan M25). */
+  streakDay: z.number().int().optional(),
 });
 export type LangProgress = z.infer<typeof LangProgressSchema>;
 
@@ -167,8 +170,8 @@ export const NotebookEntrySchema = z.strictObject({
   source: NotebookSourceSchema,
   /** Content hash of the audio clip, when there is one. */
   audioHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
-  /** FSRS card state. TODO(M25): replace with the FSRS card schema. */
-  fsrs: z.record(z.string().max(32), z.union([z.number(), z.string().max(32), z.null()])).optional(),
+  /** FSRS card (srs/fsrs.ts); missing until the first review. */
+  fsrs: FsrsCardSchema.optional(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema.optional(),
 });

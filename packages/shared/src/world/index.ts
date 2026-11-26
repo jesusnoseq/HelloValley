@@ -11,6 +11,7 @@ export * from "./movement";
 export * from "./interiors";
 export * from "./player";
 export * from "./interactables";
+export * from "./labels";
 export * from "./npcPosts";
 export * from "./clock";
 export * from "./moveValidation";

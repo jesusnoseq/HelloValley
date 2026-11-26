@@ -1,9 +1,11 @@
-import type { AppearanceUpdateRequest, AvatarAppearance, PlayerProfile } from "@hellovalley/shared";
+import { type AppearanceUpdateRequest, type AvatarAppearance, CLOTHING_LABEL_KEYS, type PlayerProfile } from "@hellovalley/shared";
 import { useEffect, useRef, useState } from "react";
 import type { MessageKey } from "../../i18n/i18n";
+import { languageDisplayName } from "../../i18n/i18n";
 import { useI18n } from "../../i18n/I18nProvider";
+import { LabelChip } from "../labels/LabelChip";
 import { ApiError } from "../../net/api";
-import { avatarStore } from "../../state/avatarStore";
+import { avatarStore, useAvatar } from "../../state/avatarStore";
 import { AppearanceEditor } from "../onboarding/AppearanceEditor";
 import type { AppearanceDraft } from "../onboarding/draft";
 import { appearanceFromDraft, draftFromAppearance, isDirty } from "./mirrorDraft";
@@ -20,10 +22,12 @@ type SaveState = { state: "idle" } | { state: "saving" } | { state: "failed"; me
  * carousel with the 3D preview, fur tints, shirt and trousers colours) in a dialog. Every edit
  * shows live on the avatar in the room (avatarStore.preview); Save sends it to the server and the
  * answer becomes the profile, Close (or Esc) drops unsaved edits.
- * TODO(M25): the mirror labels the clothing items in the target language (world labels).
+ * Build plan M25: the clothes are labelled in the target language (world labels: click to hear
+ * and save the word).
  */
 export default function MirrorPanel({ saved, save }: { saved: AvatarAppearance; save: SaveAppearance }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const target = useAvatar((s) => s.profile?.targetLangs[0] ?? null);
   const [draft, setDraft] = useState<AppearanceDraft>(() => draftFromAppearance(saved));
   const [status, setStatus] = useState<SaveState>({ state: "idle" });
   const heading = useRef<HTMLHeadingElement>(null);
@@ -81,6 +85,12 @@ export default function MirrorPanel({ saved, save }: { saved: AvatarAppearance; 
           {t("mirror.title")}
         </h2>
         <p className="hv-onb-hint">{t("mirror.hint")}</p>
+        {target ? (
+          <p className="hv-onb-hint">
+            {t("mirror.labels", { language: languageDisplayName(target, locale, target) })} <LabelChip lang={target} labelKey={CLOTHING_LABEL_KEYS.shirt} />{" "}
+            <LabelChip lang={target} labelKey={CLOTHING_LABEL_KEYS.trousers} />
+          </p>
+        ) : null}
         <div className="hv-mirror-glass">
           <AppearanceEditor value={draft} onChange={change} />
         </div>

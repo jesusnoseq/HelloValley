@@ -13,6 +13,8 @@ import {
   type ItemDelta,
   type ItemId,
   LangProgressSchema,
+  LEARNING_WORDS_MAX,
+  LEARNING_WORDS_SCAN,
   type Level,
   levelToStep,
   MAX_HEARTS,
@@ -21,9 +23,11 @@ import {
   type NpcBond,
   type NpcGiftFailure,
   NotebookEntrySchema,
+  type NotebookItem,
   type NpcId,
   NpcMemorySchema,
   type NpcMemoryText,
+  pickLearningWords,
   type SlotEntry,
   type TimestampLike,
   TOTAL_SLOTS,
@@ -34,7 +38,7 @@ import {
  * What the NPC dialogue service reads and writes (build plans M21 and M24, architecture §6.2):
  * the player's level, level estimate, coins and hearts (`users/{uid}/langs/{lang}`), the NPC's
  * memory of them (`…/npcMemory/{npcId}`: summary, facts, lastSeen, and the in-game days of the
- * last greeting and gift), recent notebook words and the inventory (`users/{uid}/inventory/{slot}`).
+ * last greeting and gift), the notebook's "learning" words (build plan M25) and the inventory (`users/{uid}/inventory/{slot}`).
  * Every write goes through the Admin SDK in one transaction per accepted change; the rules
  * themselves are the pure shared functions (npc/friendship.ts, npc/memory.ts, npc/levelAdaptation.ts).
  */
@@ -109,8 +113,11 @@ export interface NpcStore {
   remember(uid: string, lang: string, npcId: NpcId, update: MemoryUpdate): Promise<RememberOutcome | null>;
 }
 
-/** Notebook words passed to NPCs (build plan M25: up to 5). TODO(M25): pick "learning" cards by FSRS state. */
-export const LEARNING_WORDS_LIMIT = 5;
+/**
+ * Notebook words passed to NPCs (build plan M25: up to 5): `pickLearningWords` over the newest
+ * LEARNING_WORDS_SCAN entries (cards in learning first, weakest recall first, then new words).
+ */
+export const LEARNING_WORDS_LIMIT = LEARNING_WORDS_MAX;
 
 const clampHeartsRange = (h: number) => Math.min(MAX_HEARTS, Math.max(0, h));
 
@@ -177,16 +184,19 @@ export function createFirestoreNpcStore(db: Firestore): NpcStore {
       const [langSnap, memorySnap, notebookSnap, inventorySnap] = await Promise.all([
         db.doc(FirestorePaths.lang(uid, lang)).get(),
         db.doc(FirestorePaths.npcMemory(uid, lang, npcId)).get(),
-        db.collection(FirestorePaths.notebook(uid, lang)).orderBy("createdAt", "desc").limit(LEARNING_WORDS_LIMIT).get(),
+        db.collection(FirestorePaths.notebook(uid, lang)).orderBy("createdAt", "desc").limit(LEARNING_WORDS_SCAN).get(),
         inventory(uid).get(),
       ]);
       if (!langSnap.exists) return null;
       const progress = LangProgressSchema.parse(langSnap.data());
       const memory = readMemory(memorySnap);
-      const learningWords = notebookSnap.docs.flatMap((d) => {
-        const entry = NotebookEntrySchema.safeParse(d.data());
-        return entry.success ? [entry.data.surface] : [];
+      const items = notebookSnap.docs.flatMap((d): NotebookItem[] => {
+        const parsed = NotebookEntrySchema.safeParse(d.data());
+        if (!parsed.success) return [];
+        const { createdAt, updatedAt: _updated, ...entry } = parsed.data;
+        return [{ id: d.id, entry, createdMs: millis(createdAt) }];
       });
+      const learningWords = pickLearningWords(items, Date.now(), LEARNING_WORDS_LIMIT);
       const text = memory ? { summary: memory.summary, facts: memory.facts } : null;
       const hearts = progress.hearts[npcId] ?? 0;
       return {
@@ -296,7 +306,10 @@ export interface MemoryPlayer {
   memory?: Partial<Record<NpcId, NpcMemoryText>>;
   /** lastSeen and the greeting and gift days per NPC (the rest of `npcMemory/{npcId}`). */
   bonds?: Partial<Record<NpcId, Omit<NpcBond, "hearts">>>;
+  /** Fixed words (older tests); `notebook` wins when both are given. */
   learningWords?: string[];
+  /** Notebook entries, picked from like the Firestore store does. */
+  notebook?: NotebookItem[];
   slots: SlotEntry[];
 }
 
@@ -320,7 +333,7 @@ export function createMemoryNpcStore(initial: Record<string, MemoryPlayer> = {})
         coins: p.coins,
         hearts: p.hearts[npcId] ?? 0,
         memory: emptyMemory(memory) ? null : { summary: memory!.summary, facts: [...memory!.facts] },
-        learningWords: (p.learningWords ?? []).slice(0, LEARNING_WORDS_LIMIT),
+        learningWords: p.notebook ? pickLearningWords(p.notebook, Date.now(), LEARNING_WORDS_LIMIT) : (p.learningWords ?? []).slice(0, LEARNING_WORDS_LIMIT),
         slots: p.slots.map((s) => ({ ...s })),
         knownRecipes: [],
         bond: bondOf(p, npcId),
