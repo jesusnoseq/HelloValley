@@ -1,6 +1,9 @@
 import express, { type Application, type NextFunction, type Request, type Response } from "express";
-import { requireAuth } from "./auth/middleware";
+import { ApiRoute } from "@hellovalley/shared";
+import { requireAdmin, requireAuth } from "./auth/middleware";
+import type { AppCheckVerifier } from "./auth/appCheck";
 import type { IdTokenVerifier } from "./auth/idToken";
+import type { ServerMetrics } from "./metrics/metrics";
 import type { ProfileStore } from "./profiles/profileStore";
 import { appearanceRouter } from "./routes/appearance";
 import type { StreakStore } from "./notebook/streakStore";
@@ -20,6 +23,10 @@ export interface HttpDeps {
   registry: TownRegistry;
   /** The notebook review streak (POST /api/review, build plan M25). */
   streaks: StreakStore;
+  /** App Check verification (build plan M36); null when not enforced (the emulator setup). */
+  appCheck?: AppCheckVerifier | null;
+  /** Budget and abuse counters, served at GET /api/metrics (build plan M36). */
+  metrics?: ServerMetrics;
 }
 
 /** Express routes served next to Colyseus in the same process (architecture §7.2). */
@@ -29,10 +36,17 @@ export function registerHttpRoutes(app: Application, deps: HttpDeps): void {
     res.json({ ok: true });
   });
 
-  // Every /api/* request carries a Firebase ID token (App Check: TODO(M36)).
-  app.use("/api", requireAuth(deps.verifier));
+  // Every /api/* request carries a Firebase ID token and, when enforced, an App Check token (build plan M36).
+  app.use("/api", requireAuth(deps.verifier, deps.appCheck ?? null, deps.metrics));
   app.use("/api", express.json({ limit: API_BODY_LIMIT }));
-  app.use("/api", onboardingRouter({ ...deps.onboarding, profiles: deps.profiles }));
+  // Build plan M36: budget and abuse counters, for operators (the `admin: true` claim) only.
+  const metrics = deps.metrics;
+  if (metrics) {
+    app.get(ApiRoute.Metrics, requireAdmin(), (_req, res) => {
+      res.set("cache-control", "no-store").json(metrics.snapshot());
+    });
+  }
+  app.use("/api", onboardingRouter({ ...deps.onboarding, profiles: deps.profiles, ...(metrics ? { onNameRejected: () => metrics.inc("names.rejected") } : {}) }));
   app.use(
     "/api",
     appearanceRouter({ profiles: deps.profiles, onSaved: (uid, profile) => deps.registry.applyProfile(uid, profile) }),

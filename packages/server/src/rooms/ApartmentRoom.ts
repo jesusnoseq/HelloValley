@@ -17,7 +17,9 @@ import {
   VISIT_ENDED_CODE,
 } from "@hellovalley/shared";
 import type { ApartmentLayoutStore } from "../apartments/layoutStore";
+import { type AppCheckVerifier, checkAppCheck } from "../auth/appCheck";
 import { type IdTokenVerifier, InvalidIdTokenError, type VerifiedUser } from "../auth/idToken";
+import type { ServerMetrics } from "../metrics/metrics";
 import type { ProfileStore } from "../profiles/profileStore";
 import { ApartmentRegistry, type RegisteredApartment } from "./apartmentRegistry";
 import { ApartmentOccupant, ApartmentState } from "./ApartmentState";
@@ -29,7 +31,8 @@ export const APARTMENT_MAX_CLIENTS = 6;
 export const LAYOUT_SAVE_DEBOUNCE_MS = 1000;
 /**
  * Furniture edits per second the owner can sustain, with bursts up to the same number (a token
- * bucket). TODO(M36): fold into the per-client rate limits.
+ * bucket). Only the owner sends messages here, so this is the room's per-client limit (build plan
+ * M36; the TownRoom has its own per-client bucket for everything else).
  */
 export const FURNITURE_EDITS_PER_S = 10;
 
@@ -48,6 +51,9 @@ export interface ApartmentRoomDeps {
   towns: TownRegistry;
   /** Save debounce (tests use a short one). */
   saveDebounceMs?: number;
+  /** App Check verification of joins (build plan M36); null or left out: not enforced. */
+  appCheck?: AppCheckVerifier | null;
+  metrics?: ServerMetrics;
 }
 
 const unbound: ApartmentRoomDeps = {
@@ -124,7 +130,13 @@ export class ApartmentRoom extends Room<{ state: ApartmentState; client: Apartme
     try {
       user = await this.deps.verifier.verify(parsed.data.idToken);
     } catch {
+      this.deps.metrics?.inc("auth.idToken.rejected");
       throw new ServerError(401, "invalid ID token");
+    }
+    const app = await checkAppCheck(this.deps.appCheck ?? null, parsed.data.appCheckToken);
+    if (app !== "ok") {
+      this.deps.metrics?.inc(app === "missing" ? "auth.appCheck.missing" : "auth.appCheck.rejected");
+      throw new ServerError(401, "invalid App Check token");
     }
     if (!this.deps.apartments.canEnter(this.ownerUid, user.uid)) throw new ServerError(403, "not invited");
     let profile: UserProfile | null;

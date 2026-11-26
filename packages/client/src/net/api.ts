@@ -13,11 +13,12 @@ import {
   type ShardsResponse,
   ShardsResponseSchema,
 } from "@hellovalley/shared";
+import { currentAppCheckToken } from "./appCheckToken";
 import { SERVER_URL } from "./serverUrl";
 
 /**
  * HTTP client for the game server's `/api/*` (architecture §7.2). Every request carries the
- * player's Firebase ID token. TODO(M36): also send `X-Firebase-AppCheck`.
+ * player's Firebase ID token and, when App Check is configured, `X-Firebase-AppCheck` (build plan M36).
  */
 
 export interface TokenSource {
@@ -34,6 +35,8 @@ interface ResponseSchema<T> {
 export interface ApiOptions {
   baseUrl?: string;
   fetchImpl?: FetchLike;
+  /** The App Check token (default: the app's, `net/appCheckToken.ts`); null sends none. */
+  appCheckToken?: () => Promise<string | null>;
 }
 
 /** Why a call failed: `network` (no answer), a server error code (`name_rejected`, …), or `bad_response`. */
@@ -54,16 +57,17 @@ async function call<T>(
   route: string,
   body: unknown,
   schema: ResponseSchema<T>,
-  { baseUrl = SERVER_URL, fetchImpl = fetch as FetchLike }: ApiOptions,
+  { baseUrl = SERVER_URL, fetchImpl = fetch as FetchLike, appCheckToken = currentAppCheckToken }: ApiOptions,
 ): Promise<T> {
-  const token = await user.getIdToken();
+  const [token, appCheck] = await Promise.all([user.getIdToken(), appCheckToken()]);
+  const auth: Record<string, string> = { authorization: `Bearer ${token}`, ...(appCheck ? { "x-firebase-appcheck": appCheck } : {}) };
   let res: Awaited<ReturnType<FetchLike>>;
   try {
     res = await fetchImpl(
       `${baseUrl.replace(/\/+$/, "")}${route}`,
       method === "GET"
-        ? { method, headers: { authorization: `Bearer ${token}` } }
-        : { method, headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) },
+        ? { method, headers: auth }
+        : { method, headers: { ...auth, "content-type": "application/json" }, body: JSON.stringify(body) },
     );
   } catch (err) {
     throw new ApiError("network", null, err instanceof Error ? err.message : String(err));

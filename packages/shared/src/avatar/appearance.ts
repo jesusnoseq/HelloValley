@@ -6,7 +6,7 @@ import { AvatarColorsSchema, type PlayerProfile, PlayerProfileSchema } from "../
 /**
  * A player's appearance (GDD §3, build plan M15): the animal plus fur, shirt and trousers
  * colours. It is the part of `users/{uid}` the apartment mirror edits. The name is not part of
- * it: it is moderated and set at onboarding (a rename is TODO(M36)).
+ * it: it is moderated and set at onboarding (the game has no rename; build plan M36 notes).
  *
  * Persistence (my choice, see pending.md M15): the mirror saves through the game server,
  * `PUT /api/profile/appearance`, rather than writing Firestore from the client. The server

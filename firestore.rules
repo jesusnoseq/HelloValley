@@ -41,9 +41,14 @@ rules_version = '2';
 //   - createdAt: timestamp (required, set to request.time on create, immutable)
 //   - updatedAt: timestamp (set to request.time on every update)
 //
+// users/{uid}/langs/{lang}/notebook/{entryId}: entryId is the shared notebookEntryId
+//   ("w_" + 16 hex); the rule accepts [A-Za-z0-9_-]{1,128}.
 // users/{uid}/langs/{lang}/npcMemory/{npcId}     owner read, server-only write
 // users/{uid}/inventory/{slot}                   owner read, server-only write
 // users/{uid}/apartment/layout                   owner read, server-only write
+// users/{uid}/safety/{blocks|standing}           no client access (block list; M36 strikes and
+//                                                shard-wide mute), server-only
+// users/{uid}/collections/*, privacy/*           no client access (sent over the room), server-only
 // village/{shardId}/events/{eventId}             signed-in read, server-only write
 // cache/{lines|tts|labels}/{id}                  signed-in read, admin-claim write (seeding tool)
 // reports/{id}                                   no client access
@@ -215,7 +220,7 @@ service cloud.firestore {
           allow read: if isOwner(uid);
           // Only for a language the player actually learns (the langs doc exists).
           allow create: if isOwner(uid)
-            && entryId.size() <= 128
+            && entryId.matches('^[A-Za-z0-9_-]{1,128}$')
             && exists(/databases/$(database)/documents/users/$(uid)/langs/$(lang))
             && isValidNotebookEntry(request.resource.data)
             && request.resource.data.createdAt == request.time
@@ -248,8 +253,9 @@ service cloud.firestore {
     // Shared, public game data
     // =============================================================
 
-    // Public game events (GDD §8.2), written by the game server only.
-    match /village/{document=**} {
+    // Public game events (GDD §8.2), written by the game server only. Only the events
+    // collection is readable (build plan M36 audit: no wildcard over every village path).
+    match /village/{shardId}/events/{eventId} {
       allow read: if isAuthenticated();
       allow write: if false;
     }

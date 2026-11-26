@@ -118,7 +118,7 @@ export function attachApartmentRoom(room: Room, owner: string, isOwner: boolean)
 }
 
 /** Joins `owner`'s ApartmentRoom (one per owner on the server, `filterBy(["owner"])`). */
-export async function joinApartment(client: Client, idToken: string, owner: string): Promise<Room> {
-  const options: ApartmentJoinOptions = { idToken, owner };
+export async function joinApartment(client: Client, idToken: string, owner: string, appCheckToken: string | null = null): Promise<Room> {
+  const options: ApartmentJoinOptions = { idToken, owner, ...(appCheckToken ? { appCheckToken } : {}) };
   return client.joinOrCreate(RoomName.Apartment, options);
 }

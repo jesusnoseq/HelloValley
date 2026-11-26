@@ -16,8 +16,9 @@ export interface RateLimit {
 }
 
 /**
- * Chat: bursts of 5 lines, then one every 1.5 s (my numbers).
- * TODO(M36): tune with the other per-client limits; repeat offenders get shard-wide mutes.
+ * Chat: bursts of 5 lines, then one every 1.5 s (my numbers). On top of it the TownRoom has one
+ * bucket for every message of a client, and repeat offenders get shard-wide mutes (build plan M36,
+ * safety/strikes.ts).
  */
 export const CHAT_RATE: RateLimit = { burst: 5, perSecond: 1 / 1.5 };
 

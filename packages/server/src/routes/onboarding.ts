@@ -20,6 +20,8 @@ export interface OnboardingDeps {
   /** Draws the apartment (GDD §4.2: random, uniqueness not required). Injected in tests. */
   drawApartment?: () => ApartmentId;
   now?: () => TimestampLike;
+  /** Counts rejected names in the server metrics (build plan M36). */
+  onNameRejected?: () => void;
 }
 
 function fail(res: Response, status: number, error: OnboardingError | "internal", message?: string): void {
@@ -57,6 +59,7 @@ export function onboardingRouter(deps: OnboardingDeps): Router {
       }
       const verdict = await moderate(parsed.data.name);
       if (!verdict.ok) {
+        deps.onNameRejected?.();
         fail(res, 422, "name_rejected");
         return;
       }

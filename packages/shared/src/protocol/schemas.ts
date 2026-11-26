@@ -29,6 +29,11 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/;
 export const JoinOptionsSchema = z.object({
   /** Firebase ID token of the signed-in player. TownRoom.onAuth verifies it with firebase-admin. */
   idToken: z.string().min(1).max(ID_TOKEN_MAX_LENGTH),
+  /**
+   * Firebase App Check token (build plan M36). Required when the server enforces App Check (a real
+   * project); the emulator setup (`demo-*`) has no App Check.
+   */
+  appCheckToken: z.string().min(1).max(ID_TOKEN_MAX_LENGTH).optional(),
   // Joining a friend's shard: the client looks the shard up with GET /api/shards?friend=<uid>
   // and joins it by room id (`client.joinById`), with these same options.
 });
@@ -181,6 +186,15 @@ export const QuestTurnInSchema = z.strictObject({ conversationId: NpcTokenSchema
 /** `village:privacy` (build plan M31): the news opt-out. */
 export const VillagePrivacyRequestSchema = z.strictObject({ named: z.boolean() });
 
+/** `ai:usage` (build plan M36): the client's AI spending since its last report, and which budgets ran out. */
+export const AiUsageSchema = z.strictObject({
+  turns: z.number().int().min(0).max(1000),
+  ttsSeconds: z.number().min(0).max(24 * 3600),
+  tokens: z.number().int().min(0).max(10_000_000),
+  degraded: z.array(z.enum(["turns", "tts", "tokens"])).max(3),
+});
+export type AiUsageMessage = z.infer<typeof AiUsageSchema>;
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -214,6 +228,7 @@ export const ClientMessageSchemas = {
   [ClientMessage.QuestAccept]: QuestAcceptSchema,
   [ClientMessage.QuestTurnIn]: QuestTurnInSchema,
   [ClientMessage.VillagePrivacy]: VillagePrivacyRequestSchema,
+  [ClientMessage.AiUsage]: AiUsageSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

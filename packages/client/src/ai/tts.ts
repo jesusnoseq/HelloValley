@@ -1,4 +1,5 @@
-import { buildTtsRequest, type TtsLine, type TtsRequest } from "@hellovalley/shared";
+import { buildTtsRequest, estimateTtsSeconds, type TtsLine, type TtsRequest } from "@hellovalley/shared";
+import type { AiBudget } from "./budget";
 import { createLru, type PersistentStore, sha256Hex } from "./cache";
 import { decodeTtsAudio, pcmDurationMs, pcmToWav } from "./pcm";
 
@@ -14,6 +15,8 @@ import { decodeTtsAudio, pcmDurationMs, pcmToWav } from "./pcm";
  * 4. otherwise one TTS call; the clip goes to memory and IndexedDB, never to a shared cache.
  *
  * A failure is not cached and gives `{ok: false}`: the line stays text only, with a 🔇 badge.
+ * So does a used-up TTS budget (build plan M36): only step 4 costs anything, so cached and seeded
+ * clips still play; a generated clip is charged its real length.
  * Text is always shown first; callers ask for audio after the text is on screen.
  */
 
@@ -68,6 +71,8 @@ export interface TtsDeps {
   memoryMax?: number;
   log?: (message: string) => void;
   warn?: (message: string, error: unknown) => void;
+  /** The player's TTS seconds budget (build plan M36). */
+  budget?: Pick<AiBudget, "allow" | "charge">;
 }
 
 /** Clips kept in memory per session (my number: a 5 s clip is about 240 kB). */
@@ -102,6 +107,7 @@ export function createTts(deps: TtsDeps): TtsSpeaker {
       }
     }
     if (!deps.cloudEnabled) return { ok: false, reason: "unavailable" };
+    if (deps.budget && !deps.budget.allow("tts", estimateTtsSeconds(request.transcript))) return { ok: false, reason: "unavailable" };
     try {
       const answer = await deps.port(request);
       const pcm = decodeTtsAudio(answer.mime, answer.data);
@@ -110,6 +116,7 @@ export function createTts(deps: TtsDeps): TtsSpeaker {
         return { ok: false, reason: "failed" };
       }
       const clip: TtsClip = { mime: "audio/wav", data: pcmToWav(pcm).buffer, durationMs: pcmDurationMs(pcm) };
+      deps.budget?.charge("tts", clip.durationMs / 1000);
       memory.set(hash, clip);
       await deps.persistent?.set(hash, clip);
       return served(clip, "generated", hash);

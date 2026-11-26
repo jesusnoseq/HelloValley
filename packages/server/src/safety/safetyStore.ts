@@ -6,14 +6,18 @@ import {
   ChatReportDocSchema,
   type ChatReportInput,
   ChatReportInputSchema,
+  emptyStanding,
   FirestorePaths,
+  type ModerationStanding,
+  ModerationStandingSchema,
 } from "@hellovalley/shared";
 
 /**
  * Player safety data (build plan M18, architecture §6.4): block lists, kept across sessions in
- * `users/{uid}/safety/blocks`, and player reports in `reports/{id}`. Both are server-only (no
+ * `users/{uid}/safety/blocks`, player reports in `reports/{id}`, and (build plan M36) each
+ * player's strikes and shard-wide mute in `users/{uid}/safety/standing`. All are server-only (no
  * security rule matches them, so clients can neither read nor write them); the Admin SDK
- * bypasses the rules. Mutes live only in the TownRoom session.
+ * bypasses the rules. Personal mutes live only in the TownRoom session.
  */
 export interface SafetyStore {
   /** The players `uid` blocked (empty when none). */
@@ -22,6 +26,9 @@ export interface SafetyStore {
   saveBlocks(uid: string, players: BlockedPlayer[]): Promise<void>;
   /** Files a report; returns its id. */
   addReport(report: ChatReportInput): Promise<string>;
+  /** The player's strikes and shard-wide mute (build plan M36); an empty standing when none. */
+  getStanding(uid: string): Promise<ModerationStanding>;
+  saveStanding(uid: string, standing: ModerationStanding): Promise<void>;
 }
 
 export function createFirestoreSafetyStore(db: Firestore): SafetyStore {
@@ -44,6 +51,19 @@ export function createFirestoreSafetyStore(db: Firestore): SafetyStore {
       await ref.set(ChatReportDocSchema.parse({ ...report, createdAt: Timestamp.now() }));
       return ref.id;
     },
+    async getStanding(uid) {
+      const snap = await db.doc(FirestorePaths.standing(uid)).get();
+      if (!snap.exists) return emptyStanding();
+      const parsed = ModerationStandingSchema.safeParse(snap.data());
+      if (!parsed.success) {
+        console.warn(`[safety] users/${uid}/safety/standing does not match ModerationStandingSchema; treating it as empty`);
+        return emptyStanding();
+      }
+      return parsed.data;
+    },
+    async saveStanding(uid, standing) {
+      await db.doc(FirestorePaths.standing(uid)).set(ModerationStandingSchema.parse(standing));
+    },
   };
 }
 
@@ -55,14 +75,17 @@ export function firestoreSafetyStoreFor(app: App): SafetyStore {
 export interface MemorySafetyStore extends SafetyStore {
   readonly blocks: Map<string, BlockedPlayer[]>;
   readonly reports: ChatReportInput[];
+  readonly standings: Map<string, ModerationStanding>;
 }
 
 export function createMemorySafetyStore(initial: Record<string, BlockedPlayer[]> = {}): MemorySafetyStore {
   const blocks = new Map(Object.entries(initial).map(([uid, list]) => [uid, list.map((p) => ({ ...p }))]));
   const reports: ChatReportInput[] = [];
+  const standings = new Map<string, ModerationStanding>();
   return {
     blocks,
     reports,
+    standings,
     async getBlocks(uid) {
       return (blocks.get(uid) ?? []).map((p) => ({ ...p }));
     },
@@ -72,6 +95,12 @@ export function createMemorySafetyStore(initial: Record<string, BlockedPlayer[]>
     async addReport(report) {
       reports.push(ChatReportInputSchema.parse(report));
       return `report-${reports.length}`;
+    },
+    async getStanding(uid) {
+      return structuredClone(standings.get(uid) ?? emptyStanding());
+    },
+    async saveStanding(uid, standing) {
+      standings.set(uid, ModerationStandingSchema.parse(standing));
     },
   };
 }

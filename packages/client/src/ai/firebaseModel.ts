@@ -58,7 +58,7 @@ export { sharedAi };
  * prebuilt voice with `responseModalities: [AUDIO]`. The NPC's style goes in the text part's
  * `speechMetadata.style` (npc-runtime.md §10), and the transcript keeps its inline tags. No
  * `languageCode`: the model detects the language. A unary call; the text is already on screen.
- * TODO(M36): App Check before AI Logic is enforced.
+ * App Check (build plan M36) is attached by the SDK: `firebase/app.ts` starts it before `getAI`.
  */
 export function createFirebaseTtsPort(getAi: () => AI): TtsPort {
   const models = new Map<string, GenerativeModel>();
@@ -104,7 +104,7 @@ export function createFirebaseTtsPort(getAi: () => AI): TtsPort {
  *
  * `expectedInputs`/`expectedOutputs` languages are not set: Chrome's Prompt API supports only a
  * few output languages, and naming another one makes the model unavailable for the whole task.
- * TODO(M36): App Check (reCAPTCHA Enterprise) before AI Logic is enforced.
+ * App Check (reCAPTCHA Enterprise, build plan M36) tokens are attached by the SDK.
  */
 export function createFirebaseModelPort(app: FirebaseApp, getAi: () => AI = sharedAi(app)): { port: ModelPort; initializeDeviceModel(onProgress: (p: number) => void): Promise<void> } {
   const models = new Map<string, GenerativeModel>();

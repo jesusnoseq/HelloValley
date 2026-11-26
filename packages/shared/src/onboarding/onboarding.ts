@@ -30,6 +30,8 @@ export const ApiRoute = {
   Shards: "/api/shards",
   /** `POST`: a notebook review session finished; the server counts the day for the streak (build plan M25, srs/api.ts). */
   Review: "/api/review",
+  /** `GET`: budget and abuse counters for operators (the `admin: true` claim, build plan M36, server metrics/metrics.ts). */
+  Metrics: "/api/metrics",
   // TODO(M37): Langs: "/api/langs" (add a target language).
 } as const;
 

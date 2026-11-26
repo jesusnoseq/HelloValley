@@ -18,3 +18,4 @@ export * from "./food/index";
 export * from "./quests/index";
 export * from "./village/index";
 export * from "./audio/index";
+export * from "./safety/index";

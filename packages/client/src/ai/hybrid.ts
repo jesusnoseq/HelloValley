@@ -45,7 +45,9 @@ import {
   worldLabelsPrompt,
   type WorldLabelsPromptInput,
   type WorldLabelsResponse,
+  estimateTokens,
 } from "@hellovalley/shared";
+import type { AiBudget } from "./budget";
 import type { ContentCache } from "./cache";
 
 /**
@@ -98,6 +100,11 @@ export interface HybridDeps {
   cache?: ContentCache;
   /** Failure log (defaults to console.warn). */
   warn?: (message: string, error: unknown) => void;
+  /**
+   * The player's cloud token budget (build plan M36). Used up: the tasks run on-device only (or
+   * take their fallback); cloud answers are charged by prompt + answer size.
+   */
+  budget?: Pick<AiBudget, "allow" | "charge">;
 }
 
 /** Attempts per call: the first and one retry (npc-runtime.md conventions). */
@@ -153,12 +160,14 @@ export function createHybridAI(deps: HybridDeps): HybridAI {
         if (parsed.success) return { ok: true, value: parsed.data as TaskOutput<T>, source: "cache" };
       }
     }
-    const mode = resolveMode(route.mode, { onDeviceReady: deps.onDeviceReady(), cloudEnabled: deps.cloudEnabled });
+    const cloudEnabled = deps.cloudEnabled && (deps.budget?.allow("tokens") ?? true);
+    const mode = resolveMode(route.mode, { onDeviceReady: deps.onDeviceReady(), cloudEnabled });
     if (mode === null) return { ok: false, reason: "unavailable" };
     const request: ModelRequest = { task, mode, prompt, schema: TASK_SCHEMAS[task].json, temperature: route.temperature };
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
         const answer = await deps.model(request);
+        if (answer.source === "cloud") deps.budget?.charge("tokens", estimateTokens(prompt) + estimateTokens(answer.text));
         const value = parseTaskAnswer(task, answer.text);
         if (cacheable) await deps.cache!.set(key, value, persist).catch(() => undefined);
         return { ok: true, value, source: answer.source };

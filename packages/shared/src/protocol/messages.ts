@@ -111,6 +111,8 @@ export const ClientMessage = {
   QuestTurnIn: "quest:handover",
   /** Whether the Gossip and the Elder may name the player in village news (build plan M31, GDD §8.2 opt-out). */
   VillagePrivacy: "village:privacy",
+  /** The client's AI usage since its last report (build plan M36): untrusted numbers for the server metrics. */
+  AiUsage: "ai:usage",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -203,6 +205,9 @@ export const SESSION_REPLACED_CODE = 4801;
 
 /** ApartmentRoom close code for a visitor whose visit ended (they left through the door). */
 export const VISIT_ENDED_CODE = 4802;
+
+/** Close code for a client that flooded the room with messages (build plan M36). It may rejoin. */
+export const FLOOD_KICKED_CODE = 4803;
 
 /** A point in one space, as sent on the wire. */
 export interface WireSpacePoint {
@@ -464,13 +469,15 @@ export interface ChatBroadcast {
 
 /**
  * Why a line was not delivered: `moderation` (the server check refused it), `rate` (too many lines
- * too fast), `muted` (the sender is muted shard-wide, TODO(M36)).
+ * too fast), `muted` (the sender is muted shard-wide after repeated offences, build plan M36).
  */
 export type ChatRejectReason = "moderation" | "rate" | "muted";
 
 /** Payload of `ServerMessage.ChatRejected`. */
 export interface ChatRejectedMessage {
   reason: ChatRejectReason;
+  /** With `muted`: when the shard-wide mute ends (server wall time, ms). */
+  until?: number;
 }
 
 /** Payload of `ClientMessage.ChatMute`. */
@@ -701,7 +708,8 @@ export interface NpcGiftedMessage {
  * `unavailable` (the server could not read or write the player's records), `too_far` (the
  * player is not standing next to the NPC, build plan M23).
  */
-export type NpcRefusal = "rate" | "daily_limit" | "turn_limit" | "unknown_turn" | "no_conversation" | "unavailable" | "too_far";
+/** `budget`: the player's NPC turns for the last 10 minutes are used up (build plan M36, GDD §9.2: 30 per 10 min). */
+export type NpcRefusal = "rate" | "daily_limit" | "budget" | "turn_limit" | "unknown_turn" | "no_conversation" | "unavailable" | "too_far";
 
 /** Payload of `ServerMessage.NpcRefused`. */
 export interface NpcRefusedMessage {

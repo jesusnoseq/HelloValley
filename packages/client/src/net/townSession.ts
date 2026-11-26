@@ -32,6 +32,7 @@ import { attachFood } from "./foodSession";
 import { attachInventory } from "./inventorySession";
 import { attachVisitMessages } from "./visitSession";
 import { attachNpcBarks } from "./npcBarks";
+import { attachAiUsageReports } from "./aiUsage";
 
 /**
  * The client's mirror of its TownRoom (build plan M16; architecture §4: game state on the client
@@ -161,7 +162,7 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
   townLive.welcomed = false;
   townSession.setState({ room, shard: null, remotes: {}, npcs: {} });
 
-  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room), attachFood(room), attachQuests(room), attachNpcBarks(room)];
+  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room), attachFood(room), attachQuests(room), attachNpcBarks(room), attachAiUsageReports(room)];
   offs.push(
     room.onMessage(ServerMessage.Welcome, (welcome: WelcomeMessage) => {
       townLive.spawn = welcome.spawn;

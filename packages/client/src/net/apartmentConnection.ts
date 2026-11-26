@@ -3,6 +3,7 @@ import type { User } from "firebase/auth";
 import { useEffect } from "react";
 import { worldStore } from "../state/worldStore";
 import { apartmentSession, attachApartmentRoom, joinApartment } from "./apartmentSession";
+import { currentAppCheckToken } from "./appCheckToken";
 import { SERVER_URL } from "./serverUrl";
 import { townSession } from "./townSession";
 
@@ -43,7 +44,7 @@ export function useApartmentConnection(user: User, uid: string | null): void {
       const entry = { owner, room: null as Room | null, detach: null as (() => void) | null };
       current = entry;
       try {
-        const room = await joinApartment(client, await user.getIdToken(), owner);
+        const room = await joinApartment(client, await user.getIdToken(), owner, await currentAppCheckToken());
         if (disposed || current !== entry) {
           void room.leave();
           return;

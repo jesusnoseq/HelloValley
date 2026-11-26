@@ -218,7 +218,7 @@ Seeding covers the [featured languages](prompts/build-plan.md#m02--shared-domain
 
 There is no model on the server, so moderation is split:
 
-- **Game server (always runs)**: a blocklist, message rate limits, mute, block and report, and shard-wide mutes for repeat offenders. Reports go to `reports/{id}`.
+- **Game server (always runs)**: a blocklist, message rate limits, mute, block and report, and shard-wide mutes for repeat offenders. Reports go to `reports/{id}`. Build plan M36: the blocklist is the shared normalised one (`shared/src/safety/moderation.ts`: case, width, accents, leetspeak, spaced letters, links, e-mail and phone numbers, reserved names); blocked lines and reports from distinct players add strikes (`safety/strikes.ts`), and enough strikes in 30 minutes mute the player in every shard (10 min, 1 h, 24 h), stored server-only in `users/{uid}/safety/standing`.
 - **Sender's client**: an on-device check before sending (the soft "are you sure?" prompt).
 - **Reader's client**: an on-device check before showing a message. Flagged messages are collapsed with "show anyway".
 
@@ -297,6 +297,7 @@ The game server is not on the AI request path, so it cannot cap spending. The ha
 - **Cheap defaults**: on-device first, flash-lite for cloud fallbacks, short context (memory summaries instead of transcripts), seeded openers, and per-player caching.
 - The models above do not need a Blaze plan on the Developer API, but free-tier quotas are small. Switch to Blaze before multiplayer demos.
 - Optional later hardening: AI Logic pre-request scripts (Cloud Functions) for token caps and logging.
+- **Build plan M36**: the client starts App Check with reCAPTCHA Enterprise before any AI Logic call and sends the token to the game server (`X-Firebase-AppCheck` on `/api/*`, `appCheckToken` in the join options), which verifies it with the Admin SDK (`APP_CHECK=enforce|off`, enforced by default for a real project). The per-player budgets are the shared `AI_BUDGET` (30 NPC turns per 10 minutes and 300 per day, enforced by the server's turn ids; TTS seconds and cloud tokens per day, budgeted by the client, which degrades to canned lines, text only and on-device-only tasks). Clients report their usage (`ai:usage`, untrusted and clamped); `GET /api/metrics` (admin claim) shows the limits and the budget and abuse counters.
 
 ## 10. Local development
 

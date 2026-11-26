@@ -14,7 +14,9 @@ import {
   PROMPT_TEMPLATE_IDS,
   streamedLineTexts,
   type TemplateVariables,
+  estimateTokens,
 } from "@hellovalley/shared";
+import type { AiBudget } from "./budget";
 
 /**
  * NPC dialogue turns (build plan M21, architecture §5.3). Each turn is one message to the
@@ -78,6 +80,12 @@ export interface NpcTurnDeps {
   /** Overrides the template id (TODO(M38): from Remote Config). */
   templateId?: string;
   warn?: (message: string, error: unknown) => void;
+  /**
+   * The player's AI budget (build plan M36): with no NPC turns or cloud tokens left the turn is not
+   * sent and the NPC answers with the canned "busy" line. Each turn is charged one turn plus the
+   * estimated tokens of what was sent and received.
+   */
+  budget?: Pick<AiBudget, "allow" | "charge">;
 }
 
 export interface NpcTurnRunner {
@@ -126,18 +134,24 @@ export function createNpcTurnRunner(deps: NpcTurnDeps): NpcTurnRunner {
     canned,
     async run(input) {
       if (!deps.cloudEnabled) return { ok: false, reason: "unavailable", fallback: canned("busy", input.context) };
+      const budget = deps.budget;
+      if (budget && !(budget.allow("turns") && budget.allow("tokens"))) return { ok: false, reason: "unavailable", fallback: canned("busy", input.context) };
       const base = buildNpcTurnRequest(input.context, input.player, input.history, input.playerText, input.method);
+      budget?.charge("turns");
       let lastError = "";
       for (let n = 1; n <= NPC_TURN_ATTEMPTS; n++) {
         const controller = new AbortController();
         const message = n === 1 ? base.message : base.message + repairNote(lastError);
         try {
           const text = await attempt({ templateId, variables: base.variables, history: base.history, message, signal: controller.signal }, input.onText);
+          budget?.charge("tokens", base.tokens + estimateTokens(text));
           const parsed = parseNpcTurnReply(text);
           if (parsed.ok) return { ok: true, reply: parsed.reply, attempts: n };
           lastError = parsed.error;
         } catch (error) {
           controller.abort();
+          // A failed or aborted call may still have been billed for its input.
+          budget?.charge("tokens", base.tokens);
           lastError = error instanceof TooLongError ? "it was far too long; keep lines short" : "the call failed";
           if (n === NPC_TURN_ATTEMPTS) warn("ai: npc turn call failed", error);
         }

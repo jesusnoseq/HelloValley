@@ -2,6 +2,7 @@ import { Client, type Room } from "@colyseus/sdk";
 import { type JoinOptions, RoomName, SESSION_REPLACED_CODE, type WelcomeMessage } from "@hellovalley/shared";
 import type { User } from "firebase/auth";
 import { useEffect, useState } from "react";
+import { currentAppCheckToken } from "./appCheckToken";
 import { SERVER_URL } from "./serverUrl";
 import { attachTownRoom } from "./townSession";
 
@@ -36,7 +37,9 @@ export function friendFromUrl(search: string = typeof location === "undefined" ?
  */
 export async function joinTown(client: Client, user: Pick<User, "getIdToken">, friendUid: string | null): Promise<Room> {
   // getIdToken() refreshes the token when it is about to expire.
-  const options: JoinOptions = { idToken: await user.getIdToken() };
+  // Build plan M36: the App Check token too, when App Check is configured.
+  const [idToken, appCheckToken] = await Promise.all([user.getIdToken(), currentAppCheckToken()]);
+  const options: JoinOptions = { idToken, ...(appCheckToken ? { appCheckToken } : {}) };
   if (friendUid) {
     try {
       // The API client pulls in shared schemas (zod): load it only when needed.

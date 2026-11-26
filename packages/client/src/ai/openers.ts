@@ -11,7 +11,9 @@ import {
   parseOpenerSet,
   pickOpener,
   PROMPT_TEMPLATE_IDS,
+  estimateTokens,
 } from "@hellovalley/shared";
+import type { AiBudget } from "./budget";
 import type { ContentCache } from "./cache";
 import type { TaskResult } from "./hybrid";
 import type { TemplateGeneratePort } from "./templates";
@@ -45,6 +47,8 @@ export interface OpenerDeps {
   random?: () => number;
   templateId?: string;
   warn?: (message: string, error: unknown) => void;
+  /** The player's cloud token budget (build plan M36): used up, a cache miss has no opener (the conversation starts without one). */
+  budget?: Pick<AiBudget, "allow" | "charge">;
 }
 
 export interface OpenerResult {
@@ -75,10 +79,11 @@ export function createOpeners(deps: OpenerDeps): Openers {
         return { set: parsed.data, source: "seeded" as const };
       }
     }
-    if (!deps.cloudEnabled) return null;
+    if (!deps.cloudEnabled || !(deps.budget?.allow("tokens") ?? true)) return null;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const text = await deps.generate({ templateId: deps.templateId ?? PROMPT_TEMPLATE_IDS.npcOpener, variables });
+        deps.budget?.charge("tokens", estimateTokens(JSON.stringify(variables)) + estimateTokens(text));
         const parsed = parseOpenerSet(text);
         if (parsed.ok) {
           await deps.cache?.set(material, parsed.value, true).catch(() => undefined);

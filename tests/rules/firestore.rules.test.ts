@@ -198,10 +198,26 @@ describe.skipIf(!emulator.available)("firestore.rules", () => {
       await assertFails(updateDoc(existing, { fsrs: partial, updatedAt: serverTimestamp() }));
     });
 
+    it("accepts only plain document ids (build plan M36 audit)", async () => {
+      await assertSucceeds(setDoc(doc(alice, P.notebookEntry(ALICE, "ja", "w_0123456789abcdef")), entry()));
+      await assertFails(setDoc(doc(alice, P.notebookEntry(ALICE, "ja", "bad id with spaces")), entry()));
+      await assertFails(setDoc(doc(alice, P.notebookEntry(ALICE, "ja", "x".repeat(129))), entry()));
+    });
+
     it("needs an existing language and the owner", async () => {
       await assertFails(setDoc(doc(alice, P.notebookEntry(ALICE, "fr", "e1")), entry()));
       await assertFails(setDoc(doc(bob, P.notebookEntry(ALICE, "ja", "e4")), entry()));
       await assertFails(getDoc(doc(bob, P.notebookEntry(ALICE, "ja", "e1"))));
+    });
+  });
+
+  describe("safety data (build plan M36)", () => {
+    it("block lists and moderation standings are not readable or writable by anyone", async () => {
+      for (const path of [P.blockList(ALICE), P.standing(ALICE)]) {
+        await assertFails(getDoc(doc(alice, path)));
+        await assertFails(setDoc(doc(alice, path), { strikes: [], muteUntil: null, mutes: 0, lastMuteAt: null }));
+        await assertFails(getDoc(doc(admin, path)));
+      }
     });
   });
 
@@ -238,6 +254,11 @@ describe.skipIf(!emulator.available)("firestore.rules", () => {
       await assertFails(setDoc(doc(bob, P.villageEvent("shard-1", "ev2")), event));
       await assertFails(setDoc(doc(admin, P.villageEvent("shard-1", "ev2")), event));
       await assertFails(deleteDoc(doc(bob, P.villageEvent("shard-1", "ev1"))));
+    });
+
+    it("exposes only the events collection (build plan M36 audit)", async () => {
+      await assertFails(getDoc(doc(bob, "village/shard-1")));
+      await assertFails(getDoc(doc(bob, "village/global/legends/l1")));
     });
   });
 

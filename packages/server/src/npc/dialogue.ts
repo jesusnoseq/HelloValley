@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import {
+  AI_BUDGET,
+  type AiBudgetLedger,
   type ApprovedAction,
+  checkBudget,
+  chargeBudget,
+  currentLedger,
+  emptyBudgetLedger,
   conversationPerformance,
   type ConversationLedger,
   type ConversationTelemetry,
@@ -82,8 +88,10 @@ import type { ContactOutcome, NpcPlayerRecord, NpcStore } from "./npcStore";
 
 /** Turns in one conversation (my number). */
 export const NPC_TURNS_PER_CONVERSATION = 30;
-/** Turns per player per UTC day across all NPCs (my number; AI Logic per-user RPM is the hard cap). */
-export const NPC_TURNS_PER_DAY = 300;
+/** Turns per player per UTC day across all NPCs (shared AI_BUDGET; AI Logic per-user RPM is the hard cap). */
+export const NPC_TURNS_PER_DAY = AI_BUDGET.npcTurnsPerDay;
+/** Build plan M36 (GDD §9.2): turns per player in any 10 minutes; past it `npc:start` and `npc:reply` are refused with `budget`. */
+export const NPC_TURNS_PER_WINDOW = AI_BUDGET.npcTurnsPerWindow;
 /** Reply cadence: a burst of 3, then one every 3 s (a model turn takes longer than that anyway). */
 export const NPC_REPLY_RATE: RateLimit = { burst: 3, perSecond: 1 / 3 };
 /** Conversation starts: a burst of 4, then one every 10 s. */
@@ -118,9 +126,8 @@ interface PlayerState {
   closed: { conversation: Conversation; endedAt: number }[];
   replyBucket: TokenBucket;
   startBucket: TokenBucket;
-  /** UTC day (`YYYY-MM-DD`) and turns used on it. */
-  day: string;
-  turnsToday: number;
+  /** NPC turns used today and in the last 10 minutes (shared ai/budget.ts, build plan M36). */
+  budget: AiBudgetLedger;
 }
 
 export interface StartRequest {
@@ -136,7 +143,6 @@ export interface StartRequest {
 
 export type Refused = { ok: false; reason: NpcRefusal };
 
-const utcDay = (now: number) => new Date(now).toISOString().slice(0, 10);
 
 /** Without a food service (older tests): no recipes are known, and taught ones are not kept. */
 const noFood: DialogueFood = {
@@ -180,13 +186,10 @@ export class NpcDialogueService {
   private player(uid: string, now: number): PlayerState {
     let p = this.players.get(uid);
     if (!p) {
-      p = { conversation: null, closed: [], replyBucket: createTokenBucket(NPC_REPLY_RATE, now), startBucket: createTokenBucket(NPC_START_RATE, now), day: utcDay(now), turnsToday: 0 };
+      p = { conversation: null, closed: [], replyBucket: createTokenBucket(NPC_REPLY_RATE, now), startBucket: createTokenBucket(NPC_START_RATE, now), budget: emptyBudgetLedger(now) };
       this.players.set(uid, p);
     }
-    if (p.day !== utcDay(now)) {
-      p.day = utcDay(now);
-      p.turnsToday = 0;
-    }
+    p.budget = currentLedger(p.budget, now);
     if (p.conversation && now - p.conversation.lastActivity > NPC_CONVERSATION_IDLE_MS) this.close(p, now);
     p.closed = p.closed.filter((c) => now - c.endedAt <= NPC_MEMORY_WINDOW_MS);
     return p;
@@ -207,7 +210,7 @@ export class NpcDialogueService {
   }
 
   private turnsLeft(p: PlayerState, c: Conversation): number {
-    return Math.max(0, Math.min(NPC_TURNS_PER_CONVERSATION - c.turnsUsed, NPC_TURNS_PER_DAY - p.turnsToday));
+    return Math.max(0, Math.min(NPC_TURNS_PER_CONVERSATION - c.turnsUsed, NPC_TURNS_PER_DAY - p.budget.turns));
   }
 
   private stockFor(npcId: NpcId, ledger: ConversationLedger): NpcPriceEntry[] {
@@ -224,7 +227,8 @@ export class NpcDialogueService {
   async start(req: StartRequest, now = Date.now()): Promise<{ ok: true; context: NpcContextMessage } | Refused> {
     const p = this.player(req.uid, now);
     if (!takeToken(p.startBucket, NPC_START_RATE, now)) return { ok: false, reason: "rate" };
-    if (p.turnsToday >= NPC_TURNS_PER_DAY) return { ok: false, reason: "daily_limit" };
+    const budget = checkBudget(p.budget, "turns", now);
+    if (!budget.ok) return { ok: false, reason: budget.reason === "daily" ? "daily_limit" : "budget" };
     let record: NpcPlayerRecord | null;
     let contact: ContactOutcome | null;
     let known: string[] = [];
@@ -303,6 +307,9 @@ export class NpcDialogueService {
     if (!c || c.id !== msg.conversationId) return { ok: false, reason: "no_conversation" };
     if (c.turnId === null || c.turnId !== msg.turnId) return { ok: false, reason: "unknown_turn" };
     if (!takeToken(p.replyBucket, NPC_REPLY_RATE, now)) return { ok: false, reason: "rate" };
+    // Build plan M36: past the 10-minute window the turn waits (its id stays valid for a retry).
+    const budget = checkBudget(p.budget, "turns", now);
+    if (!budget.ok) return { ok: false, reason: budget.reason === "daily" ? "daily_limit" : "budget" };
     // The turn id is used up before anything async, so a replayed reply cannot apply twice.
     c.turnId = null;
     c.lastActivity = now;
@@ -394,7 +401,7 @@ export class NpcDialogueService {
     c.ledger = verdict.conversation;
     this.daily.set(dailyKey, daily);
     c.turnsUsed++;
-    p.turnsToday++;
+    p.budget = chargeBudget(p.budget, "turns", now);
     const trades: PendingTrade[] = verdict.trades.map((t) => {
       const tradeId = randomUUID();
       c.trades.set(tradeId, t);

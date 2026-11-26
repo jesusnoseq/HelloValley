@@ -95,8 +95,14 @@ import {
   type SpaceId,
   type VillageEventInput,
   type VillagePrivacyMessage,
+  type AiUsageMessage,
+  FLOOD_KICKED_CODE,
+  type RateLimit,
 } from "@hellovalley/shared";
+import { type AppCheckVerifier, checkAppCheck } from "../auth/appCheck";
 import { type IdTokenVerifier, InvalidIdTokenError, type VerifiedUser } from "../auth/idToken";
+import { ServerMetrics } from "../metrics/metrics";
+import { ModerationService } from "../safety/moderationService";
 import { type ChatModerator, moderateChat } from "../moderation/chat";
 import { InventoryService } from "../economy/inventory";
 import { FishingService } from "../fishing/fishing";
@@ -140,6 +146,17 @@ export const INTERCOM_REACH_SLACK_M = 0.5;
 export const CHAT_HISTORY_LINES = 200;
 /** Shortest gap between two reports of one player (my number). */
 export const REPORT_COOLDOWN_MS = 5000;
+/**
+ * Build plan M36: every message of a client, whatever its type, takes a token from one bucket
+ * (moves come at 20 Hz, so a burst of 300 then 100 per second leaves honest clients far below it
+ * and still stops a flood; my numbers). Past it messages are dropped; an invalid message costs INVALID_MESSAGE_COST tokens.
+ */
+export const MESSAGE_RATE: RateLimit = { burst: 300, perSecond: 100 };
+export const INVALID_MESSAGE_COST = 5;
+/** A client that has this many messages dropped in one session is disconnected (FLOOD_KICKED_CODE). */
+export const FLOOD_KICK_DROPS = 300;
+/** `ai:usage` reports closer together than this are dropped (the client sends one a minute). */
+export const AI_USAGE_MIN_INTERVAL_MS = 10_000;
 
 /** What `onAuth` returns; Colyseus keeps it on `client.auth`. */
 export interface TownAuth {
@@ -161,6 +178,8 @@ const noSafety: SafetyStore = {
   getBlocks: () => Promise.resolve([]),
   saveBlocks: () => Promise.resolve(),
   addReport: () => Promise.reject(new Error("no safety store")),
+  getStanding: () => Promise.resolve({ strikes: [], muteUntil: null, mutes: 0, lastMuteAt: null }),
+  saveStanding: () => Promise.resolve(),
 };
 
 /** Reads nothing: real rooms get the dialogue and inventory services through `townRoomWith`. */
@@ -266,6 +285,11 @@ interface Session {
   questChain: Promise<void>;
   /** When the player last got seated small talk (build plan M31). */
   smallTalkAt: number;
+  /** Build plan M36: one token bucket for every message of this client, and how many were dropped. */
+  messageBucket: TokenBucket;
+  dropped: number;
+  /** When the last `ai:usage` report was taken. */
+  lastUsageMs: number;
 }
 
 /** A delivered chat line, as the room remembers it for reports. */
@@ -328,6 +352,12 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected lifeOptions: NpcLifeOptions | null = null;
   /** Public events, rumours and legends (build plan M31); shared by every shard. */
   protected village: VillageService = noVillage;
+  /** Build plan M36: budget and abuse counters, shared by every room of the server. */
+  protected metrics: ServerMetrics = new ServerMetrics();
+  /** Build plan M36: strikes and shard-wide mutes, shared by every shard (a mute follows the player). */
+  protected moderation: ModerationService = new ModerationService(noSafety);
+  /** Build plan M36: App Check verification of the join; null when not enforced (emulators, tests). */
+  protected appCheck: AppCheckVerifier | null = null;
   private life: NpcLife | null = null;
   private readonly sessions = new Map<string, Session>();
   private readonly recentChat: RecentLine[] = [];
@@ -366,7 +396,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.PlayerMove, (client, move) => this.onMove(client, move));
     this.handle(ClientMessage.Emote, (client, { emote }) => this.onEmote(client, emote));
     this.handle(ClientMessage.TimeSync, (client, { t }) => {
-      // TODO(M36): rate-limit probes with the other per-client limits.
+      // Probes take a token from the client's message bucket like everything else (build plan M36).
       const reply: TimeSyncReply = { t, server: Date.now() };
       client.send(ServerMessage.TimeSync, reply);
     });
@@ -411,6 +441,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.FurnitureEdit, () => {
       // Furniture edits belong to the ApartmentRoom.
     });
+    this.handle(ClientMessage.AiUsage, (client, usage) => this.onAiUsage(client, usage));
   }
 
   override async onAuth(_client: TownClient, options: unknown): Promise<TownAuth> {
@@ -420,7 +451,14 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     try {
       user = await this.verifier.verify(parsed.data.idToken);
     } catch {
+      this.metrics.inc("auth.idToken.rejected");
       throw new ServerError(401, "invalid ID token");
+    }
+    // Build plan M36: with App Check enforced, only the real web app joins.
+    const app = await checkAppCheck(this.appCheck, parsed.data.appCheckToken);
+    if (app !== "ok") {
+      this.metrics.inc(app === "missing" ? "auth.appCheck.missing" : "auth.appCheck.rejected");
+      throw new ServerError(401, "invalid App Check token");
     }
     // Architecture §7.1: players who have not finished onboarding (no users/{uid}) cannot join.
     let profile: UserProfile | null;
@@ -438,6 +476,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       // Better to play without the block list for a session than not at all.
       console.error(`[town] block list lookup failed for ${user.uid}:`, err);
     }
+    // Strikes and an active shard-wide mute (build plan M36); a failing read counts as clean.
+    await this.moderation.load(user.uid);
     return { uid: user.uid, profile, blocks };
   }
 
@@ -474,6 +514,9 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       buffExpiry: null,
       questChain: Promise.resolve(),
       smallTalkAt: Number.NEGATIVE_INFINITY,
+      messageBucket: createTokenBucket(MESSAGE_RATE, now),
+      dropped: 0,
+      lastUsageMs: Number.NEGATIVE_INFINITY,
     });
     this.state.players.set(
       client.sessionId,
@@ -589,7 +632,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     session.tracker.speedFactor = this.food.speedFactor(session.uid);
     const verdict = validateMove(session.tracker, { space: move.space, pos: [move.x, move.z], heading: move.heading }, Date.now(), grids);
     if (!verdict.ok) {
-      // TODO(M36): count rejections per session (speed hacks) toward a kick.
+      // Counted in the metrics (build plan M36). No kick: honest clients get corrected too (lag, doors).
+      this.metrics.inc("abuse.move.rejected");
       session.epoch++;
       session.seq = -1;
       const t = session.tracker;
@@ -799,8 +843,9 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     return a.blocked.has(b.uid) || b.blocked.has(a.uid);
   }
 
-  private rejectChat(client: TownClient, reason: ChatRejectReason): void {
-    const message: ChatRejectedMessage = { reason };
+  private rejectChat(client: TownClient, reason: ChatRejectReason, until?: number): void {
+    this.metrics.inc(`chat.rejected.${reason}`);
+    const message: ChatRejectedMessage = until === undefined ? { reason } : { reason, until };
     client.send(ServerMessage.ChatRejected, message);
   }
 
@@ -808,16 +853,27 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
    * A chat line: the rate limit, the mandatory server moderation check, then delivery to the
    * sender and to everyone within CHAT_RADIUS_M of the speaker's server-side position (same
    * space, same apartment) who has not muted the sender and is not blocked either way.
+   * Build plan M36: a player muted shard-wide (repeat offender) is refused first; a blocked line
+   * adds its category's strikes, and enough of them mute the sender in every shard.
    * Translation happens on each reader's client (architecture §5.2): the server never calls a model.
    */
   private onChat(client: TownClient, text: string, claimedLang: string | undefined): void {
     const session = this.sessions.get(client.sessionId);
     if (!session) return;
     const now = Date.now();
-    // TODO(M36): shard-wide mutes for repeat offenders answer "muted" here.
+    const muted = this.moderation.mutedUntil(session.uid, now);
+    if (muted !== null) return this.rejectChat(client, "muted", muted);
     if (!takeToken(session.chatBucket, CHAT_RATE, now)) return this.rejectChat(client, "rate");
     const lang = claimedLang ?? session.targetLang;
-    if (!this.moderateChat(text, { uid: session.uid, lang }).ok) return this.rejectChat(client, "moderation");
+    const verdict = this.moderateChat(text, { uid: session.uid, lang });
+    if (!verdict.ok) {
+      this.metrics.inc(`moderation.blocked.${verdict.category ?? "other"}`);
+      this.rejectChat(client, "moderation");
+      const outcome = (verdict.strikes ?? 0) > 0 ? this.moderation.strike(session.uid, { kind: "moderation", weight: verdict.strikes! }, now) : null;
+      if (outcome?.muted) this.rejectChat(client, "muted", outcome.muted.until);
+      return;
+    }
+    this.metrics.inc("chat.delivered");
     const message: ChatBroadcast = { id: randomUUID(), from: client.sessionId, name: session.name, text, lang, ts: now };
     const speaker = this.chatPosition(session);
     const recipients = new Set<string>();
@@ -888,7 +944,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
    * A report goes to `reports/{id}` with the server's own copies of the reported player's last
    * lines that reached the reporter, so a client cannot put words in anyone's mouth. Reporting
    * also mutes the reported player for the reporter.
-   * TODO(M36): reports feed strikes and shard-wide mutes; a moderator review tool.
+   * Build plan M36: each report is a strike (one per distinct reporter in the window), so a player
+   * several people report is muted shard-wide. TODO(M38): a moderator review tool for `reports/*`.
    */
   private onChatReport(client: TownClient, report: ChatReportMessage): void {
     const session = this.sessions.get(client.sessionId);
@@ -925,6 +982,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     };
     session.muted.set(reportedUid, reportedName);
     this.sendSafety(client.sessionId);
+    this.metrics.inc("moderation.reports");
+    this.moderation.strike(reportedUid, { kind: "report", weight: 1, by: session.uid }, now);
     this.safety.addReport(doc).then(
       () => answer(true),
       (err: unknown) => {
@@ -939,6 +998,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   // room only hands out context and turn ids and validates what comes back.
 
   private refuseNpc(sessionId: string, message: NpcRefusedMessage): void {
+    this.metrics.inc(`npc.refused.${message.reason}`);
     this.clientOf(sessionId)?.send(ServerMessage.NpcRefused, message);
   }
 
@@ -977,6 +1037,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     session.talkingTo = npcId;
     session.conversationId = result.context.conversationId;
     player.talkingTo = npcId;
+    this.metrics.inc("npc.contexts");
     this.clientOf(client.sessionId)?.send(ServerMessage.NpcContext, result.context);
   }
 
@@ -985,6 +1046,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (!session) return;
     const result = await this.npc.reply(session.uid, reply);
     if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: reply.conversationId, turnId: reply.turnId });
+    this.metrics.inc("npc.turns.accepted");
+    for (const r of result.applied.rejected) this.metrics.inc(`npc.actions.rejected.${r.reason}`);
     this.clientOf(client.sessionId)?.send(ServerMessage.NpcApplied, result.applied);
     // An NPC's gift landed in the inventory.
     if (result.applied.accepted.some((a) => a.type === "give")) this.refreshInventory(client.sessionId);
@@ -1482,7 +1545,45 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     await this.sendVillagePrivacy(sessionId);
   }
 
-  /** Registers a handler that only ever sees payloads that passed the shared schema. */
+  /**
+   * `ai:usage` (build plan M36): the client's own count of its AI spending (TTS seconds, cloud
+   * tokens, NPC turns) and which budgets ran out, for the server metrics. Untrusted: clamped,
+   * at most one report every AI_USAGE_MIN_INTERVAL_MS, and it never changes the game.
+   */
+  private onAiUsage(client: TownClient, usage: AiUsageMessage): void {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return;
+    const now = Date.now();
+    if (now - session.lastUsageMs < AI_USAGE_MIN_INTERVAL_MS) {
+      this.metrics.inc("ai.reports.dropped");
+      return;
+    }
+    session.lastUsageMs = now;
+    this.metrics.reportUsage(session.uid, usage);
+  }
+
+  /** Build plan M36: takes `cost` tokens from the client's message bucket; a flood disconnects it. */
+  private admit(client: TownClient, cost: number): boolean {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return true;
+    const now = Date.now();
+    let ok = true;
+    for (let i = 0; i < cost && ok; i++) ok = takeToken(session.messageBucket, MESSAGE_RATE, now);
+    if (ok) return true;
+    session.dropped++;
+    this.metrics.inc("abuse.messages.dropped");
+    if (session.dropped === FLOOD_KICK_DROPS) {
+      this.metrics.inc("abuse.kicked");
+      console.warn(`[town ${this.roomId}] disconnecting ${session.uid} for flooding (${session.dropped} messages dropped)`);
+      client.leave(FLOOD_KICKED_CODE, "too many messages");
+    }
+    return false;
+  }
+
+  /**
+   * Registers a handler that only ever sees payloads that passed the shared schema, from a client
+   * inside its message rate (build plan M36).
+   */
   private handle<K extends ClientMessage>(
     type: K,
     handler: (client: TownClient, payload: ClientMessagePayloads[K]) => void,
@@ -1490,10 +1591,12 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.onMessage(type, (client: TownClient, payload: unknown) => {
       const result = parseClientMessage(type, payload);
       if (!result.ok) {
-        // TODO(M36): count invalid messages toward the per-client rate limit.
+        this.metrics.inc("abuse.messages.invalid");
+        this.admit(client, INVALID_MESSAGE_COST);
         console.warn(`[town ${this.roomId}] dropped invalid "${type}" from ${client.sessionId}: ${result.error}`);
         return;
       }
+      if (!this.admit(client, 1)) return;
       handler(client, result.value);
     });
   }
@@ -1524,6 +1627,12 @@ export interface TownRoomDeps {
   life?: NpcLifeOptions | null;
   /** Village memory (build plan M31); shared by every shard. */
   village?: VillageService;
+  /** Budget and abuse counters (build plan M36); shared by every room. */
+  metrics?: ServerMetrics;
+  /** Strikes and shard-wide mutes (build plan M36); shared by every shard. Defaults to one over `safety`. */
+  moderation?: ModerationService;
+  /** App Check verification of joins (build plan M36); null or left out: not enforced. */
+  appCheck?: AppCheckVerifier | null;
 }
 
 export interface TownRoomOptions {
@@ -1544,6 +1653,8 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
   const food = deps.food ?? noFood;
   const quests = deps.quests ?? noQuests;
   const village = deps.village ?? noVillage;
+  const metrics = deps.metrics ?? new ServerMetrics();
+  const moderation = deps.moderation ?? new ModerationService(deps.safety, metrics);
   return class extends TownRoom {
     override maxClients = options.maxClients ?? TOWN_MAX_CLIENTS;
     protected override verifier = deps.verifier;
@@ -1561,5 +1672,8 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override spawn = options.spawn ?? TOWN_SPAWN;
     protected override lifeOptions = deps.life ?? null;
     protected override village = village;
+    protected override metrics = metrics;
+    protected override moderation = moderation;
+    protected override appCheck = deps.appCheck ?? null;
   };
 }

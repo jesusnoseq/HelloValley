@@ -1,10 +1,14 @@
 import { createServer } from "node:http";
-import { Server } from "@colyseus/core";
+import { matchMaker, Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { RoomName } from "@hellovalley/shared";
 import { type ApartmentLayoutStore, createMemoryLayoutStore, firestoreLayoutStoreFor } from "./apartments/layoutStore";
+import { type AppCheckVerifier, createFirebaseAppCheckVerifier } from "./auth/appCheck";
 import { createFirebaseVerifier, type IdTokenVerifier } from "./auth/idToken";
-import { readFirebaseConfig } from "./config";
+import { APP_CHECK_HEADER } from "./auth/middleware";
+import { readAppCheckEnforced, readFirebaseConfig } from "./config";
+import { ServerMetrics } from "./metrics/metrics";
+import { ModerationService } from "./safety/moderationService";
 import { adminApp } from "./firebase/admin";
 import { type HttpDeps, registerHttpRoutes } from "./http";
 import type { ChatModerator } from "./moderation/chat";
@@ -51,8 +55,13 @@ export interface GameServerOptions {
    * the verifier and the profile store are injected, as in tests).
    */
   safety?: SafetyStore;
-  /** The mandatory server chat check (tests inject one; default `moderateChat`, a stub until M36). */
+  /** The mandatory server chat check (tests inject one; default `moderateChat`, the shared blocklist). */
   moderateChat?: ChatModerator;
+  /**
+   * App Check verification for `/api/*` and room joins (build plan M36). Defaults to firebase-admin
+   * when enforced (`APP_CHECK`, on for real projects); null turns it off. Tests inject one or leave it off.
+   */
+  appCheck?: AppCheckVerifier | null;
   /**
    * What NPC conversations and the inventory (build plans M21, M26) read and write; defaults to Firestore through
    * firebase-admin (in memory when both the verifier and the profile store are injected).
@@ -82,6 +91,10 @@ export interface GameServerOptions {
 }
 
 export interface GameServer extends Server {
+  /** Budget and abuse counters (build plan M36), served at GET /api/metrics. */
+  readonly metrics: ServerMetrics;
+  /** Strikes and shard-wide mutes (build plan M36), shared by every shard. */
+  readonly moderation: ModerationService;
   /** Public events, rumours and legends (build plan M31), shared by every shard. */
   readonly village: VillageService;
   /** The live TownRoom shards of this server. */
@@ -124,25 +137,45 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   const streaks = options.streaks ?? (firebase ? firestoreStreakStoreFor(adminApp(firebase)) : createMemoryStreakStore());
   const towns = new TownRegistry();
   const apartments = new ApartmentRegistry();
+  // Build plan M36: App Check (enforced by default for a real project; tests inject or leave it off).
+  const appCheck = options.appCheck !== undefined ? options.appCheck : firebase && readAppCheckEnforced(process.env, firebase) ? createFirebaseAppCheckVerifier(firebase) : null;
+  const metrics = new ServerMetrics();
+  const moderation = new ModerationService(safety, metrics);
+  metrics.gauges = () => {
+    const shards = towns.list();
+    return { shards: shards.length, players: shards.reduce((n, s) => n + s.clients, 0), mutedNow: moderation.mutedCount() };
+  };
+  allowAppCheckHeader();
   const httpServer = createServer();
   const server = new Server({
     transport: new WebSocketTransport({ server: httpServer }),
-    express: (app) => registerHttpRoutes(app, { verifier, profiles, onboarding: options.onboarding, registry: towns, streaks }),
+    express: (app) => registerHttpRoutes(app, { verifier, profiles, onboarding: options.onboarding, registry: towns, streaks, appCheck, metrics }),
     greet: false,
   });
   // Architecture §7.1: fill existing shards before opening a new one, lowest "Valley #n" first.
   // A full shard is locked by Colyseus, so joinOrCreate creates the next one. Joining a friend's
   // shard goes through GET /api/shards?friend=<uid> and joinById.
   server
-    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing, forage, food, quests, life, village }, options.town))
+    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing, forage, food, quests, life, village, metrics, moderation, appCheck }, options.town))
     .sortBy({ "metadata.shard": 1 });
   // Build plan M17: one private ApartmentRoom per owner. Visitors get in with a pass the owner
   // granted at the lobby intercom (TownRoom).
   server
     .define(
       RoomName.Apartment,
-      apartmentRoomWith({ verifier, profiles, layouts, apartments, towns, saveDebounceMs: options.layoutSaveDebounceMs }),
+      apartmentRoomWith({ verifier, profiles, layouts, apartments, towns, saveDebounceMs: options.layoutSaveDebounceMs, appCheck, metrics }),
     )
     .filterBy(["owner"]);
-  return Object.assign(server, { towns, apartments, village });
+  return Object.assign(server, { towns, apartments, village, metrics, moderation });
+}
+
+/**
+ * Colyseus answers CORS for the whole HTTP server (Express routes included) with its own header
+ * list; the client's `/api/*` calls also send `X-Firebase-AppCheck` (build plan M36), so the
+ * preflight must allow it.
+ */
+function allowAppCheckHeader(): void {
+  const headers = matchMaker.controller.DEFAULT_CORS_HEADERS as Record<string, string>;
+  const allowed = headers["Access-Control-Allow-Headers"] ?? "";
+  if (!allowed.toLowerCase().includes(APP_CHECK_HEADER.toLowerCase())) headers["Access-Control-Allow-Headers"] = allowed ? `${allowed}, ${APP_CHECK_HEADER}` : APP_CHECK_HEADER;
 }

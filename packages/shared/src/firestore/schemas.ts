@@ -16,6 +16,7 @@ import { SCRIPT_MODES } from "../language/scriptMode";
 import { MAX_STACK } from "../npc/inventory";
 import { CHAT_REPORT_REASONS } from "../protocol/messages";
 import { FsrsCardSchema } from "../srs/fsrs";
+import { MAX_STRIKES_KEPT } from "../safety/strikes";
 import type { QuestKind } from "../quests/templates";
 import { VillageEventTypeSchema } from "../village/events";
 
@@ -258,6 +259,27 @@ export const BlockListSchema = z.strictObject({
   players: z.array(z.strictObject({ uid: uidField, name: nameField })).max(MAX_BLOCKED_PLAYERS),
 });
 export type BlockList = z.infer<typeof BlockListSchema>;
+
+/**
+ * `users/{uid}/safety/standing`: the player's moderation strikes and shard-wide mute (build plan
+ * M36, safety/strikes.ts `ModerationStanding`, clocks in ms). Server-only like the block list.
+ */
+export const ModerationStandingSchema = z.strictObject({
+  strikes: z
+    .array(
+      z.strictObject({
+        at: z.number().int().min(0),
+        weight: z.number().int().min(0).max(10),
+        kind: z.enum(["moderation", "report"]),
+        by: uidField.optional(),
+      }),
+    )
+    .max(MAX_STRIKES_KEPT),
+  muteUntil: z.number().int().min(0).nullable(),
+  mutes: z.number().int().min(0).max(1000),
+  lastMuteAt: z.number().int().min(0).nullable(),
+});
+export type ModerationStandingDoc = z.infer<typeof ModerationStandingSchema>;
 
 /**
  * `users/{uid}/collections/fish`: the fish encyclopedia (build plan M27). Server-only like the

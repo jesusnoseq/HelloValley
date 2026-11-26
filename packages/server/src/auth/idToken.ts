@@ -26,15 +26,18 @@ export class InvalidIdTokenError extends Error {
  * Verifies ID tokens with firebase-admin. Verification needs only the project id (Google's public
  * keys are fetched and cached by the SDK). With the Auth emulator the SDK accepts the emulator's
  * unsigned tokens instead; `readFirebaseConfig` allows that only for `demo-*` projects.
- * TODO(M36): also verify App Check tokens.
+ * App Check tokens are verified separately (`appCheck.ts`, build plan M36). With a real project
+ * the token is also checked for revocation, so disabling or signing out a banned account in
+ * Firebase Auth locks it out of the API and the rooms at once (one Auth lookup per verify).
  */
 export function createFirebaseVerifier(config: FirebaseConfig): IdTokenVerifier {
   const auth = getAuth(adminApp(config));
+  // Revocation needs the Auth backend (the service account in production); the emulator has no bans.
+  const checkRevoked = config.authEmulatorHost === null;
   return {
     async verify(idToken) {
       try {
-        // TODO(M36): checkRevoked (needs the service account) for banned players.
-        const decoded = await auth.verifyIdToken(idToken);
+        const decoded = await auth.verifyIdToken(idToken, checkRevoked);
         return { uid: decoded.uid, admin: decoded.admin === true };
       } catch (err) {
         throw new InvalidIdTokenError(err);

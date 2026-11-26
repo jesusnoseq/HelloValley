@@ -43,6 +43,7 @@ describe("FirestorePaths", () => {
     expect(FirestorePaths.villageEvent("shard-1", "ev")).toBe("village/shard-1/events/ev");
     expect(FirestorePaths.cacheEntry("tts", "abc")).toBe("cache/tts/abc");
     expect(FirestorePaths.report("r1")).toBe("reports/r1");
+    expect(FirestorePaths.standing("u1")).toBe("users/u1/safety/standing");
   });
 
   it("rejects segments that would escape or change the path", () => {

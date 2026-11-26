@@ -34,6 +34,8 @@ export const VILLAGE_PRIVACY_DOC = "village";
 
 /** `users/{uid}/safety/blocks`: the player's block list (server-only, build plan M18). */
 export const BLOCK_LIST_DOC = "blocks";
+/** `users/{uid}/safety/standing`: strikes and the shard-wide mute (server-only, build plan M36). */
+export const STANDING_DOC = "standing";
 
 /** `users/{uid}/apartment/layout` is the only document in the apartment collection. */
 export const APARTMENT_LAYOUT_DOC = "layout";
@@ -78,6 +80,7 @@ export const FirestorePaths = {
   report: (id: string) => join(C.Reports, id),
   reports: () => C.Reports,
   blockList: (uid: string) => join(C.Users, uid, C.Safety, BLOCK_LIST_DOC),
+  standing: (uid: string) => join(C.Users, uid, C.Safety, STANDING_DOC),
   fishLog: (uid: string) => join(C.Users, uid, C.Collections, FISH_LOG_DOC),
   forageAlbum: (uid: string) => join(C.Users, uid, C.Collections, FORAGE_ALBUM_DOC),
   recipeBook: (uid: string) => join(C.Users, uid, C.Collections, RECIPE_BOOK_DOC),

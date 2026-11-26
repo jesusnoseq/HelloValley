@@ -1,5 +1,5 @@
 import { aiStatusStore, refreshOnDeviceStatus } from "./availability";
-import type { AmbientBark, FishId, GrammarFeedback, GrammarPromptInput, Level, QuestNotice } from "@hellovalley/shared";
+import type { AiUsageMessage, AmbientBark, FishId, GrammarFeedback, GrammarPromptInput, Level, QuestNotice } from "@hellovalley/shared";
 import type { NpcAi } from "../net/npcConversation";
 import type { TaskResult } from "./hybrid";
 import type { ChatModeration } from "./moderation";
@@ -22,6 +22,14 @@ export function loadAiRuntime(): Promise<Runtime> {
     return r;
   });
   return runtime;
+}
+
+/**
+ * The AI usage since the last call (build plan M36, `ai:usage`); null when the runtime never
+ * loaded (no AI was used) or nothing was spent.
+ */
+export function drainAiUsage(): Promise<AiUsageMessage | null> {
+  return runtime ? runtime.then((r) => r.drainUsage()) : Promise.resolve(null);
 }
 
 /** The signed-in player, whose IndexedDB holds their cached answers. */

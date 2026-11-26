@@ -15,4 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_AUTH_EMULATOR_HOST?: string;
   readonly VITE_FIRESTORE_EMULATOR_HOST?: string;
   readonly VITE_FIREBASE_STORAGE_EMULATOR_HOST?: string;
+  /** Build plan M36: the reCAPTCHA Enterprise site key for App Check (unset: App Check is off). */
+  readonly VITE_RECAPTCHA_ENTERPRISE_SITE_KEY?: string;
+  /** Development only: an App Check debug token registered in the Firebase console (never commit it). */
+  readonly VITE_APPCHECK_DEBUG_TOKEN?: string;
 }

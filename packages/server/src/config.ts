@@ -54,3 +54,16 @@ export function readFirebaseConfig(env: NodeJS.ProcessEnv = process.env): Fireba
     firestoreEmulatorHost: isDemo ? (firestoreHost ?? DEFAULT_FIRESTORE_EMULATOR_HOST) : null,
   };
 }
+
+/**
+ * App Check on the game server (build plan M36, architecture §7.2): whether `/api/*` requests and
+ * room joins must carry a valid App Check token. `APP_CHECK=enforce|off`; by default it is enforced
+ * for a real project and off for the `demo-*` emulator project (App Check has no emulator).
+ */
+export function readAppCheckEnforced(env: NodeJS.ProcessEnv, firebase: Pick<FirebaseConfig, "projectId">): boolean {
+  const mode = env.APP_CHECK?.trim().toLowerCase();
+  if (mode === "enforce") return true;
+  if (mode === "off") return false;
+  if (mode) throw new Error(`Invalid APP_CHECK: ${env.APP_CHECK} (use "enforce" or "off")`);
+  return !firebase.projectId.startsWith("demo-");
+}
