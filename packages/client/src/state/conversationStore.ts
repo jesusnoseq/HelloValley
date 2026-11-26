@@ -102,6 +102,11 @@ export interface ConversationState {
   style: SuggestionStyle;
   /** C1+: the 💡 reply has been revealed. */
   hintShown: boolean;
+  /**
+   * The coffee's extra suggested-reply hint (build plan M29, `npc:context.extraHints`): offered once
+   * per conversation ("available"), revealed for one turn ("shown"), then gone ("used").
+   */
+  extraHint: "none" | "available" | "shown" | "used";
   check: CheckState;
   cards: Card[];
   notice: ConversationNotice | null;
@@ -122,6 +127,7 @@ export const IDLE_CONVERSATION: Omit<ConversationState, "pendingTalk"> = {
   suggestions: [],
   style: "replies",
   hintShown: false,
+  extraHint: "none",
   check: { status: "idle" },
   cards: [],
   notice: null,

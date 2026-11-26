@@ -8,7 +8,7 @@ import { townNavGrid } from "./navgrid";
 describe("interactables", () => {
   it("puts the mirror in the apartment and the intercom in town", () => {
     const list = spaceInteractables("apartment");
-    expect(list.map((i) => i.kind)).toEqual(["mirror"]);
+    expect(list.map((i) => i.kind)).toEqual(["mirror", "kitchen"]);
     expect(list[0]!.spot).toEqual(interiorLayout("apartment").spots.mirror);
     expect(spaceInteractables("town").map((i) => i.kind)).toEqual(["intercom"]);
     // Every other room has exactly its villager (build plan M23).
@@ -19,7 +19,7 @@ describe("interactables", () => {
     const spot = spaceInteractables("apartment")[0]!.spot;
     expect(nearestInteractable("apartment", spot)?.kind).toBe("mirror");
     expect(nearestInteractable("apartment", [spot[0] + MIRROR_RADIUS_M - 0.01, spot[1]])?.kind).toBe("mirror");
-    expect(nearestInteractable("apartment", [spot[0] + MIRROR_RADIUS_M + 0.01, spot[1]])).toBeNull();
+    expect(nearestInteractable("apartment", [spot[0] + MIRROR_RADIUS_M + 0.01, spot[1]])?.kind).not.toBe("mirror");
     expect(nearestInteractable("town", spot)).toBeNull();
     // Arriving home does not put you in front of the mirror.
     expect(nearestInteractable("apartment", interiorArrivalPoint("apartment").pos)).toBeNull();

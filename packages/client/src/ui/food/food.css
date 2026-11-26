@@ -1,0 +1,166 @@
+/* Eating, sitting and cooking (build plan M29): the buff HUD, the eat/sit/cook hint, the kitchen and recipe cards. */
+
+.hv-buffs,
+.hv-food,
+.hv-kitchen {
+  background: rgba(255, 250, 240, 0.94);
+  color: #3d3a44;
+  font: 14px/1.4 system-ui, sans-serif;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.hv-buffs {
+  position: fixed;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  z-index: 22;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 12px;
+  list-style: none;
+  max-width: calc(100vw - 32px);
+}
+
+.hv-buff {
+  padding: 2px 8px;
+  border-radius: 10px;
+  /* The bar under each buff shrinks as it runs out. */
+  background: linear-gradient(to right, rgba(91, 140, 90, 0.25) calc(var(--hv-buff-left, 1) * 100%), transparent 0);
+  white-space: nowrap;
+}
+
+.hv-buff__time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.hv-food {
+  position: fixed;
+  left: 50%;
+  bottom: 136px;
+  transform: translateX(-50%);
+  z-index: 23;
+  padding: 6px 14px;
+  border-radius: 12px;
+  text-align: center;
+  max-width: calc(100vw - 32px);
+}
+
+.hv-food p {
+  margin: 2px 0;
+}
+
+.hv-food__notice--ok {
+  font-weight: 600;
+}
+
+.hv-food button,
+.hv-recipe__cook {
+  border: 0;
+  border-radius: 8px;
+  padding: 3px 10px;
+  background: #5b8c5a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.hv-food button:focus-visible,
+.hv-recipe__cook:focus-visible,
+.hv-kitchen__header button:focus-visible {
+  outline: 3px solid #2f5d8a;
+  outline-offset: 2px;
+}
+
+.hv-recipe__cook:disabled,
+.hv-food button:disabled {
+  background: #9a9aa2;
+  cursor: default;
+}
+
+.hv-kitchen {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  padding: 12px 16px;
+  border-radius: 16px;
+}
+
+.hv-kitchen__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hv-kitchen__header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.hv-kitchen__header button {
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.hv-kitchen__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.hv-recipe {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #fff8ea;
+  border: 1px solid #e6d8bd;
+}
+
+.hv-recipe__title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.hv-recipe__kind {
+  margin-left: 4px;
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.hv-recipe__heading {
+  margin: 6px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.hv-recipe__lines,
+.hv-recipe__steps {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.hv-recipe__line--missing {
+  color: #a0462b;
+}
+
+.hv-recipe__qty {
+  font-variant-numeric: tabular-nums;
+}
+
+.hv-recipe__footer {
+  margin: 6px 0 4px;
+  font-size: 12px;
+  opacity: 0.8;
+}

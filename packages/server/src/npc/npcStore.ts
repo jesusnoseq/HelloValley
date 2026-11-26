@@ -53,8 +53,6 @@ export interface NpcPlayerRecord {
   memory: NpcMemoryText | null;
   learningWords: string[];
   slots: SlotEntry[];
-  /** TODO(M29): learned-recipe storage. */
-  knownRecipes: string[];
   bond: NpcBond;
 }
 
@@ -220,7 +218,6 @@ export function createFirestoreNpcStore(db: Firestore): NpcStore {
         memory: emptyMemory(text) ? null : text,
         learningWords,
         slots: readSlots(inventorySnap.docs),
-        knownRecipes: [],
         bond: bondOf(hearts, memory),
       };
     },
@@ -367,7 +364,6 @@ export function createMemoryNpcStore(initial: Record<string, MemoryPlayer> = {})
         memory: emptyMemory(memory) ? null : { summary: memory!.summary, facts: [...memory!.facts] },
         learningWords: p.notebook ? pickLearningWords(p.notebook, Date.now(), LEARNING_WORDS_LIMIT) : (p.learningWords ?? []).slice(0, LEARNING_WORDS_LIMIT),
         slots: p.slots.map((s) => ({ ...s })),
-        knownRecipes: [],
         bond: bondOf(p, npcId),
       };
     },

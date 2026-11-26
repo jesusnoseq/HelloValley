@@ -35,7 +35,7 @@ export interface InventoryLayerProps {
 
 /**
  * The inventory on screen (build plan M26, GDD §5.6, §10 "Tab inventory"): a hotbar of 6 slots on
- * the right edge (click to hold an item in hand: the rod equips it for fishing, M27; TODO(M29): eat and drink) with
+ * the right edge (click to hold an item in hand: the rod equips it for fishing, M27; food and drink can be eaten, M29) with
  * the coins, and the bag panel (Tab) with the 24 bag slots and the hotbar as its last row. Items
  * show their target-language word (the M25 world labels; English until they load). Moving a stack:
  * click it and click the target, or drag it, or use the arrow keys and Enter. The server decides

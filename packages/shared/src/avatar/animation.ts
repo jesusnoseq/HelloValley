@@ -13,21 +13,23 @@ import type { Motion } from "../world/player";
  * for `emoteLength` seconds and then fade back, and starting to move or sitting down cancels them.
  * Stopping is debounced by `STOP_GRACE_S` so a path that ends and restarts does not flicker.
  * Activities (build plan M27) are base states too, between moving and sitting: fish_cast while
- * the line is out (cast, wait, bite) and fish_reel during the mini-game. TODO(M29): eat.
+ * the line is out (cast, wait, bite) and fish_reel during the mini-game; build plan M29 adds eat
+ * (a bite from the hotbar, the synced activity "eating"). Sitting (M29) is the `seated` input.
  */
 
 export const BASE_ANIM_STATES = ["idle", "walk", "run", "sit", "talk"] as const satisfies readonly CharacterAnimation[];
 export type BaseAnimState = (typeof BASE_ANIM_STATES)[number];
 
-/** In-place activities (build plan M27). */
-export const ACTIVITY_ANIM_STATES = ["fish_cast", "fish_reel"] as const satisfies readonly CharacterAnimation[];
+/** In-place activities (build plans M27 and M29). */
+export const ACTIVITY_ANIM_STATES = ["fish_cast", "fish_reel", "eat"] as const satisfies readonly CharacterAnimation[];
 export type ActivityAnimState = (typeof ACTIVITY_ANIM_STATES)[number];
 export type AnimState = BaseAnimState | ActivityAnimState;
 
-/** The activity clip for the synced `activity` field ("fishing", "reeling", ""), or undefined. */
+/** The activity clip for the synced `activity` field ("fishing", "reeling", "eating", ""), or undefined. */
 export function activityClip(activity: string | undefined): ActivityAnimState | undefined {
   if (activity === "fishing") return "fish_cast";
   if (activity === "reeling") return "fish_reel";
+  if (activity === "eating") return "eat";
   return undefined;
 }
 

@@ -45,6 +45,7 @@ import {
   worldClockAt,
   worldDayAt,
 } from "@hellovalley/shared";
+import type { DialogueFood } from "../food/food";
 import type { ContactOutcome, NpcPlayerRecord, NpcStore } from "./npcStore";
 
 /**
@@ -62,6 +63,10 @@ import type { ContactOutcome, NpcPlayerRecord, NpcStore } from "./npcStore";
  *   greeting), takes gifts (`npc:gift`), and stores the client's compaction after `npc:end`
  *   (`npc:memory`: summary, facts, lastSeen, and the level estimate), all through the shared
  *   pure rules in npc/friendship.ts, npc/memory.ts and npc/levelAdaptation.ts.
+ *
+ * - (build plan M29) stores the recipes an NPC teaches (`teachRecipe`) in the recipe book and adds
+ *   what the player ate today (the Doctor after three cakes) and the coffee's extra hint to the
+ *   context, through the food service.
  *
  * Calling the model without a turn id costs the player's AI Logic quota but has no game effect
  * (architecture §9). Limits and ledgers live in memory: there is one server process (§3.1), so a
@@ -123,6 +128,14 @@ export interface StartRequest {
 export type Refused = { ok: false; reason: NpcRefusal };
 
 const utcDay = (now: number) => new Date(now).toISOString().slice(0, 10);
+
+/** Without a food service (older tests): no recipes are known, and taught ones are not kept. */
+const noFood: DialogueFood = {
+  knownRecipes: () => Promise.resolve([]),
+  learnRecipes: () => Promise.resolve([]),
+  flags: () => [],
+  extraHints: () => 0,
+};
 const entries = (slots: readonly SlotEntry[]): InventoryEntry[] =>
   Object.entries(itemCounts(slots)).map(([itemId, qty]) => ({ itemId: itemId as ItemId, qty: qty ?? 0 }));
 
@@ -131,7 +144,11 @@ export class NpcDialogueService {
   /** `${uid}|${lang}|${npcId}|${worldDay}` → what was given today (architecture §6.1 per-day caps). */
   private readonly daily = new Map<string, DailyLedger>();
 
-  constructor(private readonly store: NpcStore) {}
+  constructor(
+    private readonly store: NpcStore,
+    /** Recipes, eating flags and the coffee hint (build plan M29). */
+    private readonly food: DialogueFood = noFood,
+  ) {}
 
   private player(uid: string, now: number): PlayerState {
     let p = this.players.get(uid);
@@ -183,10 +200,12 @@ export class NpcDialogueService {
     if (p.turnsToday >= NPC_TURNS_PER_DAY) return { ok: false, reason: "daily_limit" };
     let record: NpcPlayerRecord | null;
     let contact: ContactOutcome | null;
+    let known: string[] = [];
     try {
       // The contact first (decay since the last visit, the daily greeting, lastSeen), then the records.
       contact = await this.store.contact(req.uid, req.lang, req.npcId, now, worldDayAt(now));
       record = contact ? await this.store.load(req.uid, req.lang, req.npcId) : null;
+      if (record) known = await this.food.knownRecipes(req.uid);
     } catch (err) {
       console.error(`[npc] loading ${req.uid}/${req.lang} for ${req.npcId} failed:`, err);
       return { ok: false, reason: "unavailable" };
@@ -229,10 +248,12 @@ export class NpcDialogueService {
       stock: this.stockFor(req.npcId, conversation.ledger),
       buys: this.buysFor(req.npcId, record.slots),
       inventory: entries(record.slots),
-      recipes: recipesTaughtBy(req.npcId).map((r) => ({ recipeId: r.id, heartsRequired: r.heartsRequired, known: record.knownRecipes.includes(r.id) })),
+      recipes: recipesTaughtBy(req.npcId).map((r) => ({ recipeId: r.id, heartsRequired: r.heartsRequired, known: known.includes(r.id) })),
       quests: [], // TODO(M30): active quests involving this NPC.
-      // Build plan M28: lost items the player carries. TODO(M29): what the player ate today.
-      flags: lostItemFlags(req.npcId, entries(record.slots)),
+      // Build plan M28: lost items the player carries; M29: what the player ate today.
+      flags: [...lostItemFlags(req.npcId, entries(record.slots)), ...this.food.flags(req.uid, req.npcId)],
+      // Build plan M29: the coffee buff's extra suggested-reply hint.
+      extraHints: this.food.extraHints(req.uid),
       hints: req.npcId === "gossip" ? (req.lostHints ?? []) : [],
       news: [], // TODO(M31): village events for the Gossip and the Elder.
       world: { timeOfDay: clock.timeOfDay, weather: weatherAt(now, WORLD_WEATHER_SEED).weather, location: schedulePointAt(npc, clock.minutes)?.place ?? npc.building, minutes: Math.floor(clock.minutes) },
@@ -257,8 +278,10 @@ export class NpcDialogueService {
     };
 
     let record: NpcPlayerRecord | null;
+    let known: string[];
     try {
       record = await this.store.load(uid, c.lang, c.npcId);
+      known = record ? await this.food.knownRecipes(uid) : [];
     } catch (err) {
       console.error(`[npc] loading ${uid}/${c.lang} failed:`, err);
       return restore("unavailable");
@@ -269,7 +292,7 @@ export class NpcDialogueService {
       npcId: c.npcId,
       hearts: record.hearts,
       inventory: itemCounts(record.slots),
-      knownRecipes: record.knownRecipes,
+      knownRecipes: known,
       questsOffered: [], // TODO(M30)
       questsCompletable: [], // TODO(M30)
       conversation: c.ledger,
@@ -281,6 +304,15 @@ export class NpcDialogueService {
     let slots = record.slots;
     let daily = verdict.daily;
     const { effects } = verdict;
+    // Build plan M29: taught recipes go into the recipe book first (a failure refuses the whole turn).
+    if (effects.recipes.length > 0) {
+      try {
+        await this.food.learnRecipes(uid, effects.recipes, c.npcId, c.lang);
+      } catch (err) {
+        console.error(`[npc] storing a taught recipe for ${uid} failed:`, err);
+        return restore("unavailable");
+      }
+    }
     if (effects.hearts !== 0 || effects.items.length > 0) {
       try {
         let result = await this.store.apply(uid, c.lang, { npcId: c.npcId, coins: 0, hearts: effects.hearts, items: effects.items });
@@ -300,7 +332,7 @@ export class NpcDialogueService {
         return restore("unavailable");
       }
     }
-    // TODO(M29/M30): store taught recipes and quest progress (accepted here, not persisted yet).
+    // TODO(M30): store quest progress (accepted here, not persisted yet).
     c.ledger = verdict.conversation;
     this.daily.set(dailyKey, daily);
     c.turnsUsed++;

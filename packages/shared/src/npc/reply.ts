@@ -16,9 +16,12 @@ import { NpcActionListSchema } from "./actions";
 export const NPC_EMOTIONS = ["neutral", "happy", "excited", "sad", "annoyed", "whisper", "tired", "proud", "nostalgic"] as const;
 export type NpcEmotion = (typeof NPC_EMOTIONS)[number];
 
-/** npc-runtime.md §1: 1–3 lines per turn, at most 3 suggested replies. */
+/**
+ * npc-runtime.md §1: 1–3 lines per turn, at most 3 suggested replies, plus the coffee buff's one
+ * extra hint (build plan M29), so 4 are kept.
+ */
 export const NPC_TURN_MAX_LINES = 3;
-export const NPC_TURN_MAX_SUGGESTIONS = 3;
+export const NPC_TURN_MAX_SUGGESTIONS = 4;
 /** npc-runtime.md §1.3: the correction note is at most 15 words. */
 export const CORRECTION_NOTE_MAX_WORDS = 15;
 /** Inline-tag transcript for TTS (M22), at most this long. */

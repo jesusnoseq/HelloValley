@@ -213,6 +213,12 @@ export class PlayerController {
   private pathDoor: DoorLink | null = null;
   private pushTime = 0;
   private pending: DoorLink | null = null;
+  /** Speed multiplier from buffs (build plan M29: bread +10 %); the server's move check uses the same one. */
+  speedFactor = 1;
+
+  setSpeedFactor(factor: number): void {
+    this.speedFactor = factor;
+  }
 
   constructor(
     start: SpacePoint,
@@ -285,7 +291,7 @@ export class PlayerController {
   update(dt: number): DoorLink | null {
     if (this.pending) return null;
     const grid = this.grids(this.state.space);
-    const speed = this.running ? RUN_SPEED_MPS : WALK_SPEED_MPS;
+    const speed = (this.running ? RUN_SPEED_MPS : WALK_SPEED_MPS) * (Number.isFinite(this.speedFactor) && this.speedFactor > 0 ? this.speedFactor : 1);
     let intent: Vec2 = [0, 0];
     let candidates: readonly DoorLink[] = spaceDoors(this.state.space);
 

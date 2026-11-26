@@ -8,6 +8,7 @@ import {
   AvatarAppearanceSchema,
   type CharacterManifest,
   type ClipTimings,
+  getSeat,
   isPrivateSpace,
 } from "@hellovalley/shared";
 import { characterAssetsWith } from "../characters/assetCache";
@@ -64,7 +65,8 @@ export function RemotePlayers() {
  * One remote avatar: drawn INTERP_DELAY_MS in the past between the room's snapshots
  * (net/interpolation.ts), with its own AnimationStateMachine fed by the synced motion and the
  * emotes the server relays. While they talk to an NPC (the synced `talkingTo`, build plan M23)
- * they play the talk clip and show the "chatting" indicator.
+ * they play the talk clip and show the "chatting" indicator. Seated (the synced `seat`, build plan
+ * M29) they are drawn on the seat, facing its way, playing the sit clip.
  */
 function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   const group = useRef<Group>(null);
@@ -75,6 +77,7 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   const lookRef = useRef(look);
   const talkingRef = useRef(info.talkingTo !== "");
   const activityRef = useRef(activityClip(info.activity));
+  const seatRef = useRef(info.seat ? (getSeat(info.seat) ?? null) : null);
   const animal = look.animal;
 
   // Before the build effect below, so a new character starts with the newest look.
@@ -87,6 +90,9 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
   useEffect(() => {
     activityRef.current = activityClip(info.activity);
   }, [info.activity]);
+  useEffect(() => {
+    seatRef.current = info.seat ? (getSeat(info.seat) ?? null) : null;
+  }, [info.seat]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,14 +135,15 @@ function RemoteAvatar({ info }: { info: RemotePlayerInfo }) {
     if (!g || !sample) return;
     // Mid-door the snapshot can still be in the previous space.
     g.visible = sample.space === info.space;
-    g.position.set(sample.x, 0, sample.z);
-    g.rotation.y = sample.heading;
+    const seat = seatRef.current && seatRef.current.space === sample.space ? seatRef.current : null;
+    g.position.set(seat ? seat.pos[0] : sample.x, 0, seat ? seat.pos[1] : sample.z);
+    g.rotation.y = seat ? seat.facing : sample.heading;
     const m = machine.current;
     if (m) {
       for (const emote of townLive.takeEmotes(info.sessionId)) m.playEmote(emote);
       // Talking to an NPC (build plan M23): the talk clip while standing.
       // Fishing (build plan M27): the cast and reel clips while standing.
-      const change = m.update({ motion: sample.motion, talking: talkingRef.current, activity: activityRef.current }, dt);
+      const change = m.update({ motion: sample.motion, seated: seat !== null, talking: talkingRef.current, activity: activityRef.current }, dt);
       if (change && character) character.play(change.clip, change.fade, change.restart);
     }
     character?.mixer.update(dt);

@@ -21,6 +21,17 @@ import {
   MAX_BLOCKED_PLAYERS,
   REPORT_MAX_MESSAGES,
   type EmoteBroadcast,
+  emptyRecipeBook,
+  EATING_ACTIVITY_MS,
+  type BuffsMessage,
+  type CookResultMessage,
+  type Emote,
+  type FoodEatenMessage,
+  judgeSit,
+  type RecipeId,
+  type SeatStateMessage,
+  STAND_UP_MOVE_M,
+  type Vec2,
   type IntercomEntry,
   type InventoryStateMessage,
   type IntercomListMessage,
@@ -71,6 +82,8 @@ import { FishingService } from "../fishing/fishing";
 import type { FishingStore } from "../fishing/fishingStore";
 import { ForageService } from "../forage/forage";
 import type { ForageStore } from "../forage/forageStore";
+import { FoodService } from "../food/food";
+import type { FoodStore } from "../food/foodStore";
 import { NpcDialogueService } from "../npc/dialogue";
 import type { NpcStore } from "../npc/npcStore";
 import type { ProfileStore } from "../profiles/profileStore";
@@ -146,6 +159,14 @@ const noForageStore: ForageStore = {
   returnLost: () => Promise.resolve(null),
 };
 const noForage = new ForageService(noForageStore);
+/** Knows no players: real rooms get the food service through `townRoomWith`. */
+const noFoodStore: FoodStore = {
+  book: () => Promise.resolve(emptyRecipeBook()),
+  learn: () => Promise.reject(new Error("no food store")),
+  cook: () => Promise.reject(new Error("no food store")),
+  eat: () => Promise.reject(new Error("no food store")),
+};
+const noFood = new FoodService(noFoodStore);
 const noNpcs = new NpcDialogueService(noNpcStore);
 const noInventory = new InventoryService(noNpcStore);
 
@@ -194,6 +215,15 @@ interface Session {
   biteTimer: Delayed | null;
   /** Pick-ups, returns and album reads run one after another (build plan M28). */
   forageChain: Promise<void>;
+  /** Bites, dishes and recipe book reads run one after another (build plan M29). */
+  foodChain: Promise<void>;
+  /** The seat the player sits on, and where their walker stood when they sat down. */
+  seat: string | null;
+  seatFrom: Vec2 | null;
+  /** Ends the synced "eating" activity. */
+  eatTimer: Delayed | null;
+  /** When the next buff runs out (food clock, ms): the world tick then sends `buffs:state` again. */
+  buffExpiry: number | null;
 }
 
 /** A delivered chat line, as the room remembers it for reports. */
@@ -241,6 +271,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected fishing: FishingService = noFishing;
   /** Daily forage spawns, pick-ups, lost items and the forage album (build plan M28). */
   protected forage: ForageService = noForage;
+  /** Eating, buffs, cooking and the recipe book (build plan M29). */
+  protected food: FoodService = noFood;
   /** Where joining players appear (tests start next to an NPC). */
   protected spawn: SpacePoint = TOWN_SPAWN;
   private readonly sessions = new Map<string, Session>();
@@ -305,6 +337,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.FishReel, (client, reel) => this.queueFishing(client.sessionId, () => this.onFishReel(client.sessionId, reel)));
     this.handle(ClientMessage.ForagePick, (client, { spawnId }) => this.queueForage(client.sessionId, () => this.onForagePick(client.sessionId, spawnId)));
     this.handle(ClientMessage.NpcReturn, (client, msg) => this.queueForage(client.sessionId, () => this.onNpcReturn(client.sessionId, msg)));
+    this.handle(ClientMessage.FoodEat, (client, { slot }) => this.queueFood(client.sessionId, () => this.onFoodEat(client.sessionId, slot)));
+    this.handle(ClientMessage.CookMake, (client, { recipeId }) => this.queueFood(client.sessionId, () => this.onCook(client.sessionId, recipeId)));
+    this.handle(ClientMessage.SeatSit, (client, { seatId }) => this.onSit(client.sessionId, seatId));
+    this.handle(ClientMessage.SeatStand, (client) => this.standUp(client.sessionId, true));
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
     this.handle(ClientMessage.VisitRequest, (client, { sessionId }) => this.onVisitRequest(client, sessionId));
     this.handle(ClientMessage.VisitAnswer, (client, { requestId, accept }) => this.onVisitAnswer(client, requestId, accept));
@@ -367,6 +403,11 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       fishingChain: Promise.resolve(),
       biteTimer: null,
       forageChain: Promise.resolve(),
+      foodChain: Promise.resolve(),
+      seat: null,
+      seatFrom: null,
+      eatTimer: null,
+      buffExpiry: null,
     });
     this.state.players.set(
       client.sessionId,
@@ -380,6 +421,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
         motion: "idle",
         talkingTo: "",
         activity: "",
+        seat: "",
       }),
     );
     // One session per uid: an older tab (in any shard) is disconnected.
@@ -394,6 +436,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.refreshInventory(client.sessionId);
     this.sendFishLog(client.sessionId);
     this.sendForageAlbum(client.sessionId);
+    this.sendBuffs(client.sessionId);
+    this.sendRecipeBook(client.sessionId);
     // Whoever muted this uid sees the new session id in their mute list.
     for (const [sessionId, other] of this.sessions) {
       if (sessionId !== client.sessionId && other.muted.has(uid)) this.sendSafety(sessionId);
@@ -423,8 +467,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
         this.inventory.forget(session.uid);
         this.fishing.forget(session.uid);
         this.forage.forget(session.uid);
+        this.food.forget(session.uid);
       }
       session.biteTimer?.clear();
+      session.eatTimer?.clear();
     }
     for (const visit of [...this.visits.values()]) {
       if (visit.visitor === client.sessionId || visit.owner === client.sessionId) this.closeVisit(visit, "unavailable");
@@ -469,6 +515,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     const grids: SpaceGrids = (space) =>
       space === "apartment" ? this.apartments.gridFor(session.apartmentHost ?? session.uid) : spaceGrid(space);
     const from = session.tracker.space;
+    // Build plan M29: a walk-speed buff (bread) widens the speed check by the same factor the client walks with.
+    session.tracker.speedFactor = this.food.speedFactor(session.uid);
     const verdict = validateMove(session.tracker, { space: move.space, pos: [move.x, move.z], heading: move.heading }, Date.now(), grids);
     if (!verdict.ok) {
       // TODO(M36): count rejections per session (speed hacks) toward a kick.
@@ -490,6 +538,9 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     player.z = move.z;
     player.heading = wrapAngle(move.heading);
     player.motion = move.motion;
+    // Walking off a seat stands the player up (build plan M29).
+    const sat = session.seatFrom;
+    if (session.seat && (move.space !== from || !sat || Math.hypot(move.x - sat[0], move.z - sat[1]) > STAND_UP_MOVE_M)) this.standUp(client.sessionId, true);
     // Walking away from the line ends the cast (build plan M27).
     const cast = this.fishing.pending(session.uid);
     if (cast && (move.space !== "town" || Math.hypot(move.x - cast.pos[0], move.z - cast.pos[1]) > CAST_MOVE_TOLERANCE_M)) {
@@ -511,12 +562,19 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     // Emotes play only while standing (the shared AnimationStateMachine refuses them otherwise).
     if (now - session.lastEmoteMs < EMOTE_COOLDOWN_MS || player.motion !== "idle") return;
     session.lastEmoteMs = now;
-    if (!isSpaceId(player.space)) return;
+    this.broadcastEmote(client.sessionId, emote);
+  }
+
+  /** Relays an emote to the others in the player's space (in an apartment, only that apartment). */
+  private broadcastEmote(sessionId: string, emote: Emote): void {
+    const session = this.sessions.get(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (!session || !player || !isSpaceId(player.space)) return;
     // In an apartment only the people in that same apartment see it.
     const host = isPrivateSpace(player.space) ? session.apartmentHost : null;
-    const message: EmoteBroadcast = { sessionId: client.sessionId, emote };
+    const message: EmoteBroadcast = { sessionId, emote };
     for (const other of this.clients) {
-      if (other === client) continue;
+      if (other.sessionId === sessionId) continue;
       if (this.state.players.get(other.sessionId)?.space !== player.space) continue;
       if (host !== null && this.sessions.get(other.sessionId)?.apartmentHost !== host) continue;
       other.send(ServerMessage.Emote, message);
@@ -640,6 +698,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     player.z = arrival.pos[1];
     player.heading = arrival.heading;
     player.motion = "idle";
+    this.standUp(visit.visitor, true);
     if (visitor.talkingTo) {
       this.npc.end(visitor.uid, visitor.conversationId ?? undefined);
       this.stopTalking(visit.visitor, visitor);
@@ -856,6 +915,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.clientOf(client.sessionId)?.send(ServerMessage.NpcApplied, result.applied);
     // An NPC's gift landed in the inventory.
     if (result.applied.accepted.some((a) => a.type === "give")) this.refreshInventory(client.sessionId);
+    // Build plan M29: a taught recipe is in the book now.
+    if (result.applied.accepted.some((a) => a.type === "teachRecipe")) this.sendRecipeBook(client.sessionId);
   }
 
   private async onNpcConfirm(client: TownClient, confirm: ClientMessagePayloads[typeof ClientMessage.NpcConfirm]): Promise<void> {
@@ -1032,6 +1093,111 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (session) this.queueForage(sessionId, () => this.sendAlbumNow(sessionId, session));
   }
 
+  // -------------------------------------------------------------------------------------------
+  // Eating, sitting and cooking (build plan M29, GDD §5.4): the server takes the bite, keeps the
+  // buffs, checks the seat and the kitchen against its own walker, and cooks in one transaction.
+
+  private queueFood(sessionId: string, task: () => Promise<void>): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    session.foodChain = session.foodChain.then(task).catch((err: unknown) => console.error(`[town] food for ${session.uid} failed:`, err));
+  }
+
+  private async onFoodEat(sessionId: string, slot: number): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const busy = this.fishing.pending(session.uid) !== undefined;
+    const result = await this.food.eat(session.uid, session.targetLang, slot, busy);
+    if (this.sessions.get(sessionId) !== session) return;
+    const message: FoodEatenMessage = result.message;
+    this.clientOf(sessionId)?.send(ServerMessage.FoodEaten, message);
+    if (!message.ok) return;
+    this.refreshInventory(sessionId);
+    this.sendBuffs(sessionId);
+    // Everyone around sees the bite (the eat clip), and the cake's cheer.
+    const player = this.state.players.get(sessionId);
+    if (player && player.activity === "") {
+      player.activity = "eating";
+      session.eatTimer?.clear();
+      session.eatTimer = this.clock.setTimeout(() => {
+        session.eatTimer = null;
+        if (player.activity === "eating") player.activity = "";
+      }, EATING_ACTIVITY_MS);
+    }
+    if (result.emote) this.broadcastEmote(sessionId, result.emote);
+  }
+
+  private async onCook(sessionId: string, recipeId: RecipeId): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const t = session.tracker;
+    const busy = this.fishing.pending(session.uid) !== undefined;
+    const result: CookResultMessage = await this.food.cook(session.uid, session.targetLang, recipeId, { space: t.space, pos: [t.pos[0], t.pos[1]], busy });
+    if (this.sessions.get(sessionId) !== session) return;
+    this.clientOf(sessionId)?.send(ServerMessage.CookResult, result);
+    if (result.ok) {
+      this.refreshInventory(sessionId);
+      await this.sendBookNow(sessionId, session);
+    }
+  }
+
+  /** `seat:sit`: on a free seat in reach of the server's walker. */
+  private onSit(sessionId: string, seatId: string): void {
+    const session = this.sessions.get(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (!session || !player) return;
+    const t = session.tracker;
+    const taken = [...this.sessions.entries()].some(([id, other]) => id !== sessionId && other.seat === seatId);
+    const busy = this.fishing.pending(session.uid) !== undefined;
+    const verdict = judgeSit(seatId, t.space, t.pos, taken, busy);
+    if (!verdict.ok) {
+      const refused: SeatStateMessage = { seatId: session.seat, refused: verdict.reason };
+      this.clientOf(sessionId)?.send(ServerMessage.SeatState, refused);
+      return;
+    }
+    session.seat = verdict.seat.id;
+    session.seatFrom = [t.pos[0], t.pos[1]];
+    player.seat = verdict.seat.id;
+    player.heading = verdict.seat.facing;
+    player.motion = "idle";
+    const message: SeatStateMessage = { seatId: verdict.seat.id };
+    this.clientOf(sessionId)?.send(ServerMessage.SeatState, message);
+  }
+
+  /** The player stands up (`seat:stand`, walking off, a teleport). */
+  private standUp(sessionId: string, tell: boolean): void {
+    const session = this.sessions.get(sessionId);
+    if (!session?.seat) return;
+    session.seat = null;
+    session.seatFrom = null;
+    const player = this.state.players.get(sessionId);
+    if (player) player.seat = "";
+    if (tell) {
+      const message: SeatStateMessage = { seatId: null };
+      this.clientOf(sessionId)?.send(ServerMessage.SeatState, message);
+    }
+  }
+
+  /** Sends the running buffs; the world tick sends them again when the next one runs out. */
+  private sendBuffs(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const message: BuffsMessage = { buffs: this.food.wireBuffs(session.uid) };
+    this.clientOf(sessionId)?.send(ServerMessage.Buffs, message);
+    session.buffExpiry = this.food.nextExpiry(session.uid);
+  }
+
+  private async sendBookNow(sessionId: string, session: Session): Promise<void> {
+    const book = await this.food.book(session.uid);
+    if (book && this.sessions.get(sessionId) === session) this.clientOf(sessionId)?.send(ServerMessage.RecipeBook, book);
+  }
+
+  /** Sends the player's recipe book. */
+  private sendRecipeBook(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) this.queueFood(sessionId, () => this.sendBookNow(sessionId, session));
+  }
+
   /** Refreshes the clock and weather in the state (wall time: survives restarts, architecture §3.1). */
   private tickWorld(): void {
     const now = Date.now();
@@ -1044,6 +1210,9 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     world.weatherSince = weather.slot * WEATHER_SLOT_MS;
     // Build plan M28: a new in-game day (on the forage service's clock) brings fresh spawns.
     this.syncForage();
+    // Build plan M29: a buff that ran out leaves the player's HUD.
+    const foodNow = this.food.now();
+    for (const [sessionId, session] of this.sessions) if (session.buffExpiry !== null && foodNow >= session.buffExpiry) this.sendBuffs(sessionId);
   }
 
   /** Registers a handler that only ever sees payloads that passed the shared schema. */
@@ -1080,6 +1249,8 @@ export interface TownRoomDeps {
   fishing?: FishingService;
   /** Daily spawns per shard, pick-ups, returns and the forage album (build plan M28); shared by every shard. */
   forage?: ForageService;
+  /** Eating, buffs, cooking and the recipe book (build plan M29); shared by every shard so buffs follow the player. */
+  food?: FoodService;
 }
 
 export interface TownRoomOptions {
@@ -1097,6 +1268,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
   const inventory = deps.inventory ?? noInventory;
   const fishing = deps.fishing ?? noFishing;
   const forage = deps.forage ?? noForage;
+  const food = deps.food ?? noFood;
   return class extends TownRoom {
     override maxClients = options.maxClients ?? TOWN_MAX_CLIENTS;
     protected override verifier = deps.verifier;
@@ -1109,6 +1281,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override inventory = inventory;
     protected override fishing = fishing;
     protected override forage = forage;
+    protected override food = food;
     protected override spawn = options.spawn ?? TOWN_SPAWN;
   };
 }

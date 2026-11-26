@@ -6,7 +6,7 @@ import { INTERIOR_FURNITURE, type FurnitureModuleId } from "../world/interiors";
  * module and variant (M08) whose placement footprint comes from `INTERIOR_FURNITURE`. Two kinds:
  *
  * - **Studio pieces** come with every apartment (the M13 starting furniture). The kitchen nook
- *   and the mirror are built-ins (`fixed`): the kitchen is where cooking happens (TODO(M29)) and
+ *   and the mirror are built-ins (`fixed`): the kitchen is where cooking happens (build plan M29, food/cooking.ts) and
  *   the mirror is the appearance editor's interactable (M15), so they stay where they are.
  * - **Shop furniture** is the `furniture` items of `data/items.ts` (their look is
  *   `FURNITURE_ITEM_LOOKS`). The studio starts with some of them already placed.

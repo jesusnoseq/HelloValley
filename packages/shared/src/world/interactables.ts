@@ -6,6 +6,7 @@ import { buildingDoors, townBuilding, type Vec2 } from "./town";
 import type { NpcId } from "../data/npcs";
 import { NPC_TALK_RADIUS_M, npcsInSpace } from "./npcPosts";
 import { furnitureLabelKey, INTERCOM_LABEL_KEY, npcLabelKey } from "./labels";
+import { KITCHEN_REACH_M } from "../food/cooking";
 
 /**
  * Things the player can use with F (GDD §10) when standing next to them (build plan M15 starts
@@ -13,9 +14,11 @@ import { furnitureLabelKey, INTERCOM_LABEL_KEY, npcLabelKey } from "./labels";
  * spots, so the server can check the same distances later.
  * Build plan M17 adds the lobby intercom in town, M23 the villagers at their posts (npcPosts.ts).
  * Build plan M25: every interactable has a `labelKey` (world labels, labels.ts).
+ * Build plan M29: the apartment kitchen nook (F opens the kitchen and its recipe cards). Seats are
+ * not interactables: they have their own reach (food/seats.ts).
  */
 
-export type InteractableKind = "mirror" | "intercom" | "npc";
+export type InteractableKind = "mirror" | "intercom" | "npc" | "kitchen";
 
 export interface Interactable {
   id: string;
@@ -78,6 +81,9 @@ export function spaceInteractables(space: SpaceId): readonly Interactable[] {
     const spot = interiorLayout("apartment").spots.mirror;
     // The mirror hangs on the west wall (x = 0), so it is faced looking west.
     if (spot) list.push({ id: "apartment:mirror", kind: "mirror", space, spot, facing: headingFor([-1, 0]), radius: MIRROR_RADIUS_M, labelKey: furnitureLabelKey("mirror") });
+    // The kitchen nook stands against the north wall (z = 0), so it is faced looking north.
+    const kitchen = interiorLayout("apartment").spots.kitchen;
+    if (kitchen) list.push({ id: "apartment:kitchen", kind: "kitchen", space, spot: kitchen, facing: headingFor([0, -1]), radius: KITCHEN_REACH_M, labelKey: furnitureLabelKey("kitchen.nook") });
   }
   for (const post of npcsInSpace(space)) {
     // You face the NPC from wherever you stand; `facing` is the NPC's own resting heading.

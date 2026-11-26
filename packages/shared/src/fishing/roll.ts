@@ -24,14 +24,25 @@ export const SHADOW_FOR_RARITY: Readonly<Record<Rarity, FishShadow>> = {
   legendary: "large",
 };
 
-/** The table for one cast: the species that bite in these conditions, rare ones boosted by the cast distance (0–1). */
-export function castTable(conditions: FishingConditions, distance01: number): WeightedEntry<FishId>[] {
+/**
+ * Fishing luck (build plan M29: the fish stew buff, GDD §5.4 "better fishing luck", food/buffs.ts)
+ * multiplies rare and legendary weights by 1 + luck × this and uncommon ones by 1 + luck × half
+ * of it (my numbers: the stew's 0.2 doubles rare fish and makes uncommon ones 1.5× as likely).
+ */
+export const LUCK_RARE_SCALE = 5;
+
+/**
+ * The table for one cast: the species that bite in these conditions, rare ones boosted by the cast
+ * distance (0–1) and by fishing luck (0–0.5).
+ */
+export function castTable(conditions: FishingConditions, distance01: number, luck = 0): WeightedEntry<FishId>[] {
   const d = Math.min(1, Math.max(0, Number.isFinite(distance01) ? distance01 : 0));
-  // TODO(M29): the fish stew buff ("better fishing luck", GDD §5.4) boosts rare fish here too.
+  const l = Math.min(0.5, Math.max(0, Number.isFinite(luck) ? luck : 0));
   return fishTable(conditions).map((e) => {
     const rarity = getFish(e.value)!.rarity;
-    const boosted = rarity === "rare" || rarity === "legendary";
-    return boosted ? { value: e.value, weight: e.weight * (1 + DISTANCE_RARE_BONUS * d) } : e;
+    if (rarity === "rare" || rarity === "legendary") return { value: e.value, weight: e.weight * (1 + DISTANCE_RARE_BONUS * d) * (1 + LUCK_RARE_SCALE * l) };
+    if (rarity === "uncommon" && l > 0) return { value: e.value, weight: e.weight * (1 + (LUCK_RARE_SCALE / 2) * l) };
+    return e;
   });
 }
 
@@ -45,8 +56,8 @@ export interface CastRoll {
 }
 
 /** Rolls a cast, or null when nothing bites here (never in the town: minnows bite everywhere). */
-export function rollCast(conditions: FishingConditions, distance01: number, rng: Rng): CastRoll | null {
-  const fishId = pickWeighted(castTable(conditions, distance01), rng);
+export function rollCast(conditions: FishingConditions, distance01: number, rng: Rng, luck = 0): CastRoll | null {
+  const fishId = pickWeighted(castTable(conditions, distance01, luck), rng);
   if (!fishId) return null;
   const biteDelayMs = Math.round(BITE_DELAY_MIN_MS + (BITE_DELAY_MAX_MS - BITE_DELAY_MIN_MS) * rng());
   const reelSeed = Math.floor(rng() * 2 ** 31);

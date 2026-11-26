@@ -52,6 +52,8 @@ export interface FishingServiceOptions {
   now?: () => number;
   /** Mixed into every cast's seed; random per process by default, fixed in tests. */
   seed?: number;
+  /** The player's fishing luck (build plan M29: the fish stew buff, from the food service). */
+  luck?: (uid: string) => number;
 }
 
 export class FishingService {
@@ -61,6 +63,7 @@ export class FishingService {
   private counter = 0;
   readonly now: () => number;
   private readonly seed: number;
+  private readonly luck: (uid: string) => number;
 
   constructor(
     private readonly store: FishingStore,
@@ -68,6 +71,7 @@ export class FishingService {
   ) {
     this.now = options.now ?? Date.now;
     this.seed = options.seed ?? randomInt(2 ** 31);
+    this.luck = options.luck ?? (() => 0);
   }
 
   /** The player's open cast, if any (expired ones are dropped). */
@@ -104,7 +108,7 @@ export class FishingService {
       const castAt = this.now();
       const conditions = { timeOfDay: worldClockAt(castAt).timeOfDay, weather: weatherAt(castAt, WORLD_WEATHER_SEED).weather, spot };
       const rng = createRng(seedFrom(this.seed, uid, this.counter++, castAt));
-      const roll = rollCast(conditions, landing.distance / CAST_MAX_M, rng);
+      const roll = rollCast(conditions, landing.distance / CAST_MAX_M, rng, this.luck(uid));
       if (!roll) return { ok: false, reason: "no_water" };
       const cast: PendingCast = {
         castId: randomUUID(),

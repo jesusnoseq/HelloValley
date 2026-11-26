@@ -154,6 +154,7 @@ export class ConversationController {
       coins: ctx.coins,
       style: suggestionStyle(ctx.effectiveLevel),
       suggestions: starterSuggestions(npcId, ctx.lang, ctx.nativeLang, ctx.effectiveLevel),
+      extraHint: ctx.extraHints > 0 ? "available" : "none",
     });
     const opener = await conversation.opener();
     if (generation !== this.generation) return;
@@ -241,6 +242,11 @@ export class ConversationController {
     this.set({ hintShown: true });
   }
 
+  /** The coffee's extra hint (build plan M29): one more suggested reply, for this turn only, once per conversation. */
+  revealExtraHint(): void {
+    if (this.state.extraHint === "available") this.set({ extraHint: "shown", hintShown: true });
+  }
+
   private async check(text: string): Promise<{ native: boolean; feedback: { better: string; note?: string } | null }> {
     const none = { native: false, feedback: null };
     const ctx = this.state.context;
@@ -269,7 +275,14 @@ export class ConversationController {
     const entry: LogEntry = { id: this.id(), kind: "player", text, method, ...(native ? { native: true } : {}) };
     if (method === "suggested") this.telemetry.suggested++;
     else this.telemetry.free++;
-    this.set({ phase: "thinking", log: [...this.state.log, entry], streaming: [], notice: native ? { kind: "native" } : null, hintShown: false });
+    this.set({
+      phase: "thinking",
+      log: [...this.state.log, entry],
+      streaming: [],
+      notice: native ? { kind: "native" } : null,
+      hintShown: false,
+      extraHint: this.state.extraHint === "shown" ? "used" : this.state.extraHint,
+    });
     const result = await conversation.say(text, method, (lines) => {
       if (generation === this.generation) this.set({ streaming: lines });
     });
@@ -304,7 +317,8 @@ export class ConversationController {
       const card = this.infoCard(action);
       if (card) cards.push(card);
     }
-    const suggestions: SuggestedReply[] = reply.suggestedReplies.slice(0, requestedSuggestions(ctx.effectiveLevel));
+    // The coffee's extra hint (build plan M29) asked the model for one more; the panel holds it back until revealed.
+    const suggestions: SuggestedReply[] = reply.suggestedReplies.slice(0, requestedSuggestions(ctx.effectiveLevel) + Math.min(1, ctx.extraHints));
     this.set({
       log,
       cards,

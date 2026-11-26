@@ -22,6 +22,7 @@ import { RemoteTrack, type RemoteSample } from "./interpolation";
 import { chat } from "./chatSession";
 import { attachFishing } from "./fishingSession";
 import { attachForage } from "./forageSession";
+import { attachFood } from "./foodSession";
 import { attachInventory } from "./inventorySession";
 import { attachVisitMessages } from "./visitSession";
 
@@ -41,8 +42,10 @@ export interface RemotePlayerInfo {
   space: SpaceId;
   /** The NPC they are talking to, or "" (build plan M23: the "chatting" indicator). */
   talkingTo: string;
-  /** "" or "fishing" / "reeling" (build plan M27): the fishing clips. */
+  /** "" or "fishing" / "reeling" (build plan M27), "eating" (M29): those clips. */
   activity: string;
+  /** The seat they sit on (shared food/seats.ts id), or "" (build plan M29). */
+  seat: string;
 }
 
 export interface TownSessionState {
@@ -120,7 +123,7 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
   townLive.welcomed = false;
   townSession.setState({ room, shard: null, remotes: {} });
 
-  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room)];
+  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room), attachFood(room)];
   offs.push(
     room.onMessage(ServerMessage.Welcome, (welcome: WelcomeMessage) => {
       townLive.spawn = welcome.spawn;
@@ -146,9 +149,10 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
     const prev = townSession.getState().remotes[sessionId];
     const talkingTo = p.talkingTo ?? "";
     const activity = p.activity ?? "";
-    if (prev && prev.name === p.name && prev.appearance === p.appearance && prev.space === p.space && prev.talkingTo === talkingTo && prev.activity === activity) return;
+    const seat = p.seat ?? "";
+    if (prev && prev.name === p.name && prev.appearance === p.appearance && prev.space === p.space && prev.talkingTo === talkingTo && prev.activity === activity && prev.seat === seat) return;
     townSession.setState((s) => ({
-      remotes: { ...s.remotes, [sessionId]: { sessionId, name: p.name, appearance: p.appearance, space: p.space, talkingTo, activity } },
+      remotes: { ...s.remotes, [sessionId]: { sessionId, name: p.name, appearance: p.appearance, space: p.space, talkingTo, activity, seat } },
     }));
   };
 

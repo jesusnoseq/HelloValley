@@ -1,11 +1,12 @@
 import { type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useId, useRef, useState } from "react";
-import { type InputMethod, type NpcId, type ScriptCode, type SuggestedReply, PLAYER_TEXT_MAX_LENGTH } from "@hellovalley/shared";
+import { type InputMethod, isRecipeId, type NpcId, PLAYER_TEXT_MAX_LENGTH, requestedSuggestions, type ScriptCode, type SuggestedReply } from "@hellovalley/shared";
 import type { TtsSpeaker } from "../../ai/tts";
 import { useLabelMap } from "../../labels/labelStore";
 import { languageDisplayName } from "../../i18n/i18n";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { MessageKey } from "../../i18n/messages.en";
 import { type Card, type ConversationNotice, type ConversationState, type LogEntry, useConversation } from "../../state/conversationStore";
+import { RecipeCard } from "../food/RecipeCard";
 import { SpeechBubble } from "../speech/SpeechBubble";
 import { VoiceControls } from "../speech/VoiceControls";
 import type { VoicePlayer } from "../speech/voicePlayer";
@@ -134,7 +135,11 @@ export function ConversationPanel({ controller, tts, voice, speech, loadFont }: 
   const npcLines = state.log.flatMap((e) => (e.kind === "npc" ? [e.line] : []));
   const newest = findLast(state.log, (e) => e.kind === "npc");
   const lastPlayer = findLast(state.log, (e) => e.kind === "player");
-  const showSuggestions = canType && state.suggestions.length > 0 && (state.style !== "hint" || state.hintShown);
+  // Build plan M29: the coffee's extra suggestion stays hidden until its button is pressed.
+  const baseCount = context ? requestedSuggestions(context.effectiveLevel) : state.suggestions.length;
+  const shownSuggestions = state.extraHint === "shown" ? state.suggestions : state.suggestions.slice(0, baseCount);
+  const extraWaiting = state.extraHint === "available" && state.suggestions.length > baseCount;
+  const showSuggestions = canType && shownSuggestions.length > 0 && (state.style !== "hint" || state.hintShown);
 
   return (
     <section ref={panel} className="hv-convo" role="dialog" aria-labelledby={titleId} onKeyDown={onPanelKeyDown}>
@@ -247,9 +252,14 @@ export function ConversationPanel({ controller, tts, voice, speech, loadFont }: 
               {t("convo.hint.show")}
             </button>
           ) : null}
+          {extraWaiting && phase === "open" ? (
+            <button type="button" style={{ justifySelf: "start" }} onClick={() => controller.revealExtraHint()}>
+              {t("convo.hint.extra")}
+            </button>
+          ) : null}
           {showSuggestions ? (
             <Suggestions
-              suggestions={state.suggestions}
+              suggestions={shownSuggestions}
               label={t(state.style === "replies" ? "convo.suggestions" : "convo.starter")}
               lang={context?.lang}
               nativeLang={context?.nativeLang}
@@ -429,7 +439,16 @@ function CardView({ card, name, coins, controller, onDone }: { card: Card; name:
   }, [open]);
   if (card.kind === "gift") return <p className="hv-card">🎁 {t("convo.card.gift", { name, item: itemName(card.itemId, labels) })}</p>;
   if (card.kind === "quest") return <p className="hv-card">📜 {t("convo.card.quest", { name, quest: itemName(card.questId, labels) })}</p>;
-  if (card.kind === "recipe") return <p className="hv-card">📖 {t("convo.card.recipe", { name, recipe: itemName(card.recipeId, labels) })}</p>;
+  if (card.kind === "recipe") {
+    // Build plan M29: the recipe card itself, written in the target language.
+    const lang = controller.store.getState().context?.lang;
+    return (
+      <div className="hv-card">
+        <p>📖 {t("convo.card.recipe", { name, recipe: itemName(card.recipeId, labels) })}</p>
+        {lang && isRecipeId(card.recipeId) ? <RecipeCard recipeId={card.recipeId} lang={lang} /> : null}
+      </div>
+    );
+  }
   if (card.kind === "given") {
     return (
       <p className="hv-card" role="status">

@@ -10,6 +10,7 @@ import { NpcActionListSchema } from "../npc/actions";
 import { TOTAL_SLOTS } from "../npc/inventory";
 import { ConversationTelemetrySchema, NpcMemoryPayloadSchema } from "../npc/memory";
 import { INTERIOR_IDS } from "../world/interiors";
+import { RECIPE_IDS, type RecipeId } from "../data/recipes";
 import { CHAT_MAX_LENGTH, CHAT_REPORT_REASONS, ClientMessage } from "./messages";
 
 /** Sanity bound for world coordinates in metres (the town itself is TOWN_BOUNDS, world/town.ts). */
@@ -160,6 +161,16 @@ export const ForagePickSchema = z.strictObject({ spawnId: SpawnIdSchema });
 /** `npc:return`: a lost item id; the server checks the conversation, the owner and the bag. */
 export const NpcReturnSchema = z.strictObject({ conversationId: NpcTokenSchema, itemId: z.enum(LOST_ITEM_IDS as [LostItemId, ...LostItemId[]]) });
 
+/** `food:eat` (build plan M29): a slot index; the server checks it is a hotbar slot holding food. */
+export const FoodEatSchema = z.strictObject({ slot: slotIndex });
+/** Seat ids are `bench-<n><a|b>` or `cafe-chair-<n>` (food/seats.ts). */
+export const SeatIdSchema = z.string().regex(/^[a-z]+(?:-[a-z]+)?-\d{1,3}[ab]?$/);
+/** `seat:sit`: the seat; the server checks the space, the reach and that it is free. */
+export const SeatSitSchema = z.strictObject({ seatId: SeatIdSchema });
+export const SeatStandSchema = z.strictObject({}).optional();
+/** `cook:make`: a recipe id; the server checks the kitchen, the recipe book and the ingredients. */
+export const CookMakeSchema = z.strictObject({ recipeId: z.enum(RECIPE_IDS as [RecipeId, ...RecipeId[]]) });
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -186,6 +197,10 @@ export const ClientMessageSchemas = {
   [ClientMessage.FishReel]: FishReelSchema,
   [ClientMessage.ForagePick]: ForagePickSchema,
   [ClientMessage.NpcReturn]: NpcReturnSchema,
+  [ClientMessage.FoodEat]: FoodEatSchema,
+  [ClientMessage.SeatSit]: SeatSitSchema,
+  [ClientMessage.SeatStand]: SeatStandSchema,
+  [ClientMessage.CookMake]: CookMakeSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

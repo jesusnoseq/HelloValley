@@ -14,3 +14,4 @@ export * from "./npc/index";
 export * from "./srs/index";
 export * from "./fishing/index";
 export * from "./forage/index";
+export * from "./food/index";

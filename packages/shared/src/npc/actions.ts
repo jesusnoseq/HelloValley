@@ -188,7 +188,7 @@ export interface ActionContext {
   hearts: number;
   /** How many of each item the player holds. */
   inventory: Readonly<Partial<Record<string, number>>>;
-  /** Recipes the player already knows. TODO(M29): learned-recipe storage. */
+  /** Recipes the player already knows (the recipe book, build plan M29). */
   knownRecipes: readonly string[];
   /** Quests this NPC offers this player today. TODO(M30): daily requests. */
   questsOffered: readonly string[];

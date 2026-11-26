@@ -11,7 +11,9 @@ import {
   type ClipTimings,
   emoteForKey,
   fishingSpotAt,
+  getSeat,
   headingTowards,
+  nearestSeat,
   nearestInteractable,
   nearestSpawn,
   npcPost,
@@ -35,6 +37,8 @@ import { dioramaStore } from "../state/dioramaStore";
 import { fishingActive, fishingLive, fishingStore } from "../state/fishingStore";
 import { forageStore } from "../state/forageStore";
 import { sendPick } from "../net/forageSession";
+import { sendSit, sendStand } from "../net/foodSession";
+import { foodStore, localSpeedFactor } from "../state/foodStore";
 import { inventoryStore } from "../state/inventoryStore";
 import { notebookStore } from "../state/notebookStore";
 import { placementStore } from "../state/placementStore";
@@ -65,6 +69,7 @@ function inputPaused(): boolean {
     chat.store.getState().typing ||
     notebookStore.getState().open ||
     inventoryStore.getState().open ||
+    foodStore.getState().kitchenOpen ||
     fishingActive()
   );
 }
@@ -98,7 +103,11 @@ function clipTimings(manifest: CharacterManifest): ClipTimings {
  * away (keys or a click elsewhere) ends the conversation. Fishing (build plan M27): while a line is
  * out the walker stands still facing the cast and plays fish_cast, then fish_reel in the mini-game;
  * the fishing layer (ui/fishing) reads where the player stands. Foraging (build plan M28): F next to
- * a forage spawn or a lost item picks it up (the server checks the range). TODO(M29): the `seated` input.
+ * a forage spawn or a lost item picks it up (the server checks the range). Eating and sitting
+ * (build plan M29): F at the apartment kitchen opens the recipe cards; F next to a bench or café
+ * chair sits down (the avatar is drawn on the seat playing `sit`, the walker stays beside it) and
+ * walking (or F again) stands up; a bite plays the eat clip; a walk-speed buff (bread) makes the
+ * walker faster by the same factor the server's movement check allows.
  */
 export function Player({ start }: { start: SpacePoint }) {
   // The apartment's walkability follows its furniture layout (build plan M17).
@@ -183,6 +192,7 @@ export function Player({ start }: { start: SpacePoint }) {
       if (e.code === "KeyF" && fade.current.phase === "idle" && nearby && nearby !== "npc") {
         keys.clear();
         if (nearby === "mirror") avatarStore.getState().openMirror();
+        else if (nearby === "kitchen") foodStore.setState({ kitchenOpen: true });
         else openIntercom();
         return;
       }
@@ -191,6 +201,14 @@ export function Player({ start }: { start: SpacePoint }) {
       if (e.code === "KeyF" && fade.current.phase === "idle" && !nearby && spawn && conversationStore.getState().phase === "idle") {
         keys.clear();
         sendPick(spawn);
+        return;
+      }
+      // Build plan M29: F sits on the seat in reach, or stands up again.
+      const food = foodStore.getState();
+      if (e.code === "KeyF" && fade.current.phase === "idle" && !nearby && conversationStore.getState().phase === "idle" && (food.seat || food.nearbySeat)) {
+        keys.clear();
+        if (food.seat) sendStand();
+        else if (food.nearbySeat) sendSit(food.nearbySeat);
         return;
       }
       const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
@@ -298,6 +316,10 @@ export function Player({ start }: { start: SpacePoint }) {
       const run = RUN_KEYS.some((k) => keys.has(k));
       controller.setInput(screenToWorld(screenDirection(keys), yawForStep(dioramaStore.getState().cameraStep)), run);
     }
+    // Build plan M29: bread's walk-speed buff (the server allows the same factor).
+    const food = foodStore.getState();
+    const nowMs = Date.now();
+    controller.setSpeedFactor(localSpeedFactor(food, nowMs));
     let enteredDoor = false;
     if (fade.current.phase === "idle" && controller.update(dt)) {
       fade.current = startFade();
@@ -323,6 +345,12 @@ export function Player({ start }: { start: SpacePoint }) {
     const forage = forageStore.getState();
     const reach = fade.current.phase === "idle" && space === "town" ? (nearestSpawn(Object.values(forage.spawns), pos)?.spawnId ?? null) : null;
     if (reach !== forage.nearby) forageStore.setState({ nearby: reach });
+    // Seats (build plan M29): walking off one stands up; otherwise the one within reach is what F sits on.
+    if (food.seat && motion !== "idle") sendStand();
+    const seated = food.seat ? getSeat(food.seat) : undefined;
+    const sitOn = seated && seated.space === space ? seated : null;
+    const seatNear = fade.current.phase === "idle" && !sitOn ? (nearestSeat(space, pos)?.id ?? null) : null;
+    if (seatNear !== food.nearbySeat) foodStore.setState({ nearbySeat: seatNear });
     fishingLive.heading = heading.current;
 
     cameraRig.follow = [pos[0], 0, pos[1]];
@@ -338,6 +366,8 @@ export function Player({ start }: { start: SpacePoint }) {
     const castHeading = fishingActive(fishing) ? fishing.heading : null;
     const faceTo = mirrorOpen
       ? cameraRig.yaw
+      : sitOn
+        ? sitOn.facing
       : castHeading !== null
         ? castHeading
         : talking && motion === "idle"
@@ -346,14 +376,16 @@ export function Player({ start }: { start: SpacePoint }) {
     heading.current = dampAngle(heading.current, faceTo, TURN_RATE, dt);
     const g = avatar.current;
     if (g) {
-      g.position.set(pos[0], 0, pos[1]);
+      g.position.set(sitOn ? sitOn.pos[0] : pos[0], 0, sitOn ? sitOn.pos[1] : pos[1]);
       g.rotation.y = heading.current;
     }
     const m0 = machine.current;
     if (m0) {
       const reeling = fishing.phase === "reeling" || fishing.phase === "landing";
-      const activity = fishingActive(fishing) ? (reeling ? "fish_reel" : "fish_cast") : undefined;
-      const change = m0.update({ motion, talking, activity }, dt);
+      const activity = fishingActive(fishing) ? (reeling ? "fish_reel" : "fish_cast") : nowMs < food.eatingUntil ? "eat" : undefined;
+      // The cake's cheer (build plan M29) arrives for the local avatar like a remote emote.
+      if (selfSession) for (const emote of townLive.takeEmotes(selfSession)) m0.playEmote(emote);
+      const change = m0.update({ motion, seated: sitOn !== null, talking, activity }, dt);
       if (change && character) character.play(change.clip, change.fade, change.restart);
     }
     character?.mixer.update(dt);

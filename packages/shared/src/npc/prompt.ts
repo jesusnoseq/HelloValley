@@ -107,7 +107,8 @@ export function buildNpcTurnVariables(ctx: NpcContextMessage, player: NpcPlayerI
     cefr_descriptor: cefrDescriptor(ctx.effectiveLevel, ctx.simplified),
     max_words_per_line: maxWordsPerLine(ctx.effectiveLevel),
     // C1+ asks for one reply too: the panel hides it behind the 💡 button (GDD §6.2).
-    num_suggestions: requestedSuggestions(ctx.effectiveLevel),
+    // Build plan M29: the coffee buff asks for one more (the panel offers it once, as an extra hint).
+    num_suggestions: requestedSuggestions(ctx.effectiveLevel) + Math.max(0, Math.min(1, Math.floor(ctx.extraHints))),
     script_note: scriptNote(ctx.lang),
     hearts: Math.round(ctx.hearts * 2) / 2,
     friendship_band_hint: friendshipBandHint(ctx.hearts),

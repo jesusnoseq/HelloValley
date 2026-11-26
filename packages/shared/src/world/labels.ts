@@ -2,6 +2,7 @@ import type { Vec3 } from "../buildings/assemble";
 import { BUILDING_RECIPE_IDS, type BuildingRecipeId } from "../buildings/schema";
 import { ITEM_IDS, itemLabelKey } from "../data/items";
 import { getNpc, NPC_IDS, type NpcId } from "../data/npcs";
+import { recipeCardLabels } from "../food/recipeCard";
 import { INTERIOR_FURNITURE, interiorLayout, type FurnitureModuleId, type InteriorPiece, pieceArea } from "./interiors";
 import { NPC_PICK_HALF_M, NPC_PICK_HEIGHT_M, npcsInSpace } from "./npcPosts";
 import { rayBox, type SpaceId, spaceDoors } from "./player";
@@ -108,6 +109,8 @@ function buildRegistry(): Readonly<Record<string, string>> {
   out[SIGN_LABEL_KEY] = "sign";
   out[CLOTHING_LABEL_KEYS.shirt] = "shirt";
   out[CLOTHING_LABEL_KEYS.trousers] = "trousers";
+  // Build plan M29: the words of recipe cards (headings, cooking verbs, "any fish" groups).
+  Object.assign(out, recipeCardLabels());
   return out;
 }
 

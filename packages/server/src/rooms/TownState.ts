@@ -19,8 +19,10 @@ export const TownPlayer = schema(
     motion: t.string(),
     /** The NPC this player is talking to, or "" (build plan M23: bystanders see "chatting"). */
     talkingTo: t.string(),
-    /** "" or "fishing" / "reeling" (build plan M27): remote avatars play the fishing clips. */
+    /** "" or "fishing" / "reeling" (build plan M27), "eating" (M29): remote avatars play those clips. */
     activity: t.string(),
+    /** The seat (shared food/seats.ts id) the player sits on, or "" (build plan M29). */
+    seat: t.string(),
   },
   "TownPlayer",
 );

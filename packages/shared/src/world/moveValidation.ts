@@ -18,6 +18,8 @@ import type { Area, Vec2 } from "./town";
  *   zone the walker was at, arriving next to that door's far side.
  *
  * A rejected report leaves the tracker unchanged; the server corrects the client to it.
+ * Build plan M29: a walk-speed buff (bread) raises the refill rate and the cap by the tracker's
+ * `speedFactor`, the same factor the client's PlayerController walks with.
  */
 
 /** Allowed speed over the run speed (frame timing, float error). */
@@ -46,6 +48,8 @@ export interface MoveTracker {
   budget: number;
   /** Server time (ms) of the last refill. */
   lastMs: number;
+  /** Speed multiplier from buffs (1 without; build plan M29). The server sets it before each check. */
+  speedFactor?: number;
 }
 
 export interface MoveClaim {
@@ -66,13 +70,20 @@ export function resetMoveTracker(tracker: MoveTracker, point: SpacePoint, nowMs:
   tracker.space = point.space;
   tracker.pos = [point.pos[0], point.pos[1]];
   tracker.heading = point.heading;
-  tracker.budget = MOVE_BUDGET_CAP_M;
+  tracker.budget = MOVE_BUDGET_CAP_M * trackerSpeedFactor(tracker);
   tracker.lastMs = nowMs;
+}
+
+/** The tracker's speed multiplier, kept to a sane range (a bad value never grants more than 1.5×). */
+export function trackerSpeedFactor(tracker: Pick<MoveTracker, "speedFactor">): number {
+  const f = tracker.speedFactor ?? 1;
+  return Number.isFinite(f) ? Math.min(1.5, Math.max(1, f)) : 1;
 }
 
 function refill(tracker: MoveTracker, nowMs: number): void {
   const dt = Math.max(0, nowMs - tracker.lastMs) / 1000;
-  tracker.budget = Math.min(MOVE_BUDGET_CAP_M, tracker.budget + dt * MOVE_BUDGET_RATE_MPS);
+  const f = trackerSpeedFactor(tracker);
+  tracker.budget = Math.min(MOVE_BUDGET_CAP_M * f, tracker.budget + dt * MOVE_BUDGET_RATE_MPS * f);
   tracker.lastMs = Math.max(tracker.lastMs, nowMs);
 }
 

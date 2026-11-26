@@ -38,6 +38,8 @@ const InventoryLayer = lazy(() => import("./ui/inventory/InventoryLayer").then((
 const FishingLayer = lazy(() => import("./ui/fishing/FishingLayer").then((m) => ({ default: m.FishingLayer })));
 // Build plan M28: the pick-up hint and notice and the forage album (its own lazy chunk).
 const ForageLayer = lazy(() => import("./ui/forage/ForageLayer").then((m) => ({ default: m.ForageLayer })));
+// Build plan M29: eating from the hotbar, the buff HUD, seats and the kitchen's recipe cards (its own lazy chunk).
+const FoodLayer = lazy(() => import("./ui/food/FoodLayer").then((m) => ({ default: m.FoodLayer })));
 
 const card: CSSProperties = {
   position: "fixed",
@@ -158,6 +160,9 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       </Suspense>
       <Suspense fallback={null}>
         <ForageLayer />
+      </Suspense>
+      <Suspense fallback={null}>
+        <FoodLayer />
       </Suspense>
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>

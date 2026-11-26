@@ -9,6 +9,7 @@ import { FORAGE_IDS, type ForageId, LOST_ITEM_IDS, type LostItemId } from "../da
 import { ItemIdSchema } from "../data/items";
 import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
+import { RECIPE_IDS, type RecipeId } from "../data/recipes";
 import { ClothingColorSchema } from "../data/palette";
 import { StyleIdSchema } from "../data/styles";
 import { SCRIPT_MODES } from "../language/scriptMode";
@@ -284,6 +285,25 @@ export const ForageAlbumDocSchema = z.strictObject({
   ),
 });
 export type ForageAlbumDoc = z.infer<typeof ForageAlbumDocSchema>;
+
+/**
+ * `users/{uid}/collections/recipes`: the recipe book (build plan M29), server-only like the fish
+ * encyclopedia and the forage album. One entry per recipe an NPC taught the player (through an
+ * accepted `teachRecipe`), with who taught it, in which target language, when, and how many dishes
+ * were cooked from it. Per player, like the inventory the kitchen cooks from.
+ */
+export const RecipeBookDocSchema = z.strictObject({
+  known: z.partialRecord(
+    z.enum(RECIPE_IDS as [RecipeId, ...RecipeId[]]),
+    z.strictObject({
+      teacher: NpcIdSchema,
+      lang: z.string().min(2).max(16),
+      learned: TimestampSchema,
+      cooked: z.number().int().min(0),
+    }),
+  ),
+});
+export type RecipeBookDoc = z.infer<typeof RecipeBookDocSchema>;
 
 /** Lines of the reported player attached to a report, newest last (the server's own copies). */
 export const REPORT_MAX_MESSAGES = 5;

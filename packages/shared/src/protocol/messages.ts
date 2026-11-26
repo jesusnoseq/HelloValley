@@ -19,6 +19,11 @@ import type { LostItemHint, LostReturnRefusal } from "../forage/lost";
 import type { CollectibleId, ForagePickRefusal, SpawnKind } from "../forage/spawns";
 import type { LostItemId } from "../data/forage";
 import type { Motion, SpaceId } from "../world/player";
+import type { BuffKind } from "../data/items";
+import type { RecipeId, RecipeIngredient } from "../data/recipes";
+import type { EatRefusal } from "../food/eating";
+import type { SitRefusal } from "../food/seats";
+import type { CookRefusal, IngredientUse, RecipeBook } from "../food/cooking";
 
 /** Colyseus room names registered by the server (architecture §7.1). */
 export const RoomName = {
@@ -88,6 +93,14 @@ export const ClientMessage = {
   ForagePick: "forage:pick",
   /** During a conversation: hand a lost item back to its owner (build plan M28). */
   NpcReturn: "npc:return",
+  /** Eat or drink the food in a hotbar slot (build plan M29). The server answers with `food:eaten`. */
+  FoodEat: "food:eat",
+  /** Sit on a bench or café chair the player stands next to (build plan M29). */
+  SeatSit: "seat:sit",
+  /** Stand up again (walking off does it too). */
+  SeatStand: "seat:stand",
+  /** At the apartment kitchen: cook a learned recipe (build plan M29). The server answers with `cook:result`. */
+  CookMake: "cook:make",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -148,6 +161,16 @@ export const ServerMessage = {
   ForageAlbum: "forage:album",
   /** Answer to `npc:return`: the owner took the lost item back (and the hearts it earned), or why not. */
   NpcReturned: "npc:returned",
+  /** Answer to `food:eat`: what was eaten and the buff it gave, or why not (build plan M29). */
+  FoodEaten: "food:eaten",
+  /** The player's running buffs (after the join, every bite, and when one runs out). */
+  Buffs: "buffs:state",
+  /** Where the player sits now (answer to `seat:sit` / `seat:stand`, and after walking off). */
+  SeatState: "seat:state",
+  /** Answer to `cook:make`: the dish that went into the bag, or why not. */
+  CookResult: "cook:result",
+  /** The player's recipe book (after the join, after an NPC teaches a recipe, after cooking). */
+  RecipeBook: "recipes:book",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -237,9 +260,12 @@ export interface TownPlayerView {
   talkingTo: string;
   /**
    * What the player is doing in place (build plan M27): "" or "fishing" (cast, wait, bite) or
-   * "reeling". Remote avatars play the fish_cast / fish_reel clips from it.
+   * "reeling", or (build plan M29) "eating" for a moment after a bite. Remote avatars play the
+   * fish_cast / fish_reel / eat clips from it.
    */
   activity: string;
+  /** The seat the player sits on (food/seats.ts id), or "" (build plan M29): drawn seated there. */
+  seat: string;
 }
 
 /**
@@ -501,9 +527,14 @@ export interface NpcContextMessage {
   quests: string[];
   /**
    * Extra context: the lost items the player carries (build plan M28, forage/lost.ts
-   * `lostItemFlags`). TODO(M29): what the player ate today.
+   * `lostItemFlags`) and what the player ate today (build plan M29, food/eating.ts `eatingFlags`).
    */
   flags: string[];
+  /**
+   * Extra suggested-reply hints for this conversation (build plan M29: the coffee buff, GDD §5.4):
+   * the model is asked for this many more suggestions, and the panel offers one more, once.
+   */
+  extraHints: number;
   /** The Gossip only (build plan M28): the lost items still lying in the shard today and where. */
   hints: LostItemHint[];
   /** Village news (Gossip and Elder only). TODO(M31). */
@@ -757,6 +788,75 @@ export interface NpcReturnedMessage {
   delta: number;
   hearts: number;
   inventory: InventoryEntry[];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Eating, sitting and cooking (build plan M29, GDD §5.4)
+
+/** How long the synced "eating" activity lasts after a bite (the eat clip, M07). */
+export const EATING_ACTIVITY_MS = 1800;
+
+/** Payload of `ClientMessage.FoodEat`. */
+export interface FoodEatMessage {
+  /** The hotbar slot (24–29) holding the food or drink. */
+  slot: number;
+}
+
+/** A running buff as sent to its owner (times relative to the server's clock at send time). */
+export interface WireBuff {
+  kind: BuffKind;
+  amount: number;
+  itemId: ItemId;
+  /** Left of the buff when the message was sent (ms). */
+  remainingMs: number;
+  /** Its full length (ms), for the HUD's ring. */
+  durationMs: number;
+}
+
+/** Payload of `ServerMessage.FoodEaten`. */
+export type FoodEatenMessage =
+  | {
+      slot: number;
+      ok: true;
+      itemId: ItemId;
+      /** The buff this bite started or refreshed, if any. */
+      buff: WireBuff | null;
+      /** The emote it plays (the cake's happy cheer), if any. */
+      emote: Emote | null;
+    }
+  | { slot: number; ok: false; reason: EatRefusal };
+
+/** Payload of `ServerMessage.Buffs`. */
+export interface BuffsMessage {
+  buffs: WireBuff[];
+}
+
+/** Payload of `ClientMessage.SeatSit`. */
+export interface SeatSitMessage {
+  seatId: string;
+}
+
+/** Payload of `ServerMessage.SeatState`. */
+export interface SeatStateMessage {
+  /** The seat the player sits on now, or null. */
+  seatId: string | null;
+  /** Why the last `seat:sit` was refused. */
+  refused?: SitRefusal;
+}
+
+/** Payload of `ClientMessage.CookMake`. */
+export interface CookMakeMessage {
+  recipeId: RecipeId;
+}
+
+/** Payload of `ServerMessage.CookResult`. */
+export type CookResultMessage =
+  | { recipeId: RecipeId; ok: true; itemId: ItemId; uses: IngredientUse[] }
+  | { recipeId: RecipeId; ok: false; reason: CookRefusal; missing?: RecipeIngredient[] };
+
+/** Payload of `ServerMessage.RecipeBook`. */
+export interface RecipeBookMessage {
+  book: RecipeBook;
 }
 
 export const CLIENT_MESSAGE_TYPES: readonly ClientMessage[] = Object.values(ClientMessage);

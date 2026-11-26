@@ -28,7 +28,8 @@ export type BuffKind = (typeof BUFF_KINDS)[number];
 /**
  * A timed effect from eating or drinking (GDD §5.4). `amount` is a fraction for walk_speed and
  * fishing_luck (0.1 = +10%), a count for reply_hint, and unused (0) for emotes and glows.
- * `durationSec` is in real seconds; 0 means instant. TODO(M29): apply and expire buffs.
+ * `durationSec` is in real seconds; 0 means instant (the cake's happy emote). Build plan M29: the
+ * server applies and expires them (shared food/buffs.ts, `addBuff`).
  */
 export interface Buff {
   kind: BuffKind;

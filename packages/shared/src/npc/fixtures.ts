@@ -36,6 +36,7 @@ export function npcContextFixture(o: { npcId?: NpcId; lang: string; nativeLang?:
     recipes: recipesTaughtBy(npcId).map((r) => ({ recipeId: r.id, heartsRequired: r.heartsRequired, known: false })),
     quests: [],
     flags: [],
+    extraHints: 0,
     hints: [],
     news: [],
     world: { timeOfDay: "morning", weather: "sun", location: "bakery", minutes: 8 * 60 },
