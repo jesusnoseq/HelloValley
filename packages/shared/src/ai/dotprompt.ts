@@ -5,7 +5,8 @@
  * never ship in the client bundle. This module holds the ids and a small renderer for the subset
  * of Handlebars the templates use (`{{var}}`, `{{#if var}}…{{else}}…{{/if}}`, `{{role "…"}}`,
  * `{{history}}`), used by tests to check that the builders fill every declared variable and that
- * the prompt reads as intended. TODO(M38): the active ids come from Remote Config.
+ * the prompt reads as intended. The active ids come from Remote Config (build plan M38,
+ * `TEMPLATE_ID_PARAMS`), with these as the defaults.
  */
 
 export const PROMPT_TEMPLATE_IDS = {
@@ -15,6 +16,33 @@ export const PROMPT_TEMPLATE_IDS = {
   npcOpener: "npc-opener-v1-0-0",
 } as const;
 export type PromptTemplateName = keyof typeof PROMPT_TEMPLATE_IDS;
+
+/**
+ * Remote Config parameter per template (architecture §3.2: "the client reads the active template
+ * IDs from Remote Config, so a prompt can change without shipping a new client"). The repo's
+ * `remoteconfig.template.json` holds the same names with `PROMPT_TEMPLATE_IDS` as defaults.
+ */
+export const TEMPLATE_ID_PARAMS: Readonly<Record<PromptTemplateName, string>> = {
+  npcTurn: "npc_turn_template_id",
+  npcOpener: "npc_opener_template_id",
+};
+
+/** The source file (`ai/templates/<name>.prompt`) and console id prefix of each template. */
+export const TEMPLATE_ID_PREFIX: Readonly<Record<PromptTemplateName, string>> = {
+  npcTurn: "npc-turn",
+  npcOpener: "npc-opener",
+};
+
+/**
+ * The template id to call: a Remote Config value when it is a well-formed id of the same template
+ * (`<prefix>-v<major>-<minor>-<patch>`), else the bundled default. A typo in the console, or an id
+ * of the other template, can therefore never point NPC turns at the wrong prompt.
+ */
+export function resolveTemplateId(name: PromptTemplateName, remote: string | null | undefined): string {
+  const value = remote?.trim() ?? "";
+  const pattern = new RegExp(`^${TEMPLATE_ID_PREFIX[name]}-v\\d{1,3}-\\d{1,3}-\\d{1,3}$`);
+  return pattern.test(value) ? value : PROMPT_TEMPLATE_IDS[name];
+}
 
 /** The template variables a builder produces (Handlebars falsy values hide `{{#if}}` blocks). */
 export type TemplateVariables = Record<string, string | number | boolean>;

@@ -4,7 +4,7 @@ import { z } from "zod";
  * Per-player AI budgets (GDD §9.2 "server guards", build plan M36) mapped onto architecture §9:
  * the game server is not on the AI request path, so it cannot cap spending itself. The hard caps
  * are App Check on AI Logic, the AI Logic per-user rate limit and the project quotas (console,
- * TODO(M38)). On top of those:
+ * docs/deploy.md, build plan M38). On top of those:
  *
  * - **NPC turns** are enforced by the server: it issues turn ids, and refuses `npc:start` and
  *   `npc:reply` past the window and daily limits (a model call without a turn id has no game effect).

@@ -1,0 +1,48 @@
+# HelloValley game server on Fly.io (build plan M38, architecture §3.1): ONE Machine running
+# Colyseus and the /api routes. Shards, the friend lookup and shard-wide mutes live in this one
+# process, so never scale past one Machine (deploy with `fly deploy --ha=false`, see docs/deploy.md).
+#
+# Secrets (set with `fly secrets set`, never committed):
+#   FIREBASE_PROJECT_ID        the production Firebase project id
+#   FIREBASE_SERVICE_ACCOUNT   the game server's service account JSON key (raw or base64)
+#
+# The app name is also the client's server host: VITE_SERVER_URL=https://hellovalley.fly.dev and
+# the Hosting CSP connect-src in firebase.json (tests/deploy checks they agree).
+
+app = "hellovalley"
+# Pick together with the Firestore location (architecture §12): europe-west1 (Belgium) ↔ ams.
+primary_region = "ams"
+kill_signal = "SIGTERM"
+kill_timeout = "15s"
+
+[build]
+  dockerfile = "packages/server/Dockerfile"
+
+[env]
+  PORT = "8080"
+  HOST = "0.0.0.0"
+  NODE_ENV = "production"
+  APP_CHECK = "enforce"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # WebSockets must not be cut off when the server looks idle.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 400
+    hard_limit = 500
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "15s"
+    timeout = "3s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

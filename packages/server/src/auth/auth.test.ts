@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_AUTH_EMULATOR_HOST, readFirebaseConfig } from "../config";
+import { DEFAULT_AUTH_EMULATOR_HOST, readFirebaseConfig, readServiceAccount } from "../config";
 import { createFirebaseVerifier, InvalidIdTokenError } from "./idToken";
 
 const PROJECT = "demo-hellovalley";
@@ -88,5 +88,46 @@ describe("readFirebaseConfig", () => {
 
   it("rejects invalid project ids", () => {
     expect(() => readFirebaseConfig({ FIREBASE_PROJECT_ID: "Bad/Project" })).toThrow(/FIREBASE_PROJECT_ID/);
+  });
+});
+
+describe("readServiceAccount (build plan M38, the FIREBASE_SERVICE_ACCOUNT Fly secret)", () => {
+  const key = {
+    type: "service_account",
+    project_id: "hellovalley-prod",
+    client_email: "game-server@hellovalley-prod.iam.gserviceaccount.com",
+    private_key: "-----BEGIN PRIVATE KEY-----\nnot-a-real-key\n-----END PRIVATE KEY-----\n",
+  };
+  const expected = { projectId: key.project_id, clientEmail: key.client_email, privateKey: key.private_key };
+
+  it("is null when unset", () => {
+    expect(readServiceAccount({})).toBeNull();
+    expect(readFirebaseConfig({ FIREBASE_PROJECT_ID: "hellovalley-prod" })).not.toHaveProperty("serviceAccount");
+  });
+
+  it("reads the JSON key raw or base64-encoded", () => {
+    expect(readServiceAccount({ FIREBASE_SERVICE_ACCOUNT: JSON.stringify(key) })).toEqual(expected);
+    expect(readServiceAccount({ FIREBASE_SERVICE_ACCOUNT: Buffer.from(JSON.stringify(key)).toString("base64") })).toEqual(expected);
+    expect(readFirebaseConfig({ FIREBASE_PROJECT_ID: "hellovalley-prod", FIREBASE_SERVICE_ACCOUNT: JSON.stringify(key) }).serviceAccount).toEqual(expected);
+  });
+
+  it("rejects malformed keys without echoing them", () => {
+    const err = (value: string) => {
+      try {
+        readServiceAccount({ FIREBASE_SERVICE_ACCOUNT: value });
+      } catch (e) {
+        return (e as Error).message;
+      }
+      return null;
+    };
+    expect(err("not json")).toMatch(/not a JSON key/);
+    expect(err(JSON.stringify({ ...key, type: "authorized_user" }))).toMatch(/service account key/);
+    expect(err(JSON.stringify({ ...key, private_key: "" }))).toMatch(/service account key/);
+    expect(err(JSON.stringify({ ...key, type: "x" }))).not.toContain("not-a-real-key");
+  });
+
+  it("must belong to FIREBASE_PROJECT_ID, and is ignored for the demo project", () => {
+    expect(() => readFirebaseConfig({ FIREBASE_PROJECT_ID: "hellovalley-other", FIREBASE_SERVICE_ACCOUNT: JSON.stringify(key) })).toThrow(/belongs to hellovalley-prod/);
+    expect(readFirebaseConfig({ FIREBASE_SERVICE_ACCOUNT: JSON.stringify(key) })).not.toHaveProperty("serviceAccount");
   });
 });

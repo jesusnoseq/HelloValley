@@ -1,5 +1,6 @@
 import { firebaseApp, firebaseConfig } from "../firebase/app";
 import { aiCloudEnabled } from "../firebase/config";
+import { createTemplateIds, remoteConfigLoader } from "../firebase/remoteConfig";
 import { db } from "../firebase/firestore";
 import { storage } from "../firebase/storage";
 import { onDeviceReady, reportDownloadProgress, reportWarmUpDone } from "./availability";
@@ -11,6 +12,7 @@ import { createFirebaseModelPort, createFirebaseTemplatePorts, createFirebaseTts
 import { createHybridAI, type HybridAI } from "./hybrid";
 import { type ChatModeration, hybridModeration } from "./moderation";
 import { createOpeners, type Openers } from "./openers";
+import { createRouteLog } from "./routeLog";
 import { createQuestNotices, type QuestNotices } from "./questNotices";
 import { createNpcTurnRunner, type NpcTurnRunner } from "./templates";
 import { hybridTranslator, type Translator } from "./translate";
@@ -27,10 +29,26 @@ import { FirestorePaths } from "@hellovalley/shared";
  */
 const getAi = sharedAi(firebaseApp);
 const firebase = createFirebaseModelPort(firebaseApp, getAi);
-const templates = createFirebaseTemplatePorts(getAi);
+const routeLog = createRouteLog();
+const cloudTemplates = createFirebaseTemplatePorts(getAi);
+/** Templates are cloud only; with the demo route log on (build plan M38), say which one ran. */
+const templates: typeof cloudTemplates = routeLog
+  ? {
+      chat: (request) => {
+        routeLog({ task: "npcTurn", source: "cloud", detail: `template ${request.templateId}` });
+        return cloudTemplates.chat(request);
+      },
+      generate: (request) => {
+        routeLog({ task: "npcOpener", source: "cloud", detail: `template ${request.templateId}` });
+        return cloudTemplates.generate(request);
+      },
+    }
+  : cloudTemplates;
 const ttsPort = createFirebaseTtsPort(getAi);
 const seededTts = createSeededTtsReader(db, storage);
 const cloudEnabled = aiCloudEnabled(firebaseConfig.options);
+/** Build plan M38: the active template ids from Remote Config (the bundled ones until it answers). */
+const templateIds = createTemplateIds(cloudEnabled ? remoteConfigLoader(firebaseApp) : null);
 /** Build plan M36: the signed-in player's AI budget, looked up per call so a uid change applies. */
 const budget: Pick<AiBudget, "allow" | "charge"> = {
   allow: (kind, amount) => currentAiBudget().allow(kind, amount),
@@ -65,17 +83,18 @@ export function setUser(next: string | null) {
 }
 
 export function hybrid(): HybridAI {
-  instance ??= createHybridAI({ model: firebase.port, onDeviceReady, cloudEnabled, cache, budget });
+  instance ??= createHybridAI({ model: firebase.port, onDeviceReady, cloudEnabled, cache, budget, ...(routeLog ? { onRoute: routeLog } : {}) });
   return instance;
 }
 
 /** NPC dialogue turns through the `npc-turn` server prompt template (build plan M21). */
-export const npcTurns: NpcTurnRunner = createNpcTurnRunner({ chat: templates.chat, cloudEnabled, budget });
+export const npcTurns: NpcTurnRunner = createNpcTurnRunner({ chat: templates.chat, cloudEnabled, budget, templateId: () => templateIds.get("npcTurn") });
 
 /** Conversation openers, cached per player (build plan M21). */
 export function openers(): Openers {
   openerInstance ??= createOpeners({
     generate: templates.generate,
+    templateId: () => templateIds.get("npcOpener"),
     cloudEnabled,
     budget,
     cache,

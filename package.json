@@ -23,7 +23,7 @@
   "allowScripts": {},
   "scripts": {
     "dev": "concurrently --names server,client --prefix-colors blue,green --kill-others-on-fail \"npm run dev -w @hellovalley/server\" \"npm run dev -w @hellovalley/client\"",
-    "emulators": "firebase emulators:start --project demo-hellovalley",
+    "emulators": "firebase emulators:start --only auth,firestore,storage --project demo-hellovalley",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tests",
     "test": "vitest run",
@@ -41,6 +41,7 @@
     "seed:barks": "tsx tools/seed/seed-barks.ts",
     "seed:quests": "tsx tools/seed/seed-quests.ts",
     "seed:ambient": "tsx tools/seed/seed-ambient.ts",
+    "admin:claim": "tsx tools/admin/set-admin-claim.ts",
     "test:blender": "python -B -m unittest discover -s tools/blender/tests -t tools/blender",
     "perf:measure": "node scripts/perf-measure.mjs",
     "perf:browser": "node scripts/perf-browser.mjs"

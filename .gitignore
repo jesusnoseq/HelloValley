@@ -8,3 +8,6 @@ dist/
 coverage/
 __pycache__/
 *.pyc
+# Service account keys (docs/deploy.md): never commit them.
+*-key.json
+*service-account*.json

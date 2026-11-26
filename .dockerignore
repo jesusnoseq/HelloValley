@@ -1,0 +1,21 @@
+# Docker build context for packages/server/Dockerfile (build plan M38). Only manifests, the
+# lockfile, configs and the shared and server sources are copied; keep everything else out.
+**/node_modules
+**/dist
+**/coverage
+.git
+.github
+.claude
+.firebase
+docs
+tools
+tests
+scripts
+packages/client/src
+packages/client/public
+packages/client/test
+**/*.test.ts
+**/.env
+**/.env.*
+*.log
+**/__pycache__

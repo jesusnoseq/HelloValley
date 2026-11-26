@@ -1,0 +1,15 @@
+{
+  "conditions": [],
+  "parameters": {
+    "npc_turn_template_id": {
+      "defaultValue": { "value": "npc-turn-v1-0-0" },
+      "description": "Active AI Logic server prompt template for NPC dialogue turns (packages/shared/src/ai/templates/npc-turn.prompt). Upload a new version to the console first, then point this at it.",
+      "valueType": "STRING"
+    },
+    "npc_opener_template_id": {
+      "defaultValue": { "value": "npc-opener-v1-0-0" },
+      "description": "Active AI Logic server prompt template for NPC conversation openers (packages/shared/src/ai/templates/npc-opener.prompt).",
+      "valueType": "STRING"
+    }
+  }
+}

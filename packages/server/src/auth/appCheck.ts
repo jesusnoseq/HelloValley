@@ -7,7 +7,7 @@ import { adminApp } from "../firebase/admin";
  * Check token (reCAPTCHA Enterprise in production, a registered debug token in development) to
  * every `/api/*` request (`X-Firebase-AppCheck`) and to its room join options; the server verifies
  * it with the Admin SDK. AI Logic, Firestore and Storage check App Check themselves once it is
- * enforced in the console (TODO(M38)).
+ * enforced in the console (build plan M38, docs/deploy.md).
  */
 export interface AppCheckVerifier {
   /** Resolves for a valid token; rejects for anything else. */

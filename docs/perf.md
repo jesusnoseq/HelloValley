@@ -38,7 +38,7 @@ local emulator note). Full report: [`docs/perf/lighthouse-signin.html`](perf/lig
 | Performance | 100 |
 | Accessibility | 100 (94 before the fixes below) |
 | Best practices | 100 (96 before: a missing favicon logged a 404) |
-| SEO | 91 (no `robots.txt`, which Hosting config can add in M38) |
+| SEO | 91 (no `robots.txt` at the time; M38 added `packages/client/public/robots.txt`) |
 
 FCP 0.6 s · LCP 0.6 s · TBT 0 ms · CLS 0.006 · Speed Index 0.6 s · 255 KiB transferred.
 Lighthouse also flags unused JavaScript in the entry chunk (Firebase Auth and App Check load

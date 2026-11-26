@@ -11,7 +11,7 @@ import { type AppCheck, getToken, initializeAppCheck, ReCaptchaEnterpriseProvide
  * Configuration comes from the build environment, never from the repository:
  * - `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`: the reCAPTCHA Enterprise site key registered for the
  *   web app in the Firebase console (a site key is public, but it is per project, so it stays in
- *   `.env.local` / the Hosting build environment, TODO(M38)).
+ *   `.env.local` in development and `.env.production.local` for the Hosting build, docs/deploy.md).
  * - `VITE_APPCHECK_DEBUG_TOKEN` (development only): a debug token registered in the console, so
  *   `localhost` works without adding it to the reCAPTCHA domains. Without it, a dev build asks the
  *   SDK to print a new debug token in the console (register it, then put it in `.env.local`).

@@ -26,7 +26,7 @@ const hostPort = (value: string | undefined, fallback: string) => {
  * Firebase web config from `VITE_FIREBASE_*`. Without a project id the app runs against the
  * emulators under `demo-hellovalley`, which needs no real keys. A real project uses the real
  * services unless `VITE_FIREBASE_EMULATORS=true`.
- * TODO(M38): production values come from the Hosting build environment.
+ * Production values come from `packages/client/.env.production.local` at build time (build plan M38, docs/deploy.md).
  */
 export function readFirebaseConfig(env: Env): ClientFirebaseConfig {
   const projectId = env.VITE_FIREBASE_PROJECT_ID || DEMO_PROJECT_ID;

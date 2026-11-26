@@ -105,6 +105,17 @@ export interface HybridDeps {
    * take their fallback); cloud answers are charged by prompt + answer size.
    */
   budget?: Pick<AiBudget, "allow" | "charge">;
+  /**
+   * Where each task ran (build plan M38, the demo's "on-device vs cloud" log, `ai/routeLog.ts`):
+   * called once per task call with the source that answered, or `fallback` when none did.
+   */
+  onRoute?: (event: RouteEvent) => void;
+}
+
+export interface RouteEvent {
+  task: HybridTask;
+  source: InferenceSourceName | "cache" | "fallback";
+  ms: number;
 }
 
 /** Attempts per call: the first and one retry (npc-runtime.md conventions). */
@@ -149,6 +160,13 @@ export function createHybridAI(deps: HybridDeps): HybridAI {
   const inFlight = new Map<string, Promise<TaskResult<unknown>>>();
 
   async function run<T extends HybridTask>(task: T, prompt: string, key: string | null): Promise<TaskResult<TaskOutput<T>>> {
+    const started = Date.now();
+    const result = await attemptTask(task, prompt, key);
+    deps.onRoute?.({ task, source: result.ok ? result.source : "fallback", ms: Date.now() - started });
+    return result;
+  }
+
+  async function attemptTask<T extends HybridTask>(task: T, prompt: string, key: string | null): Promise<TaskResult<TaskOutput<T>>> {
     const route = ROUTING_TABLE[task];
     const persist = route.cache === "persist";
     const cacheable = key !== null && route.cache !== "none" && deps.cache !== undefined;

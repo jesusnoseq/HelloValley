@@ -8,7 +8,7 @@ import type { ScriptCode } from "../data/languages";
  * CJK families would mean several MB per script. The stacks fall back to system fonts, so text
  * still renders when the stylesheet is blocked or offline.
  *
- * CSP: the Hosting headers (TODO(M38), firebase.json) must allow `style-src https://fonts.googleapis.com`
+ * CSP: the Hosting headers (build plan M38, firebase.json) allow `style-src https://fonts.googleapis.com`
  * and `font-src https://fonts.gstatic.com`, plus reCAPTCHA Enterprise for App Check (build plan M36:
  * `script-src`/`frame-src https://www.google.com https://www.gstatic.com`).
  */

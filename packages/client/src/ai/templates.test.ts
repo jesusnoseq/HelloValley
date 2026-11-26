@@ -51,6 +51,16 @@ describe("NPC turn runner", () => {
     expect(call.message).toBe("<player_text>Quiero pan, por favor.</player_text>\nInput method: typed");
   });
 
+  it("reads the active template id on every turn (build plan M38: Remote Config)", async () => {
+    const { port, calls } = scripted([JSON.stringify(BAKER_ES_A1_REPLY), JSON.stringify(BAKER_ES_A1_REPLY)]);
+    let active = "npc-turn-v1-0-0";
+    const runner = createNpcTurnRunner({ chat: port, cloudEnabled: true, templateId: () => active });
+    await runner.run(input("es", "A1", "Hola"));
+    active = "npc-turn-v1-1-0";
+    await runner.run(input("es", "A1", "Hola"));
+    expect(calls.map((c) => c.templateId)).toEqual(["npc-turn-v1-0-0", "npc-turn-v1-1-0"]);
+  });
+
   it("talks to the Baker in Japanese at B2 (effective B1) with readings", async () => {
     const { port, calls } = scripted([JSON.stringify(BAKER_JA_B2_REPLY)]);
     const result = await createNpcTurnRunner({ chat: port, cloudEnabled: true }).run(input("ja", "B2", "パンをください。"));

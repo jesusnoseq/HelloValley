@@ -945,7 +945,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
    * lines that reached the reporter, so a client cannot put words in anyone's mouth. Reporting
    * also mutes the reported player for the reporter.
    * Build plan M36: each report is a strike (one per distinct reporter in the window), so a player
-   * several people report is muted shard-wide. TODO(M38): a moderator review tool for `reports/*`.
+   * several people report is muted shard-wide. TODO(backlog): a moderator review tool for `reports/*` (until then, the Firestore console, docs/deploy.md).
    */
   private onChatReport(client: TownClient, report: ChatReportMessage): void {
     const session = this.sessions.get(client.sessionId);

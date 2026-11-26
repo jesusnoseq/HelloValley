@@ -1,0 +1,76 @@
+# HelloValley CI (build plan M38): dependency policy, lint, typecheck, test, build, and the game
+# server image (built, never pushed). Deploys are manual (docs/deploy.md).
+# Actions are pinned by full commit SHA (tag in the comment); update them deliberately, like npm
+# dependencies (docs/dependency-security.md), after checking the release is at least 7 days old.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # docs/dependency-security.md: npm 11.16+ (packageManager / devEngines).
+      - name: Use npm 11.16.0
+        run: npm install --global npm@11.16.0 --ignore-scripts
+
+      # Before installing: manifests, lockfile, exact versions, registry sources, integrity hashes.
+      - name: Dependency policy
+        run: npm run deps:check
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Emulator, Blender and credential tests skip themselves here (no JDK 21 emulators in CI yet).
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  server-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the game server image (not pushed)
+        run: docker build -f packages/server/Dockerfile -t hellovalley-server:ci .
+
+      - name: Smoke test /healthz
+        run: |
+          docker run -d --name hv -p 8080:8080 hellovalley-server:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/healthz; then exit 0; fi
+            sleep 1
+          done
+          docker logs hv
+          exit 1

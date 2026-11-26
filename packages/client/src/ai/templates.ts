@@ -77,8 +77,11 @@ export interface NpcTurnDeps {
   chat: TemplateChatPort;
   /** A real Firebase project with AI Logic (false for the `demo-*` emulator project). */
   cloudEnabled: boolean;
-  /** Overrides the template id (TODO(M38): from Remote Config). */
-  templateId?: string;
+  /**
+   * The template id, or a getter read on every turn (build plan M38: the active id from Remote
+   * Config, `firebase/remoteConfig.ts`); defaults to the bundled `PROMPT_TEMPLATE_IDS.npcTurn`.
+   */
+  templateId?: string | (() => string);
   warn?: (message: string, error: unknown) => void;
   /**
    * The player's AI budget (build plan M36): with no NPC turns or cloud tokens left the turn is not
@@ -108,7 +111,7 @@ export function repairNote(error: string): string {
 
 export function createNpcTurnRunner(deps: NpcTurnDeps): NpcTurnRunner {
   const warn = deps.warn ?? ((message, error) => console.warn(message, error));
-  const templateId = deps.templateId ?? PROMPT_TEMPLATE_IDS.npcTurn;
+  const currentTemplateId = () => (typeof deps.templateId === "function" ? deps.templateId() : deps.templateId) ?? PROMPT_TEMPLATE_IDS.npcTurn;
 
   async function attempt(request: TemplateChatRequest, onText: NpcTurnInput["onText"]): Promise<string> {
     let text = "";
@@ -139,6 +142,7 @@ export function createNpcTurnRunner(deps: NpcTurnDeps): NpcTurnRunner {
       const base = buildNpcTurnRequest(input.context, input.player, input.history, input.playerText, input.method);
       budget?.charge("turns");
       let lastError = "";
+      const templateId = currentTemplateId();
       for (let n = 1; n <= NPC_TURN_ATTEMPTS; n++) {
         const controller = new AbortController();
         const message = n === 1 ? base.message : base.message + repairNote(lastError);

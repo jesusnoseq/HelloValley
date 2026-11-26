@@ -45,7 +45,8 @@ export interface OpenerDeps {
   /** Tokenize + gloss a personalised opener (hybrid `gloss`). */
   gloss?: (input: { text: string; sourceLang: string; nativeLang: string; level: string }) => Promise<TaskResult<GlossResponse>>;
   random?: () => number;
-  templateId?: string;
+  /** The template id, or a getter (build plan M38: from Remote Config); defaults to `PROMPT_TEMPLATE_IDS.npcOpener`. */
+  templateId?: string | (() => string);
   warn?: (message: string, error: unknown) => void;
   /** The player's cloud token budget (build plan M36): used up, a cache miss has no opener (the conversation starts without one). */
   budget?: Pick<AiBudget, "allow" | "charge">;
@@ -82,7 +83,7 @@ export function createOpeners(deps: OpenerDeps): Openers {
     if (!deps.cloudEnabled || !(deps.budget?.allow("tokens") ?? true)) return null;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const text = await deps.generate({ templateId: deps.templateId ?? PROMPT_TEMPLATE_IDS.npcOpener, variables });
+        const text = await deps.generate({ templateId: (typeof deps.templateId === "function" ? deps.templateId() : deps.templateId) ?? PROMPT_TEMPLATE_IDS.npcOpener, variables });
         deps.budget?.charge("tokens", estimateTokens(JSON.stringify(variables)) + estimateTokens(text));
         const parsed = parseOpenerSet(text);
         if (parsed.ok) {

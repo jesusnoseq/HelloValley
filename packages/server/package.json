@@ -14,7 +14,8 @@
     "@colyseus/ws-transport": "0.18.5",
     "@hellovalley/shared": "file:../shared",
     "express": "5.3.0",
-    "firebase-admin": "14.5.1"
+    "firebase-admin": "14.5.1",
+    "tsx": "4.23.15"
   },
   "devDependencies": {
     "@colyseus/sdk": "0.18.10",
