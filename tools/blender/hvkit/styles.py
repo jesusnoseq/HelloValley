@@ -173,6 +173,57 @@ MEDITERRANEAN = StyleParams(
     colour_jitter=0.05,
 )
 
+ARABIC = StyleParams(
+    id="arabic",
+    english_name="Arabic",
+    palette={
+        # Sand, rose, warm lime white and apricot-pink plaster (art.md §2.3).
+        "walls": ("#ead3a8", "#e8bba6", "#f3e8d4", "#dba98c"),
+        # Flat roof decks and parapet copings, green glazed roof tiles, terracotta.
+        "roofs": ("#dcc195", "#3f8f78", "#c98d6b"),
+        # Lime-white trims, dark cedar wood, sandstone.
+        "trims": ("#f6efe2", "#7a5236", "#d6c09a"),
+        "foliage": ("#86a865", "#62894b", "#a6ba72", "#4f7a46"),
+        # Sand paving, warm flagstones, packed earth.
+        "ground": ("#e6d5b2", "#c8ae88", "#efe1c2"),
+        # Teal, saffron, turquoise, cobalt and a soft rose red.
+        "accents": ("#3e9d98", "#e6a73a", "#5cc0bd", "#3d6ea6", "#c4554b"),
+        "glass": ("#7ea2b3", "#9dbccb"),
+        "light": ("#ffcf86",),
+        "iron": ("#3b3a39", "#4f4943"),
+        # Brass lanterns, studs and finials.
+        "brass": ("#c9a14a", "#b2893b", "#e0be69"),
+        # Zellige tiles: white, teal, saffron, cobalt, green, terracotta.
+        "zellige": ("#f4efe4", "#3e9d98", "#e6a73a", "#3d6ea6", "#4f9a6a", "#c76b4f"),
+        # Domes: lime white, turquoise, gilded.
+        "dome": ("#f5f1e8", "#4fb6b1", "#d8af4e"),
+        # Woven awnings, cushions and rugs.
+        "fabric": ("#c4554b", "#e6a73a", "#3e9d98", "#f2e5cf", "#6b4c8a"),
+        # Palm trunks and bark, dates, jasmine and roses, spice cones.
+        "bark": ("#8a6a4a", "#7a5c40", "#9b7a55"),
+        "dates": ("#c7732c", "#a85a27"),
+        "flowers": ("#f7f3ea", "#e46f7b", "#f2c94c", "#b07ad0"),
+        "spice": ("#d9822b", "#c23f2f", "#e8c547", "#7c8f3a"),
+        "water": ("#7cc4cd", "#69b3c0"),
+    },
+    tiles=(
+        AtlasTile("stucco", "plaster", 0.12),
+        AtlasTile("timber", "planks", 0.12),
+        AtlasTile("zellige", "tiles", 0.06),
+        AtlasTile("roof_tile", "tiles", 0.12),
+        AtlasTile("paving", "cobble", 0.10),
+        AtlasTile("leaves", "speckle", 0.16),
+        AtlasTile("bark", "streaks", 0.14),
+    ),
+    wall_thickness_m=0.2,
+    roof_pitch_deg=0.0,  # flat roofs behind crenellated parapets
+    eave_overhang_m=0.0,
+    bevel_width_m=0.035,
+    bevel_segments=2,
+    vertex_noise_m=0.007,
+    colour_jitter=0.05,
+)
+
 COMMON = StyleParams(
     id=COMMON_KIT_ID,
     english_name="Style-neutral modules",
@@ -275,11 +326,12 @@ INTERIOR = StyleParams(
 _STYLES: Dict[str, StyleParams] = {
     "european": EUROPEAN,
     "mediterranean": MEDITERRANEAN,
+    "arabic": ARABIC,
     COMMON_KIT_ID: COMMON,
     INTERIOR_KIT_ID: INTERIOR,
 }
 
-_PENDING = {"arabic": "M33", "japanese": "M34"}
+_PENDING = {"japanese": "M34"}
 
 
 def resolve_style_id(name: str) -> str:
@@ -293,7 +345,7 @@ def resolve_style_id(name: str) -> str:
 def get_style(name: str) -> StyleParams:
     style_id = resolve_style_id(name)
     if style_id in _PENDING:
-        # TODO(M33/M34): add the Arabic and Japanese parameters.
+        # TODO(M34): add the Japanese parameters.
         raise NotImplementedError(f"style {style_id!r} arrives in {_PENDING[style_id]}")
     return _STYLES[style_id]
 

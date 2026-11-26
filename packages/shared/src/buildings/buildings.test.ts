@@ -37,10 +37,12 @@ const moduleOf = (id: string) => {
 
 const recipes = Object.values(buildingRecipes());
 
-// The Mediterranean kit (M32) reuses every building module id, footprint and socket.
-const mediterranean: KitManifest = parseKitManifest(
-  JSON.parse(readFileSync(new URL("../../../client/public/assets/kits/mediterranean/kit-manifest.json", import.meta.url), "utf8")),
-);
+// The Mediterranean (M32) and Arabic (M33) kits reuse every building module id, footprint and
+// socket.
+const styleKit = (style: string): KitManifest =>
+  parseKitManifest(JSON.parse(readFileSync(new URL(`../../../client/public/assets/kits/${style}/kit-manifest.json`, import.meta.url), "utf8")));
+const STYLE_KITS = { mediterranean: styleKit("mediterranean"), arabic: styleKit("arabic") };
+const styleCases = Object.entries(STYLE_KITS).flatMap(([style, kit]) => recipes.map((r) => [r.id, style, r, kit] as const));
 
 /** Every module id a recipe names, directly or through what the assembler adds. */
 function referencedIds(recipe: BuildingRecipe): Set<string> {
@@ -74,25 +76,25 @@ describe("building recipes", () => {
     for (const p of assembleBuilding(recipe, europe).placements) expect(europeIds.has(p.module), p.module).toBe(true);
   });
 
-  it.each(recipes.map((r) => [r.id, r] as const))("%s assembles with the mediterranean kit exactly as with the europe kit", (_id, recipe) => {
-    const medIds = new Set(mediterranean.modules.map((m) => m.id));
-    for (const id of referencedIds(recipe)) expect(medIds.has(id), id).toBe(true);
+  it.each(styleCases)("%s assembles with the %s kit exactly as with the europe kit", (_id, _style, recipe, kit) => {
+    const kitIds = new Set(kit.modules.map((m) => m.id));
+    for (const id of referencedIds(recipe)) expect(kitIds.has(id), id).toBe(true);
     const a = assembleBuilding(recipe, europe);
-    const b = assembleBuilding(recipe, mediterranean);
+    const b = assembleBuilding(recipe, kit);
     expect(b.placements).toEqual(a.placements);
     expect(b.doors).toEqual(a.doors);
     expect(b.eaveHeight).toBe(a.eaveHeight);
   });
 
-  it("the mediterranean kit mirrors every building module of the europe kit", () => {
+  it.each(Object.entries(STYLE_KITS))("the %s kit mirrors every building module of the europe kit", (_style, kit) => {
     for (const id of KIT_BUILDING_MODULE_IDS) {
       const eu = moduleOf(id);
-      const med = mediterranean.modules.find((m) => m.id === id);
-      expect(med, id).toBeDefined();
-      expect(med!.footprint, id).toEqual(eu.footprint);
-      expect(med!.sockets, id).toEqual(eu.sockets);
-      expect(med!.variants, id).toBe(eu.variants);
-      expect(med!.tags.filter((t) => t.startsWith("fits:")), id).toEqual(eu.tags.filter((t) => t.startsWith("fits:")));
+      const other = kit.modules.find((m) => m.id === id);
+      expect(other, id).toBeDefined();
+      expect(other!.footprint, id).toEqual(eu.footprint);
+      expect(other!.sockets, id).toEqual(eu.sockets);
+      expect(other!.variants, id).toBe(eu.variants);
+      expect(other!.tags.filter((t) => t.startsWith("fits:")), id).toEqual(eu.tags.filter((t) => t.startsWith("fits:")));
     }
   });
 

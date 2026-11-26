@@ -51,12 +51,14 @@ export const KIT_BUILDING_MODULE_IDS = [
  * counterpart in the other styles, so building recipes never use them). Mediterranean (M32):
  * a pergola, a bougainvillea climber, terracotta pots and the lemon tree; olive and cypress
  * trees are in the common kit. Mirrored by `MED_EXTRA_IDS` in
- * tools/blender/hvmodules/mediterranean/plants.py.
+ * tools/blender/hvmodules/mediterranean/plants.py. Arabic (M33): an arcade section, a courtyard
+ * fountain (the common fountain's footprint and sockets), a standing brass lantern and the date
+ * palm; mirrored by `ARAB_EXTRA_IDS` in tools/blender/hvmodules/arabic/extras.py.
  */
 export const KIT_STYLE_EXTRA_MODULE_IDS = {
   european: [],
   mediterranean: ["pergola", "bougainvillea", "pot.terracotta", "tree.lemon"],
-  arabic: [],
+  arabic: ["arcade", "fountain.courtyard", "lantern.brass", "tree.date_palm"],
   japanese: [],
 } as const satisfies Record<StyleId, readonly string[]>;
 

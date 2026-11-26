@@ -32,11 +32,12 @@ class StylesTest(unittest.TestCase):
             resolve_style_id("martian")
 
     def test_later_styles_are_marked_pending(self):
-        for style in ("arabic", "japanese"):
+        for style in ("japanese",):
             with self.assertRaises(NotImplementedError):
                 get_style(style)
-        self.assertEqual(available_styles(), ("common", "european", "interior", "mediterranean"))
+        self.assertEqual(available_styles(), ("arabic", "common", "european", "interior", "mediterranean"))
         self.assertEqual(get_style("med").id, "mediterranean")
+        self.assertEqual(get_style("arab").id, "arabic")
 
     def test_european_palette_and_atlas(self):
         style = get_style("europe")

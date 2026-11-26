@@ -24,11 +24,11 @@ import { createKitGltfLoader, fetchKitManifest, type FetchLike, loadKitModule, t
  */
 
 /**
- * Style kits that exist so far: European (M05) and Mediterranean (M32). Arabic (M33) and
- * Japanese (M34) render with the European kit until theirs arrive. Add a style here when its
- * kit is committed under public/assets/kits/{style}/.
+ * Style kits that exist so far: European (M05), Mediterranean (M32) and Arabic (M33). Japanese
+ * (M34) renders with the European kit until its kit arrives. Add a style here when its kit is
+ * committed under public/assets/kits/{style}/.
  */
-export const AVAILABLE_STYLE_KITS: readonly StyleId[] = ["european", "mediterranean"];
+export const AVAILABLE_STYLE_KITS: readonly StyleId[] = ["european", "mediterranean", "arabic"];
 export const FALLBACK_STYLE_KIT: StyleId = "european";
 
 /** The kit that renders a style: its own when it exists, else the fallback. */

@@ -49,7 +49,7 @@ npm run assets:contact-sheet -- --style interior   # docs/art/interior-kit-conta
 python tools/blender/build.py -- --style europe --include-tests --dry-run
 ```
 
-`build.py` options: `--style` (`european`, or the alias `europe`; `mediterranean` (`med`); `common` for the
+`build.py` options: `--style` (`european`, or the alias `europe`; `mediterranean` (`med`); `arabic` (`arab`); `common` for the
 style-neutral kit; `interior` for the interior and furniture kit), `--out` (kits root; the kit goes to `<out>/<style>/`), `--modules`, `--include-tests`, `--seed`, `--strict` (fail on
 budget or bounds problems), `--no-atlas`, `--dry-run`, `--contact-sheet PNG` (render the
 selected modules to a PNG with EEVEE instead of exporting; `hvkit/blender/contact.py`). The npm wrapper adds `--no-optimize`.
@@ -171,6 +171,48 @@ clearance, chimney/dormer reach, arch solids, the committed manifest),
 the European footprints and sockets), `packages/client/src/scene/buildingMeshes.test.ts` (every
 recipe built from the Mediterranean GLBs) and `packages/shared/src/world/town.test.ts` (street
 furniture inside the shared blockers).
+
+## Arabic kit (M33)
+
+`hvmodules/arabic/` generates the Arabic kit into `packages/client/public/assets/kits/arabic/`
+(committed, about 1.2 MB optimized; contact sheet `docs/art/arabic-kit-contact-sheet.png`):
+
+```bash
+npm run assets:build -- --style arabic --strict
+npm run assets:contact-sheet -- --style arabic
+```
+
+- **Same modules as the European kit**: all 22 building module ids, mirrored like the
+  Mediterranean kit (`mirror` in `hvmodules/arabic/common.py`: footprint, sockets, variants,
+  budget, overhang, `fits:` tags), so every recipe assembles with identical placements and doors.
+  `hvmodules` imports `arabic` after `europe`.
+- **Look** (GDD §7.3, art.md §2.3): sand, rose and lime-white plaster (`WALL_SWATCH_BY_VARIANT`)
+  over a zellige, lime or stone dado; horseshoe arches inside the European openings
+  (`solids.horseshoe_dims`, `horseshoe_arc`, `horseshoe_profile`, `horseshoe_fillers`), an ajimez
+  (twin arches on a colonnette), alfiz frames, studded cedar doors, mashrabiya screens
+  (`common.lattice`) on windows, shutters, balconies (an enclosed oriel) and shop transoms;
+  zellige stars, strips and paving (`solids.star_polygon`, `regular_polygon`); brass lanterns
+  with `glow` cores (`props.lantern`); souk goods (spice cones, brass lamps, rugs). `wall.timber`
+  is the kit's textured wall: ablaq stripes, an earth (ksar) wall with palm beams, or a sebka
+  lozenge panel.
+- **Flat roofs**: every roof is a deck at `DECK_Z` inside a parapet flush with the facades, with
+  stepped, rounded or saw-tooth merlons (`roofs.merlon`, `common.merlon_positions`) and
+  waterspouts. `roof.hip` is a dome on a drum, a green glazed tile pyramid or an onion dome
+  (`solids.dome_rings`); `roof.stepped_gable` (the town hall) is a gate crest, a great dome with
+  corner kiosks, or a corner minaret. The assembler scales roofs non-uniformly, so parapets and
+  domes stretch with the building (heights are kept low). The European `chimney`/`dormer`
+  sockets float above the deck, so `chimney` (wind catcher, domed stack, clay pots) and `dormer`
+  (a rooftop kiosk) reach below their pivots (`sink_m` 2.0 m and 0.65 m); a test checks the
+  reach for every recipe, and that the `roof.hip` dome clears the library's chimney.
+- **Style-only extras** (`ARAB_EXTRA_IDS`, `KIT_STYLE_EXTRA_MODULE_IDS.arabic` in shared):
+  `arcade` (2 x 1, two horseshoe arches on columns), `fountain.courtyard` (octagonal, star or
+  round zellige basin with a `water` part; the common `fountain`'s footprint, sockets and walking
+  blocker), `lantern.brass` (standing lantern with a `light` socket), `tree.date_palm` (`trunk` +
+  swaying `canopy`). Recipes and the town layout do not place them yet.
+
+Checks: `tools/blender/tests/test_arabic.py`, `packages/client/src/assets/arabicKit.test.ts`,
+`packages/client/src/scene/buildingMeshes.test.ts` (every recipe built from the Arabic GLBs),
+`packages/shared/src/buildings/buildings.test.ts` and `packages/shared/src/world/town.test.ts`.
 
 ## Common kit (M06)
 
@@ -320,6 +362,7 @@ hvchars/              M07 characters: body.py, animals.py, outfits.py, animation
   common/             M06 style-neutral kit: base.py, ground.py, water.py, vegetation.py, props.py
   interior/           M08 interior kit: base.py, parts.py, room.py, furniture.py, shops.py
   mediterranean/      M32 kit: common.py, walls.py, roofs.py, attachments.py, props.py, plants.py
+  arabic/             M33 kit: common.py, walls.py, roofs.py, attachments.py, props.py, extras.py
 tests/                unittest suite for the pure-Python parts
 ```
 

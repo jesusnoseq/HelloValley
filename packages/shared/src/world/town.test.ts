@@ -289,17 +289,27 @@ describe("walkability grid", () => {
 });
 
 describe("town props", () => {
-  it("keeps every style kit's street furniture inside the shared blockers", () => {
-    const mediterranean = manifest("mediterranean");
+  it.each(["mediterranean", "arabic"])("keeps the %s kit's street furniture inside the shared blockers", (style) => {
+    const kit = manifest(style);
     for (const [id, def] of Object.entries(TOWN_PROPS) as [TownPropModuleId, (typeof TOWN_PROPS)[TownPropModuleId]][]) {
       if (def.kit !== "style") continue;
-      const m = moduleOf(mediterranean, id);
+      const m = moduleOf(kit, id);
       expect([m.footprint.w, m.footprint.d], id).toEqual([def.w, def.d]);
       if ((def as { solid?: boolean }).solid) {
         const blocks = (def as { blocks?: Rect }).blocks!;
-        expect(contains(blocks, [m.bounds.min[0], m.bounds.min[2], m.bounds.max[0], m.bounds.max[2]]), `${id} blocker vs mediterranean bounds`).toBe(true);
+        expect(contains(blocks, [m.bounds.min[0], m.bounds.min[2], m.bounds.max[0], m.bounds.max[2]]), `${id} blocker vs ${style} bounds`).toBe(true);
       }
     }
+  });
+
+  it("fits the arabic courtyard fountain inside the square fountain's blocker", () => {
+    // Not placed yet (no per-style town dressing, pending.md M33), but swappable for `fountain`.
+    const courtyard = moduleOf(manifest("arabic"), "fountain.courtyard");
+    const fountain = moduleOf(common, "fountain");
+    expect(courtyard.footprint).toEqual({ ...fountain.footprint, h: courtyard.footprint.h });
+    expect(courtyard.sockets.map((s) => s.name)).toEqual(fountain.sockets.map((s) => s.name));
+    const blocks = TOWN_PROPS.fountain.blocks as Rect;
+    expect(contains(blocks, [courtyard.bounds.min[0], courtyard.bounds.min[2], courtyard.bounds.max[0], courtyard.bounds.max[2]])).toBe(true);
   });
 
   it("uses modules that exist in their kits, with blockers covering solid props", () => {

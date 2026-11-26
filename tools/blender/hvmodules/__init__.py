@@ -1,5 +1,5 @@
 """Kit module definitions. Importing this package registers every module."""
 
-from . import common, europe, interior, mediterranean, test_cube  # noqa: F401
+from . import common, europe, interior, mediterranean, arabic, test_cube  # noqa: F401
 
-# ``mediterranean`` mirrors the European modules, so it must be imported after ``europe``.
+# ``mediterranean`` and ``arabic`` mirror the European modules, so ``europe`` must be imported first.

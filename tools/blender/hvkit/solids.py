@@ -301,6 +301,100 @@ def arch_ring(x0: float, x1: float, z_spring: float, rise: float, width: float, 
     return outer + list(reversed(inner))
 
 
+def _circle_points(cx: float, cz: float, r: float, a0: float, a1: float, n: int) -> List[Point2]:
+    return [(round(cx + r * math.cos(a0 + (a1 - a0) * k / n), 6), round(cz + r * math.sin(a0 + (a1 - a0) * k / n), 6)) for k in range(n + 1)]
+
+
+def horseshoe_dims(x0: float, x1: float, z_top: float, theta_deg: float) -> Tuple[float, float, float, float, float]:
+    """``(r, zc, xj0, xj1, z_imp)`` of a horseshoe arch whose widest span is ``x0..x1`` and whose
+    apex is ``z_top``: the circle radius and centre height, the jamb x positions (narrower than
+    the span: the arch returns ``theta_deg`` below its centre) and the impost height."""
+    if x1 <= x0 or not 0.0 < theta_deg < 60.0:
+        raise ValueError("a horseshoe arch needs a positive span and 0 < theta < 60 degrees")
+    r = (x1 - x0) / 2
+    cx = (x0 + x1) / 2
+    zc = z_top - r
+    t = math.radians(theta_deg)
+    return r, zc, round(cx - r * math.cos(t), 6), round(cx + r * math.cos(t), 6), round(zc - r * math.sin(t), 6)
+
+
+def horseshoe_arc(x0: float, x1: float, z_top: float, theta_deg: float = 25.0, segments: int = 8, low: int = 2) -> List[Point2]:
+    """The horseshoe arch (M33) as (x, z) points from the right impost counter-clockwise over the
+    apex to the left impost: ``low`` segments below the centre line on each side and an even
+    number of ``segments`` over the half circle, so the widest points and the apex are vertices."""
+    if segments < 2 or segments % 2:
+        raise ValueError("an arch needs an even number of segments")
+    r, zc, _, _, _ = horseshoe_dims(x0, x1, z_top, theta_deg)
+    cx = (x0 + x1) / 2
+    t = math.radians(theta_deg)
+    right = _circle_points(cx, zc, r, -t, 0.0, low)
+    top = _circle_points(cx, zc, r, 0.0, math.pi, segments)
+    left = _circle_points(cx, zc, r, math.pi, math.pi + t, low)
+    pts = right + top[1:] + left[1:]
+    pts[low] = (x1, round(zc, 6))
+    pts[low + segments] = (x0, round(zc, 6))
+    return pts
+
+
+def horseshoe_profile(x0: float, x1: float, z0: float, z_top: float, theta_deg: float = 25.0, segments: int = 8, low: int = 2) -> List[Point2]:
+    """(x, z) outline of a horseshoe-arched opening (door leaves, panes): the jambs from the sill
+    ``z0`` up to the imposts and the horseshoe arch over them."""
+    _, _, xj0, xj1, z_imp = horseshoe_dims(x0, x1, z_top, theta_deg)
+    if z_imp <= z0:
+        raise ValueError("the imposts must be above the sill")
+    return [(xj0, z0), (xj1, z0)] + horseshoe_arc(x0, x1, z_top, theta_deg, segments, low)
+
+
+def horseshoe_fillers(x0: float, x1: float, z0: float, z_top: float, theta_deg: float = 25.0, segments: int = 8, low: int = 2) -> List[List[Point2]]:
+    """The (x, z) pieces between a rectangular opening ``x0..x1`` x ``z0..z_top`` and the
+    horseshoe opening inside it: the two spandrels above the widest points and the two strips
+    beside the narrower jambs. Extruded through the wall, they turn a rectangular hole of
+    :func:`grid_panel` into a horseshoe one."""
+    r, zc, xj0, xj1, z_imp = horseshoe_dims(x0, x1, z_top, theta_deg)
+    arc = horseshoe_arc(x0, x1, z_top, theta_deg, segments, low)
+    pieces = arch_spandrels(x0, x1, zc, r, segments)
+    right_low = arc[: low + 1]  # impost -> widest point
+    left_low = arc[low + segments :]  # widest point -> impost
+    pieces.append([(x1, z0), (x1, round(zc, 6))] + list(reversed(right_low))[1:-1] + [(xj1, z_imp), (xj1, z0)])
+    pieces.append([(x0, z0), (xj0, z0), (xj0, z_imp)] + list(reversed(left_low))[1:-1] + [(x0, round(zc, 6))])
+    return pieces
+
+
+def regular_polygon(cx: float, cy: float, r: float, sides: int, phase: float = 0.0) -> List[Point2]:
+    """A regular polygon (octagonal basins, drums, star points) as 2D points."""
+    if sides < 3:
+        raise ValueError("a polygon needs at least three sides")
+    return [(round(cx + r * math.cos(phase + 2 * math.pi * k / sides), 6), round(cy + r * math.sin(phase + 2 * math.pi * k / sides), 6)) for k in range(sides)]
+
+
+def star_polygon(cx: float, cy: float, r_out: float, r_in: float, points: int = 8, phase: float = 0.0) -> List[Point2]:
+    """A star outline with ``points`` tips (the eight-pointed zellige star, star basins)."""
+    if points < 3 or not 0.0 < r_in < r_out:
+        raise ValueError("a star needs at least three points and 0 < r_in < r_out")
+    out = []
+    for k in range(points * 2):
+        r = r_out if k % 2 == 0 else r_in
+        a = phase + math.pi * k / points
+        out.append((round(cx + r * math.cos(a), 6), round(cy + r * math.sin(a), 6)))
+    return out
+
+
+def dome_rings(r: float, rise: float, rings: int = 5, onion: float = 0.0) -> List[Tuple[float, float]]:
+    """``(z, radius)`` rings of a dome from its base (``z = 0``, radius ``r``) to the crown
+    (a tiny radius at ``z = rise``), for :func:`tube` along a vertical axis. ``onion`` > 0 bulges
+    the lower part out and pinches the top into a point (small onion and pointed domes)."""
+    if r <= 0 or rise <= 0 or rings < 2:
+        raise ValueError("a dome needs a positive radius, rise and at least two rings")
+    out = []
+    for k in range(rings + 1):
+        t = k / rings
+        a = t * math.pi / 2
+        rad = r * math.cos(a) * (1.0 + onion * math.sin(math.pi * t))
+        z = rise * math.sin(a) if not onion else rise * t
+        out.append((round(z, 6), round(max(rad, r * 0.03), 6)))
+    return out
+
+
 def stepped_gable_steps(
     u0: float, u1: float, z_base: float, z_ridge: float, steps: int
 ) -> List[Tuple[float, float, float, float]]:
