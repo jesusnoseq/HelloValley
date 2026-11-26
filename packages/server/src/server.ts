@@ -26,6 +26,9 @@ import { apartmentRoomWith } from "./rooms/ApartmentRoom";
 import { ApartmentRegistry } from "./rooms/apartmentRegistry";
 import { type TownRoomOptions, townRoomWith } from "./rooms/TownRoom";
 import { TownRegistry } from "./rooms/townRegistry";
+import type { NpcLifeOptions } from "./rooms/npcLife";
+import { VillageService, type VillageServiceOptions } from "./village/village";
+import { createMemoryVillageStore, firestoreVillageStoreFor, type VillageStore } from "./village/villageStore";
 
 export interface GameServerOptions {
   /** ID token verifier; defaults to firebase-admin with the config from the environment. */
@@ -68,9 +71,19 @@ export interface GameServerOptions {
   food?: FoodServiceOptions & { store?: FoodStore };
   /** Daily requests and quests (build plan M30): the store defaults like fishing's; tests also fix the clock. */
   quests?: QuestServiceOptions & { store?: QuestStore };
+  /**
+   * NPC life (build plan M31): the villagers walk their schedules. On by default when the server
+   * runs with Firebase; with an injected verifier and profile store (tests) it is off (the NPCs
+   * stand at their posts) unless given here. `null` turns it off.
+   */
+  life?: NpcLifeOptions | null;
+  /** Village memory (build plan M31): the store defaults like fishing's; tests also fix the clock. */
+  village?: VillageServiceOptions & { store?: VillageStore };
 }
 
 export interface GameServer extends Server {
+  /** Public events, rumours and legends (build plan M31), shared by every shard. */
+  readonly village: VillageService;
   /** The live TownRoom shards of this server. */
   readonly towns: TownRegistry;
   /** The live ApartmentRooms and visit passes. */
@@ -105,6 +118,9 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
     options.forage?.store ??
     (firebase ? firestoreForageStoreFor(adminApp(firebase)) : createMemoryForageStore("players" in npcStore ? (npcStore as MemoryNpcStore) : createMemoryNpcStore()));
   const forage = new ForageService(forageStore, options.forage);
+  const villageStore = options.village?.store ?? (firebase ? firestoreVillageStoreFor(adminApp(firebase)) : createMemoryVillageStore());
+  const village = new VillageService(villageStore, options.village);
+  const life = options.life === undefined ? (needsFirebase ? {} : null) : options.life;
   const streaks = options.streaks ?? (firebase ? firestoreStreakStoreFor(adminApp(firebase)) : createMemoryStreakStore());
   const towns = new TownRegistry();
   const apartments = new ApartmentRegistry();
@@ -118,7 +134,7 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   // A full shard is locked by Colyseus, so joinOrCreate creates the next one. Joining a friend's
   // shard goes through GET /api/shards?friend=<uid> and joinById.
   server
-    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing, forage, food, quests }, options.town))
+    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing, forage, food, quests, life, village }, options.town))
     .sortBy({ "metadata.shard": 1 });
   // Build plan M17: one private ApartmentRoom per owner. Visitors get in with a pass the owner
   // granted at the lobby intercom (TownRoom).
@@ -128,5 +144,5 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
       apartmentRoomWith({ verifier, profiles, layouts, apartments, towns, saveDebounceMs: options.layoutSaveDebounceMs }),
     )
     .filterBy(["owner"]);
-  return Object.assign(server, { towns, apartments });
+  return Object.assign(server, { towns, apartments, village });
 }

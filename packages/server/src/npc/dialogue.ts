@@ -7,6 +7,7 @@ import {
   createTokenBucket,
   type DailyLedger,
   effectiveLevelInfo,
+  elderSecretFlag,
   emptyConversationLedger,
   emptyDailyLedger,
   getNpc,
@@ -129,6 +130,8 @@ export interface StartRequest {
   nativeLang: string;
   /** The Gossip's hint context (build plan M28): the lost items lying in the player's shard today. */
   lostHints?: LostItemHint[];
+  /** Build plan M31: the shard's village news for the Gossip (rumours) and the Elder (legends). */
+  news?: string[];
 }
 
 export type Refused = { ok: false; reason: NpcRefusal };
@@ -277,11 +280,12 @@ export class NpcDialogueService {
       // Build plan M30: today's requests involving this NPC (offered favours, active, done).
       quests: quests.briefs,
       // Build plan M28: lost items the player carries; M29: what the player ate today.
-      flags: [...lostItemFlags(req.npcId, entries(record.slots)), ...this.food.flags(req.uid, req.npcId)],
+      // Build plan M31: the Elder tells of his secret fishing spot once he trusts the player.
+      flags: [...lostItemFlags(req.npcId, entries(record.slots)), ...this.food.flags(req.uid, req.npcId), ...(req.npcId === "elder" ? [elderSecretFlag(record.hearts)].filter((f): f is string => f !== null) : [])],
       // Build plan M29: the coffee buff's extra suggested-reply hint.
       extraHints: this.food.extraHints(req.uid),
       hints: req.npcId === "gossip" ? (req.lostHints ?? []) : [],
-      news: [], // TODO(M31): village events for the Gossip and the Elder.
+      news: req.npcId === "gossip" || req.npcId === "elder" ? (req.news ?? []) : [],
       world: { timeOfDay: clock.timeOfDay, weather: weatherAt(now, WORLD_WEATHER_SEED).weather, location: schedulePointAt(npc, clock.minutes)?.place ?? npc.building, minutes: Math.floor(clock.minutes) },
       turnsLeft: this.turnsLeft(p, conversation),
     };

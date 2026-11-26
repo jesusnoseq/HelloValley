@@ -105,6 +105,14 @@ reactions in {{target}} at CEFR A2 (at most 12 words each): praise, gentle teasi
 about the catch. Name the fish in {{target}}. Give "reading" only if the script is not Latin
 ({{romanization_scheme}}), otherwise "". Give a natural "translation" into {{native}}.
 Return JSON: {"lines":[{"text":"…","reading":"…","translation":"…"}]}`,
+  // Build plan M31 (npc-runtime.md §9.1): ambient lines of one villager, or exchanges between two
+  // related villagers. Game data only (public names, catchphrases and relationships), no player text.
+  ambientBarks: `You write ambient lines for {{npc_name}}, the {{npc_role}} of a cozy village in a language-learning game.
+Their catchphrase: {{signature}}
+{{request}}
+Language: {{target}}, CEFR A2: very common words, at most 8 words per line. Give "reading" only if
+the script is not Latin ({{romanization_scheme}}), otherwise "". Give a natural "translation" into {{native}}.
+Return JSON: {"barks":[{"text":"…","reading":"…","translation":"…"}],"exchanges":[{"first":{…},"second":{…}}]}`,
   // Build plan M30 (npc-runtime.md §9.3): a Town Hall notice for one request. Game data only, no player text.
   questNotice: `Write a Town Hall notice for this request in {{target}} at CEFR {{level}}, in the Mayor's dramatic
 official style (simple at low levels). Max {{max_words}} words. It must contain all details the
@@ -258,6 +266,34 @@ export const elderBarkPrompt = (i: ElderBarkPromptInput) =>
     native: languageName(i.nativeLang),
     romanization_scheme: romanizationScheme(i.targetLang),
   });
+
+/** Build plan M31: what a set of ambient barks is about (npc/ambient.ts builds it from game data). */
+export interface AmbientBarksPromptInput {
+  targetLang: string;
+  nativeLang: string;
+  npcName: string;
+  npcRole: string;
+  signature: string;
+  /** Solo lines: what the villager is doing and where ("baking bread", "the bakery"). */
+  solo?: { count: number; activity: string; location: string };
+  /** Two-line exchanges with another villager (the other one says the second line). */
+  exchange?: { count: number; otherName: string; relationship: string };
+}
+
+export function ambientBarksPrompt(i: AmbientBarksPromptInput): string {
+  const request = i.exchange
+    ? `Write ${i.exchange.count} different two-line exchanges between ${i.npcName} ("first") and the ${i.exchange.otherName} ("second"), overheard in passing, reflecting their relationship: ${quoted(i.exchange.relationship)}. Leave "barks" empty.`
+    : `Write ${i.solo?.count ?? 8} different short lines that ${i.npcName} says to nobody in particular while ${i.solo?.activity ?? "going about the day"} at ${i.solo?.location ?? "the village"}. Leave "exchanges" empty.`;
+  return fillTemplate(PROMPT_TEMPLATES.ambientBarks, {
+    npc_name: i.npcName,
+    npc_role: i.npcRole,
+    signature: quoted(i.signature),
+    request,
+    target: languageName(i.targetLang),
+    native: languageName(i.nativeLang),
+    romanization_scheme: romanizationScheme(i.targetLang),
+  });
+}
 
 /** Build plan M30: one request's notice (quests/notice.ts). */
 export interface QuestNoticePromptInput {

@@ -25,8 +25,18 @@ export const CAST_MAX_M = 5;
 export const CAST_CHARGE_MS = 1200;
 /** Hearts with the Elder that unlock the secret spot (npc-runtime.md: "at 5 hearts, reveal a secret fishing spot"). */
 export const SECRET_SPOT_HEARTS = 5;
-/** The secret spot: the quiet north bank of the river's west reach, below the hill. TODO(M31): the Elder hints at it in his dialogue. */
+/** The secret spot: the quiet north bank of the river's west reach, below the hill. The Elder tells of it at 5 hearts (`elderSecretFlag`). */
 export const SECRET_SPOT_AREA: Area = [1.5, 23.75, 6, 26];
+
+/**
+ * Build plan M31: the Elder's context flag once he trusts the player (npc-runtime.md "at 5 hearts,
+ * reveal a secret fishing spot"), or null below that. Game data, no player text.
+ */
+export function elderSecretFlag(hearts: number): string | null {
+  return hearts >= SECRET_SPOT_HEARTS
+    ? "you trust the player now: you may reveal your secret fishing spot, the quiet north bank of the river's west reach below the hill, where rare fish bite"
+    : null;
+}
 
 const inArea = (a: Area, p: Vec2, slack = 0) => p[0] >= a[0] - slack && p[0] <= a[2] + slack && p[1] >= a[1] - slack && p[1] <= a[3] + slack;
 

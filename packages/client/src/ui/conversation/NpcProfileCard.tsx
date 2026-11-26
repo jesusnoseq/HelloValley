@@ -5,6 +5,8 @@ import type { MessageKey } from "../../i18n/messages.en";
 import type { ConversationController } from "./controller";
 import { useLabelMap } from "../../labels/labelStore";
 import { itemName } from "../items/items";
+import { sendVillagePrivacy, useNpcBarks } from "../../net/npcBarks";
+import { useTownSession } from "../../net/townSession";
 
 /** Item names live with the inventory UI (build plan M26); re-exported for the conversation panel. */
 export { itemName };
@@ -52,7 +54,8 @@ export interface NpcProfileCardProps {
  * the friendship band, what this visit did (daily greeting, decay after a week away), when the
  * player last talked to them, and the gift picker (one gift per NPC per in-game day; the NPC's
  * liked and disliked items are found out by giving), and (build plan M28) the NPC's lost items the
- * player found, to hand back for hearts.
+ * player found, to hand back for hearts. Build plan M31: on the Gossip's and the Elder's cards, the
+ * village news setting (GDD §8.2: may they use the player's name in rumours and legends?).
  */
 export function NpcProfileCard({ context, name, controller, gifting, canGive }: NpcProfileCardProps) {
   const { t, locale } = useI18n();
@@ -62,6 +65,9 @@ export function NpcProfileCard({ context, name, controller, gifting, canGive }: 
   const giftable = context.inventory.filter((e) => e.qty > 0 && isGiftable(e.itemId));
   // Build plan M28: this NPC's lost items the player found.
   const theirs = context.inventory.flatMap((e) => (e.qty > 0 && isLostItemId(e.itemId) && lostItemOwner(e.itemId) === context.npcId ? [e.itemId] : []));
+  const named = useNpcBarks((s) => s.named);
+  const room = useTownSession((s) => s.room);
+  const newsy = context.npcId === "gossip" || context.npcId === "elder";
   const lastSeen = context.lastSeen !== null ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(context.lastSeen)) : null;
   return (
     <section className="hv-profile" aria-labelledby={titleId}>
@@ -102,6 +108,11 @@ export function NpcProfileCard({ context, name, controller, gifting, canGive }: 
             </button>
           ))}
         </div>
+      ) : null}
+      {newsy && named !== null ? (
+        <label className="hv-profile__note">
+          <input type="checkbox" checked={named} onChange={(e) => sendVillagePrivacy(room, e.target.checked)} /> {t("convo.profile.villageNamed")}
+        </label>
       ) : null}
     </section>
   );

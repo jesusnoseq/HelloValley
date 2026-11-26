@@ -6,15 +6,17 @@ import { rayBox, type SpaceId } from "./player";
 import type { Vec2 } from "./town";
 
 /**
- * Where the villagers stand (build plan M23). For now every NPC stays at one post inside their
- * workplace (or home): the shop NPCs behind their counter, the others at a spot in their room.
- * TODO(M31): NPCs follow their schedules (shared `schedulePointAt`), the server walks them and
- * syncs their positions in the TownRoom state; these posts become the "work" points.
- * TODO(M31): NPC bodies block the walkability grid (the player can walk through them for now).
+ * Where the villagers stand (build plan M23). Every NPC has one post inside their workplace (or
+ * home): the shop NPCs behind their counter, the others at a spot in their room. Since build plan
+ * M31 the server walks the NPCs along their schedules (npc/life.ts) and syncs where they are; the
+ * posts are their "work" (and sleep) points, and where they stand when no NPC life runs (offline,
+ * the dev pages, room tests).
  *
- * Pure data in the interior frame (metres, see interiors.ts), so the server checks the same
- * distances: `npc:start` needs the player within NPC_TALK_RADIUS_M (plus a little slack), and a
- * conversation ends when they walk further than NPC_WALK_AWAY_M or leave the room.
+ * The distance helpers take an `NpcLocator` (where each NPC is right now); the default is the
+ * posts. The server checks the same distances: `npc:start` needs the player within
+ * NPC_TALK_RADIUS_M (plus a little slack), and a conversation ends when they walk further than
+ * NPC_WALK_AWAY_M or leave the room. NPC bodies do not block the walkability grid (players and
+ * NPCs walk through each other, like players do).
  */
 
 export interface NpcPost {
@@ -59,32 +61,63 @@ export function npcPost(npcId: NpcId): NpcPost {
   return NPC_POSTS[npcId];
 }
 
+/** Where an NPC is right now: its space, position and heading (build plan M31). */
+export interface NpcWhere {
+  npcId: NpcId;
+  space: SpaceId;
+  pos: Vec2;
+  facing: number;
+}
+
+/** Where each NPC is: the live positions (server simulation, synced room state) or the posts. */
+export type NpcLocator = (npcId: NpcId) => NpcWhere;
+
+/** The NPCs at their posts (no NPC life). */
+export const postLocator: NpcLocator = (npcId) => NPC_POSTS[npcId];
+
 /** The NPCs standing in a space. */
-export function npcsInSpace(space: SpaceId): NpcPost[] {
-  return NPC_IDS.map((id) => NPC_POSTS[id]).filter((p) => p.space === space);
+export function npcsInSpace(space: SpaceId, locate: NpcLocator = postLocator): NpcWhere[] {
+  return NPC_IDS.map((id) => locate(id)).filter((p) => p.space === space);
 }
 
 /** Distance from `pos` to the NPC, or Infinity when the player is in another space. */
-export function npcDistance(npcId: NpcId, space: SpaceId, pos: Vec2): number {
-  const p = NPC_POSTS[npcId];
+export function npcDistance(npcId: NpcId, space: SpaceId, pos: Vec2, locate: NpcLocator = postLocator): number {
+  const p = locate(npcId);
   if (p.space !== space) return Infinity;
   return Math.hypot(pos[0] - p.pos[0], pos[1] - p.pos[1]);
 }
 
 /** Close enough to start talking (`slack` for the server's check of lagging reports). */
-export function canTalkTo(npcId: NpcId, space: SpaceId, pos: Vec2, slack = 0): boolean {
-  return npcDistance(npcId, space, pos) <= NPC_TALK_RADIUS_M + slack;
+export function canTalkTo(npcId: NpcId, space: SpaceId, pos: Vec2, slack = 0, locate: NpcLocator = postLocator): boolean {
+  return npcDistance(npcId, space, pos, locate) <= NPC_TALK_RADIUS_M + slack;
 }
 
 /** The player walked away from the conversation (or left the room). */
-export function walkedAway(npcId: NpcId, space: SpaceId, pos: Vec2): boolean {
-  return npcDistance(npcId, space, pos) > NPC_WALK_AWAY_M;
+export function walkedAway(npcId: NpcId, space: SpaceId, pos: Vec2, locate: NpcLocator = postLocator): boolean {
+  return npcDistance(npcId, space, pos, locate) > NPC_WALK_AWAY_M;
 }
 
+/**
+ * Where a click on an NPC walks the player: the post's talk spot when the NPC is at its post,
+ * otherwise a point TALK_APPROACH_M in front of the NPC, on the player's side.
+ */
+export function talkSpotFor(where: NpcWhere, from: Vec2): Vec2 {
+  const post = NPC_POSTS[where.npcId];
+  if (post.space === where.space && Math.hypot(post.pos[0] - where.pos[0], post.pos[1] - where.pos[1]) < 0.05) return post.talkSpot;
+  const dx = from[0] - where.pos[0];
+  const dz = from[1] - where.pos[1];
+  const d = Math.hypot(dx, dz);
+  if (d < 1e-6) return [where.pos[0], where.pos[1]];
+  return [where.pos[0] + (dx / d) * TALK_APPROACH_M, where.pos[1] + (dz / d) * TALK_APPROACH_M];
+}
+
+/** How far in front of a walking (or visiting) NPC a click puts the player (metres). */
+export const TALK_APPROACH_M = 1.2;
+
 /** The NPC a click ray (origin, direction) hits first in a space, or null. */
-export function pickNpc(space: SpaceId, origin: Vec3, dir: Vec3): NpcId | null {
+export function pickNpc(space: SpaceId, origin: Vec3, dir: Vec3, locate: NpcLocator = postLocator): NpcId | null {
   let best: { t: number; id: NpcId } | null = null;
-  for (const p of npcsInSpace(space)) {
+  for (const p of npcsInSpace(space, locate)) {
     const h = NPC_PICK_HALF_M;
     const t = rayBox(origin, dir, [p.pos[0] - h, 0, p.pos[1] - h], [p.pos[0] + h, NPC_PICK_HEIGHT_M, p.pos[1] + h]);
     if (t !== null && (!best || t < best.t)) best = { t, id: p.npcId };

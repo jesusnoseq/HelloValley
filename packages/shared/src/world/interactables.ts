@@ -4,7 +4,7 @@ import { townNavGrid } from "./navgrid";
 import type { SpaceId } from "./player";
 import { buildingDoors, townBuilding, type Vec2 } from "./town";
 import type { NpcId } from "../data/npcs";
-import { NPC_TALK_RADIUS_M, npcsInSpace } from "./npcPosts";
+import { NPC_TALK_RADIUS_M, type NpcLocator, npcsInSpace } from "./npcPosts";
 import { furnitureLabelKey, INTERCOM_LABEL_KEY, npcLabelKey, propLabelKey } from "./labels";
 import { KITCHEN_REACH_M } from "../food/cooking";
 import { NOTICE_BOARD_REACH_M, noticeBoardSpot } from "../quests/noticeBoard";
@@ -71,11 +71,31 @@ export function intercomInteractable(): Interactable {
 }
 
 let cache: Map<SpaceId, readonly Interactable[]> | undefined;
+let objectCache: Map<SpaceId, readonly Interactable[]> | undefined;
 
-/** The interactables of a space. */
-export function spaceInteractables(space: SpaceId): readonly Interactable[] {
+/**
+ * The interactables of a space. The villagers come from `locate` when given (build plan M31: where
+ * they are right now), otherwise from their posts.
+ */
+export function spaceInteractables(space: SpaceId, locate?: NpcLocator): readonly Interactable[] {
+  if (locate) return [...objectInteractables(space), ...npcInteractables(space, locate)];
   cache ??= new Map();
   const hit = cache.get(space);
+  if (hit) return hit;
+  const list = [...objectInteractables(space), ...npcInteractables(space)];
+  cache.set(space, list);
+  return list;
+}
+
+function npcInteractables(space: SpaceId, locate?: NpcLocator): Interactable[] {
+  // You face the NPC from wherever you stand; `facing` is the NPC's own heading.
+  return npcsInSpace(space, locate).map((p) => ({ id: `npc:${p.npcId}`, kind: "npc", space, spot: p.pos, facing: p.facing, radius: NPC_TALK_RADIUS_M, npcId: p.npcId, labelKey: npcLabelKey(p.npcId) }));
+}
+
+/** The fixed objects of a space (everything but the villagers). */
+function objectInteractables(space: SpaceId): readonly Interactable[] {
+  objectCache ??= new Map();
+  const hit = objectCache.get(space);
   if (hit) return hit;
   const list: Interactable[] = [];
   if (space === "town") {
@@ -91,18 +111,14 @@ export function spaceInteractables(space: SpaceId): readonly Interactable[] {
     const kitchen = interiorLayout("apartment").spots.kitchen;
     if (kitchen) list.push({ id: "apartment:kitchen", kind: "kitchen", space, spot: kitchen, facing: headingFor([0, -1]), radius: KITCHEN_REACH_M, labelKey: furnitureLabelKey("kitchen.nook") });
   }
-  for (const post of npcsInSpace(space)) {
-    // You face the NPC from wherever you stand; `facing` is the NPC's own resting heading.
-    list.push({ id: `npc:${post.npcId}`, kind: "npc", space, spot: post.pos, facing: post.facing, radius: NPC_TALK_RADIUS_M, npcId: post.npcId, labelKey: npcLabelKey(post.npcId) });
-  }
-  cache.set(space, list);
+  objectCache.set(space, list);
   return list;
 }
 
-/** The nearest interactable within reach of `pos` in `space`, or null. */
-export function nearestInteractable(space: SpaceId, pos: Vec2): Interactable | null {
+/** The nearest interactable within reach of `pos` in `space`, or null (villagers from `locate`, see above). */
+export function nearestInteractable(space: SpaceId, pos: Vec2, locate?: NpcLocator): Interactable | null {
   let best: { d: number; it: Interactable } | null = null;
-  for (const it of spaceInteractables(space)) {
+  for (const it of spaceInteractables(space, locate)) {
     const d = Math.hypot(pos[0] - it.spot[0], pos[1] - it.spot[1]);
     if (d <= it.radius && (!best || d < best.d)) best = { d, it };
   }

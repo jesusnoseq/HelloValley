@@ -31,6 +31,7 @@ export const HYBRID_TASKS = [
   "worldLabels",
   "elderBark",
   "questNotice",
+  "ambientBarks",
 ] as const;
 export type HybridTask = (typeof HYBRID_TASKS)[number];
 
@@ -93,6 +94,10 @@ export const ROUTING_TABLE: Readonly<Record<HybridTask, TaskRoute>> = {
   // admin tool); on a miss generated for this player, kept in IndexedDB. Without one the board
   // shows the request's quest card (world labels only).
   questNotice: { mode: M.PREFER_IN_CLOUD, fallback: "unavailable-chip", cache: "persist", temperature: 0.6 },
+  // Build plan M31: ambient NPC barks and NPC↔NPC exchanges (npc-runtime.md §9.1). Seeded lines
+  // first (cache/lines, admin tool `seed:ambient`); on a miss one set is generated for this player,
+  // kept in IndexedDB. Without either the villagers just stay quiet.
+  ambientBarks: { mode: M.PREFER_IN_CLOUD, fallback: "skip", cache: "persist", temperature: 0.9 },
 };
 
 /** Architecture §5.2: text up to this many words is "short" (on-device first). */

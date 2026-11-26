@@ -16,7 +16,7 @@ import {
   nearestSeat,
   nearestInteractable,
   nearestSpawn,
-  npcPost,
+  talkSpotFor,
   pickNpc,
   PlayerController,
   type SpacePoint,
@@ -25,7 +25,7 @@ import {
 import { characterAssetsWith } from "../characters/assetCache";
 import { MoveSync } from "../net/moveSync";
 import { chat } from "../net/chatSession";
-import { townLive, townSession, useTownSession } from "../net/townSession";
+import { liveNpcLocator, townLive, townSession, useTownSession } from "../net/townSession";
 import { openIntercom, visitSession } from "../net/visitSession";
 import { assembleAvatar, tintAvatar } from "../characters/avatarLook";
 import type { Character } from "../characters/characterGlb";
@@ -248,11 +248,12 @@ export function Player({ start }: { start: SpacePoint }) {
       const o: [number, number, number] = [origin.x, origin.y, origin.z];
       const d: [number, number, number] = [direction.x, direction.y, direction.z];
       // An NPC first (build plan M23): talk now, or walk to the counter and talk on arrival.
-      const npc = pickNpc(controller.state.space, o, d);
+      // Build plan M31: villagers walk; the ray, the range and the talk spot follow where they are.
+      const npc = pickNpc(controller.state.space, o, d, liveNpcLocator);
       if (npc) {
         if (conversationStore.getState().npcId === npc) return;
         conversation.requestTalk(npc, controller.state.space, controller.state.pos);
-        if (conversationStore.getState().pendingTalk === npc) controller.clickTo(npcPost(npc).talkSpot);
+        if (conversationStore.getState().pendingTalk === npc) controller.clickTo(talkSpotFor(liveNpcLocator(npc), controller.state.pos));
         return;
       }
       conversation.cancelPending();
@@ -339,7 +340,7 @@ export function Player({ start }: { start: SpacePoint }) {
 
     const { pos, motion, space } = controller.state;
     // What F would use: only while standing still in the open (not mid-fade).
-    const near = fade.current.phase === "idle" ? nearestInteractable(space, pos) : null;
+    const near = fade.current.phase === "idle" ? nearestInteractable(space, pos, liveNpcLocator) : null;
     if ((near?.id ?? null) !== (world.nearby?.id ?? null)) worldStore.setState({ nearby: near ? { id: near.id, kind: near.kind } : null });
     // Fishing (build plan M27): where the player could cast from (the server decides the secret spot).
     const spot = fade.current.phase === "idle" ? fishingSpotAt(space, pos) : null;
@@ -361,7 +362,7 @@ export function Player({ start }: { start: SpacePoint }) {
     // NPC conversations: walking away ends one, arriving at a clicked NPC starts one.
     conversation.updatePosition(space, pos);
     const talk = conversationStore.getState();
-    const talkingTo = talk.npcId && talk.phase !== "idle" && talk.phase !== "unavailable" ? npcPost(talk.npcId) : null;
+    const talkingTo = talk.npcId && talk.phase !== "idle" && talk.phase !== "unavailable" ? liveNpcLocator(talk.npcId) : null;
     const talking = talkingTo !== null && talkingTo.space === space;
     cameraRig.talk = talking ? { target: [(pos[0] + talkingTo.pos[0]) / 2, 0.6, (pos[1] + talkingTo.pos[1]) / 2], viewHeight: TALK_VIEW_HEIGHT } : null;
     // In front of the mirror the avatar turns to the camera to show off the new look; in a

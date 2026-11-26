@@ -2,7 +2,8 @@ import { Html } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Raycaster, Vector2 } from "three";
-import { type LabelledObject, labelledObjects, pickLabel } from "@hellovalley/shared";
+import { type LabelledObject, labelledObjects, npcBoxes, pickLabel } from "@hellovalley/shared";
+import { liveNpcLocator } from "../net/townSession";
 import { requestLabels } from "../labels/labelStore";
 import { useAvatar } from "../state/avatarStore";
 import { useWorld } from "../state/worldStore";
@@ -52,7 +53,9 @@ export function WorldLabels() {
       ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, get().camera);
       const { origin, direction } = raycaster.ray;
-      const hit = pickLabel(objects, [origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z]);
+      // Build plan M31: the villagers' boxes follow where they walk.
+      const pool = [...objects.filter((o) => !o.id.startsWith("npc:")), ...npcBoxes(space, liveNpcLocator)];
+      const hit = pickLabel(pool, [origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z]);
       if (hit) {
         if (clearTimer.current) clearTimeout(clearTimer.current);
         clearTimer.current = null;
@@ -81,7 +84,7 @@ export function WorldLabels() {
       if (clearTimer.current) clearTimeout(clearTimer.current);
       clearTimer.current = null;
     };
-  }, [gl, get, objects, lang]);
+  }, [gl, get, objects, lang, space]);
 
   if (!hovered || !lang) return null;
   return (

@@ -329,6 +329,7 @@ export const en = {
   "convo.profile.decay": "The {name} missed you while you were away: {delta} ♥",
   "convo.profile.lastSeen": "Last talked: {date}",
   "convo.profile.firstMeeting": "First meeting",
+  "convo.profile.villageNamed": "Village news may use my name (otherwise I am \"someone\")",
   "convo.profile.gift": "Give a gift",
   "convo.profile.giftedToday": "The {name} already got a gift today. Come back tomorrow!",
   "convo.profile.nothingToGive": "You have nothing to give yet.",

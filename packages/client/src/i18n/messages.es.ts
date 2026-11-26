@@ -327,6 +327,7 @@ export const es: Catalog = {
   "convo.profile.decay": "{name} te ha echado de menos: {delta} ♥",
   "convo.profile.lastSeen": "Última charla: {date}",
   "convo.profile.firstMeeting": "Primer encuentro",
+  "convo.profile.villageNamed": "Las noticias del pueblo pueden usar mi nombre (si no, soy \"alguien\")",
   "convo.profile.gift": "Hacer un regalo",
   "convo.profile.giftedToday": "Hoy ya recibió un regalo ({name}). ¡Vuelve mañana!",
   "convo.profile.nothingToGive": "Todavía no tienes nada que regalar.",

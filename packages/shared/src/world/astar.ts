@@ -6,7 +6,7 @@ import type { Vec2 } from "./town";
  * orthogonal neighbours are free (no cutting corners), unit cost per cell (√2 diagonally) and the
  * octile-distance heuristic, which is admissible and consistent, so paths are shortest on the
  * grid. Click-to-move (world/movement.ts `planPath`, on the cells a walker fits) and NPC
- * walking (TODO(M31)) use it.
+ * walking (npc/life.ts, build plan M31) use it.
  */
 
 const SQRT2 = Math.SQRT2;

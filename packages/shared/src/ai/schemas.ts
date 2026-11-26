@@ -202,6 +202,34 @@ export const ELDER_BARK_JSON_SCHEMA: AiJsonSchema = obj(
   ["lines"],
 );
 
+// Build plan M31: ambient barks (npc-runtime.md §9.1). Empty lines are dropped; solo sets keep 8, exchanges 3.
+export const AMBIENT_BARK_MAX_CHARS = 120;
+const AmbientLineSchema = z.object({ text: barkText(AMBIENT_BARK_MAX_CHARS), reading: barkText(300).optional().nullable(), translation: barkText(300).optional().nullable() });
+const ambientLine = (l: z.output<typeof AmbientLineSchema>) =>
+  l.reading && l.reading !== l.text ? { text: l.text, reading: l.reading, translation: l.translation ?? "" } : { text: l.text, translation: l.translation ?? "" };
+export const AmbientBarksResponseSchema = z
+  .object({
+    barks: z.array(AmbientLineSchema).max(16).optional().nullable(),
+    exchanges: z.array(z.object({ first: AmbientLineSchema, second: AmbientLineSchema })).max(8).optional().nullable(),
+  })
+  .transform((r) => ({
+    barks: (r.barks ?? []).filter((l) => l.text).slice(0, 8).map(ambientLine),
+    exchanges: (r.exchanges ?? [])
+      .filter((e) => e.first.text && e.second.text)
+      .slice(0, 3)
+      .map((e) => ({ first: ambientLine(e.first), second: ambientLine(e.second) })),
+  }))
+  .refine((r) => r.barks.length > 0 || r.exchanges.length > 0, { message: "no lines" });
+export type AmbientBarksResponse = z.output<typeof AmbientBarksResponseSchema>;
+const AMBIENT_LINE_JSON = obj({ text: str(), reading: str(), translation: str() }, ["text", "translation"]);
+export const AMBIENT_BARKS_JSON_SCHEMA: AiJsonSchema = obj(
+  {
+    barks: { type: "array", maxItems: 8, items: AMBIENT_LINE_JSON },
+    exchanges: { type: "array", maxItems: 3, items: obj({ first: AMBIENT_LINE_JSON, second: AMBIENT_LINE_JSON }, ["first", "second"]) },
+  },
+  ["barks", "exchanges"],
+);
+
 // Build plan M30: a Town Hall notice, a title and 1–4 body lines (npc-runtime.md §9.3).
 export const QUEST_NOTICE_MAX_LINES = 4;
 const NoticeLineSchema = z.object({ text: barkText(400), reading: barkText(800).optional().nullable(), translation: barkText(800).optional().nullable() });
@@ -236,6 +264,7 @@ export const TASK_SCHEMAS = {
   worldLabels: { json: WORLD_LABELS_JSON_SCHEMA, zod: WorldLabelsResponseSchema },
   elderBark: { json: ELDER_BARK_JSON_SCHEMA, zod: ElderBarkResponseSchema },
   questNotice: { json: QUEST_NOTICE_JSON_SCHEMA, zod: QuestNoticeResponseSchema },
+  ambientBarks: { json: AMBIENT_BARKS_JSON_SCHEMA, zod: AmbientBarksResponseSchema },
 } as const satisfies Record<HybridTask, { json: AiJsonSchema; zod: z.ZodType }>;
 
 export type TaskOutput<T extends HybridTask> = z.output<(typeof TASK_SCHEMAS)[T]["zod"]>;

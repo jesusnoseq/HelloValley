@@ -17,6 +17,11 @@ import {
   type Weather,
   type WelcomeMessage,
   type WireSpacePoint,
+  type NpcEmoteMessage,
+  type NpcId,
+  type NpcLocator,
+  postLocator,
+  type TownNpcView,
 } from "@hellovalley/shared";
 import { RemoteTrack, type RemoteSample } from "./interpolation";
 import { chat } from "./chatSession";
@@ -26,6 +31,7 @@ import { attachQuests } from "./questSession";
 import { attachFood } from "./foodSession";
 import { attachInventory } from "./inventorySession";
 import { attachVisitMessages } from "./visitSession";
+import { attachNpcBarks } from "./npcBarks";
 
 /**
  * The client's mirror of its TownRoom (build plan M16; architecture §4: game state on the client
@@ -49,14 +55,23 @@ export interface RemotePlayerInfo {
   seat: string;
 }
 
+/** A villager as the room syncs it (build plan M31): which space it is in and its activity clip. */
+export interface NpcInfo {
+  space: SpaceId;
+  /** "" / "fishing" / "eating" (shared npc/life.ts `activityState`). */
+  activity: string;
+}
+
 export interface TownSessionState {
   room: Room | null;
   /** Shard number ("Valley #n") from the welcome. */
   shard: number | null;
   remotes: Readonly<Record<string, RemotePlayerInfo>>;
+  /** The villagers in the room state (build plan M31); empty offline (they stand at their posts). */
+  npcs: Readonly<Partial<Record<NpcId, NpcInfo>>>;
 }
 
-export const townSession = createStore<TownSessionState>()(() => ({ room: null, shard: null, remotes: {} }));
+export const townSession = createStore<TownSessionState>()(() => ({ room: null, shard: null, remotes: {}, npcs: {} }));
 
 export function useTownSession<T>(selector: (state: TownSessionState) => T): T {
   return useStore(townSession, selector);
@@ -81,6 +96,17 @@ export const townLive = {
   welcomed: false,
   /** Emotes other players played, by session id, until their avatars play them. */
   emotes: new Map<string, Emote[]>(),
+  /** Interpolation buffers of the villagers (build plan M31), by NPC id. */
+  npcTracks: new Map<NpcId, RemoteTrack>(),
+  /** Idle emotes the villagers played, until their figures play them. */
+  npcEmotes: new Map<NpcId, Emote[]>(),
+
+  takeNpcEmotes(npcId: NpcId): Emote[] {
+    const list = this.npcEmotes.get(npcId);
+    if (!list?.length) return [];
+    this.npcEmotes.delete(npcId);
+    return list;
+  },
 
   /** The estimated server wall time (ms), or null while there is no synced room. */
   serverNow(): number | null {
@@ -106,9 +132,18 @@ const QUICK_SYNC_MS = 400;
 const QUICK_SYNCS = 4;
 const SLOW_SYNC_MS = 15_000;
 
-function sampleOf(p: TownPlayerView): RemoteSample {
+function sampleOf(p: TownPlayerView | TownNpcView): RemoteSample {
   return { space: p.space, x: p.x, z: p.z, heading: p.heading, motion: p.motion };
 }
+
+/**
+ * Where each villager is (build plan M31): the room's latest word online, their posts offline.
+ * The conversation range checks, clicks, F and labels use it.
+ */
+export const liveNpcLocator: NpcLocator = (npcId) => {
+  const s = townSession.getState().room ? townLive.npcTracks.get(npcId)?.latest : null;
+  return s ? { npcId, space: s.space, pos: [s.x, s.z], facing: s.heading } : postLocator(npcId);
+};
 
 /**
  * Mirrors `room` into the stores until the returned function is called (or the room is left):
@@ -119,12 +154,14 @@ function sampleOf(p: TownPlayerView): RemoteSample {
 export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage) => void): () => void {
   townLive.tracks.clear();
   townLive.emotes.clear();
+  townLive.npcTracks.clear();
+  townLive.npcEmotes.clear();
   townLive.corrections = [];
   townLive.spawn = null;
   townLive.welcomed = false;
-  townSession.setState({ room, shard: null, remotes: {} });
+  townSession.setState({ room, shard: null, remotes: {}, npcs: {} });
 
-  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room), attachFood(room), attachQuests(room)];
+  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room), attachFood(room), attachQuests(room), attachNpcBarks(room)];
   offs.push(
     room.onMessage(ServerMessage.Welcome, (welcome: WelcomeMessage) => {
       townLive.spawn = welcome.spawn;
@@ -143,6 +180,9 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
     }),
     room.onMessage(ServerMessage.TimeSync, (reply: TimeSyncReply) => {
       townLive.clock.add({ sentMs: reply.t, serverMs: reply.server, receivedMs: Date.now() });
+    }),
+    room.onMessage(ServerMessage.NpcEmote, ({ npcId, emote }: NpcEmoteMessage) => {
+      townLive.npcEmotes.set(npcId, [...(townLive.npcEmotes.get(npcId) ?? []), emote].slice(-2));
     }),
   );
 
@@ -171,6 +211,26 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
         callbacks.onChange(player as object, () => {
           townLive.tracks.get(sessionId)?.push(performance.now(), sampleOf(player));
           setRemote(sessionId, player);
+        }),
+      );
+    }),
+    // Build plan M31: the villagers' positions (tracks) and their space and activity (React state).
+    callbacks.onAdd("npcs", (value: unknown, key: unknown) => {
+      const npc = value as TownNpcView;
+      const npcId = String(key) as NpcId;
+      const setInfo = () => {
+        const prev = townSession.getState().npcs[npcId];
+        if (prev && prev.space === npc.space && prev.activity === npc.activity) return;
+        townSession.setState((s) => ({ npcs: { ...s.npcs, [npcId]: { space: npc.space, activity: npc.activity } } }));
+      };
+      const track = new RemoteTrack();
+      track.push(performance.now(), sampleOf(npc));
+      townLive.npcTracks.set(npcId, track);
+      setInfo();
+      offs.push(
+        callbacks.onChange(npc as object, () => {
+          townLive.npcTracks.get(npcId)?.push(performance.now(), sampleOf(npc));
+          setInfo();
         }),
       );
     }),
@@ -210,10 +270,12 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
     if (townSession.getState().room === room) {
       townLive.tracks.clear();
       townLive.emotes.clear();
+      townLive.npcTracks.clear();
+      townLive.npcEmotes.clear();
       townLive.corrections = [];
       townLive.spawn = null;
       townLive.welcomed = false;
-      townSession.setState({ room: null, shard: null, remotes: {} });
+      townSession.setState({ room: null, shard: null, remotes: {}, npcs: {} });
     }
   };
   room.onLeave(detach);

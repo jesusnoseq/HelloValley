@@ -124,7 +124,7 @@ export const ChatReportSchema = z.strictObject({
 /** Server-issued conversation, turn and trade ids (UUIDs). */
 export const NpcTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 
-/** `npc:start` (build plan M21). The TownRoom checks the range against the NPC posts (M23); TODO(M31): live positions. */
+/** `npc:start` (build plan M21). The TownRoom checks the range against where the NPC is now (M31: live positions from its NPC life). */
 export const NpcStartSchema = z.strictObject({ npcId: NpcIdSchema });
 /** `npc:reply`: the actions are model output, parsed leniently (unknown ones dropped) and validated by the server. */
 export const NpcReplySchema = z.strictObject({ conversationId: NpcTokenSchema, turnId: NpcTokenSchema, actions: NpcActionListSchema });
@@ -178,6 +178,9 @@ export const QuestAcceptSchema = z.strictObject({ questId: QuestIdSchema });
 /** `quest:handover`: in a conversation, a request id; the server checks the NPC, the bag and the deadline. */
 export const QuestTurnInSchema = z.strictObject({ conversationId: NpcTokenSchema, questId: QuestIdSchema });
 
+/** `village:privacy` (build plan M31): the news opt-out. */
+export const VillagePrivacyRequestSchema = z.strictObject({ named: z.boolean() });
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -210,6 +213,7 @@ export const ClientMessageSchemas = {
   [ClientMessage.CookMake]: CookMakeSchema,
   [ClientMessage.QuestAccept]: QuestAcceptSchema,
   [ClientMessage.QuestTurnIn]: QuestTurnInSchema,
+  [ClientMessage.VillagePrivacy]: VillagePrivacyRequestSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

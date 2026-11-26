@@ -73,7 +73,7 @@ export interface NpcDef {
   voice: NpcVoice;
   likedItems: readonly ItemId[];
   dislikedItems: readonly ItemId[];
-  /** 4–6 points per in-game day, in time order (GDD §4.3). TODO(M31): the server walks NPCs along it. */
+  /** 4–6 points per in-game day, in time order (GDD §4.3). The server walks NPCs along it (npc/life.ts, build plan M31). */
   schedule: readonly SchedulePoint[];
 }
 
@@ -329,7 +329,7 @@ export function getNpc(id: string): NpcDef | undefined {
 
 export type NpcRelationshipKind = "rivals" | "secret_crush" | "bickering" | "enemies" | "friends" | "corrects";
 
-/** Relationships from docs/hellovalley-village-npcs.md. TODO(M31): NPC↔NPC barks use them. */
+/** Relationships from docs/hellovalley-village-npcs.md. NPC↔NPC barks use them (npc/ambient.ts, build plan M31). */
 export const NPC_RELATIONSHIPS: readonly { a: NpcId; b: NpcId; kind: NpcRelationshipKind; note: string }[] = [
   { a: "shopkeeper", b: "baker", kind: "rivals", note: "Friendly business rivalry." },
   { a: "barista", b: "librarian", kind: "secret_crush", note: "Secretly attracted, both too proud to admit it." },

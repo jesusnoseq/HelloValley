@@ -417,8 +417,8 @@ users/{uid}/collections/forage   found{itemId: count, first, last}, returned{los
 users/{uid}/collections/recipes  known{recipeId: teacher, lang, learned, cooked}   (server-only, M29)
 users/{uid}/collections/quests   langs{lang: day, entries{questId: status, progress, accepted, via, completed?}, completed{kind: n}}   (server-only, M30)
 users/{uid}/apartment/layout     furniture[{itemId, x, z, rot}]
-village/{shardId}/events/{id}    type, actorName?, payload, ts       (TTL 14 days)
-village/global/legends/{id}      text by lang (generated)
+village/{shardId}/events/{id}    type, actorName?, payload, ts, expiresAt   (TTL 14 days, M31)
+users/{uid}/privacy/village      named   (server-only, M31: village news opt-out)
 cache/lines/{hash}               text, reading, tokens, translation{lang}
 cache/tts/{hash}                 storagePath, voice, durationMs
 cache/labels/{lang}              labelKey → {word, reading, audioHash}

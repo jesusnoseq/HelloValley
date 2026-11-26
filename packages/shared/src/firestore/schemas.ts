@@ -17,6 +17,7 @@ import { MAX_STACK } from "../npc/inventory";
 import { CHAT_REPORT_REASONS } from "../protocol/messages";
 import { FsrsCardSchema } from "../srs/fsrs";
 import type { QuestKind } from "../quests/templates";
+import { VillageEventTypeSchema } from "../village/events";
 
 /**
  * Zod schemas for the Firestore documents in GDD §9.4 (with the ownership in architecture §8.1).
@@ -364,10 +365,13 @@ export type ChatReportInput = z.infer<typeof ChatReportInputSchema>;
 export const ChatReportDocSchema = ChatReportInputSchema.extend({ createdAt: TimestampSchema });
 export type ChatReportDoc = z.infer<typeof ChatReportDocSchema>;
 
-/** `village/{shardId}/events/{id}`: public game events, server-written (GDD §8.2). */
+/**
+ * `village/{shardId}/events/{id}`: public game events, server-written (GDD §8.2, build plan M31).
+ * The payload is checked per type with village/events.ts `parseVillagePayload`. `actorName` is
+ * there only when the player allows being named (`users/{uid}/privacy/village`).
+ */
 export const VillageEventSchema = z.strictObject({
-  /** TODO(M31): an enum of event types. */
-  type: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/),
+  type: VillageEventTypeSchema,
   actorName: PlayerNameSchema.optional(),
   payload: z.record(z.string(), z.unknown()),
   ts: TimestampSchema,
@@ -375,6 +379,14 @@ export const VillageEventSchema = z.strictObject({
   expiresAt: TimestampSchema,
 });
 export type VillageEvent = z.infer<typeof VillageEventSchema>;
+
+/**
+ * `users/{uid}/privacy/village` (build plan M31): whether the Gossip and the Elder may use the
+ * player's name in village news (GDD §8.2 "players can opt out of being named"). Server-only: the
+ * player changes it in the game (`village:privacy`). No document means named (the GDD's opt-out).
+ */
+export const VillagePrivacySchema = z.strictObject({ named: z.boolean() });
+export type VillagePrivacy = z.infer<typeof VillagePrivacySchema>;
 
 /** `cache/lines/{hash}`: a seeded NPC line (admin seeding tool only, architecture §6.3). */
 export const CachedLineSchema = z.strictObject({

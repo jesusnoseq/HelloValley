@@ -9,3 +9,5 @@ export * from "./starters";
 export * from "./friendship";
 export * from "./memory";
 export * from "./levelAdaptation";
+export * from "./life";
+export * from "./ambient";

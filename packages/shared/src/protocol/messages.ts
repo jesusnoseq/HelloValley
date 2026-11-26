@@ -27,6 +27,7 @@ import type { CookRefusal, IngredientUse, RecipeBook } from "../food/cooking";
 import type { QuestAcceptRefusal, NpcQuestBrief, QuestSettleRefusal } from "../quests/progress";
 import type { QuestReward } from "../quests/templates";
 import type { QuestView } from "../quests/view";
+import type { AmbientBark } from "../npc/ambient";
 
 /** Colyseus room names registered by the server (architecture §7.1). */
 export const RoomName = {
@@ -108,6 +109,8 @@ export const ClientMessage = {
   QuestAccept: "quest:accept",
   /** During a conversation: hand a delivery or a fetch over to this NPC (the "Hand over" card). */
   QuestTurnIn: "quest:handover",
+  /** Whether the Gossip and the Elder may name the player in village news (build plan M31, GDD §8.2 opt-out). */
+  VillagePrivacy: "village:privacy",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -182,6 +185,16 @@ export const ServerMessage = {
   QuestState: "quests:state",
   /** A request was taken or completed (or why not): board, `giveQuest`, hand-over, `completeQuest` or automatic. */
   QuestResult: "quest:result",
+  /**
+   * An ambient bark (build plan M31): a villager's line, or a two-line exchange between two related
+   * villagers, to the players near them. The client shows it in its own target language (seeded
+   * `cache/lines`, else its own generation).
+   */
+  NpcBark: "npc:bark",
+  /** A villager played an idle emote (build plan M31), to the players in its space. */
+  NpcEmote: "npc:emote",
+  /** The player's village news setting (after the join and as the answer to `village:privacy`). */
+  VillagePrivacy: "village:privacy",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -288,6 +301,34 @@ export interface TownForageView {
   kind: SpawnKind;
   x: number;
   z: number;
+}
+
+/**
+ * One villager in the synced TownRoom state (build plan M31, the server's `TownNpc` schema), keyed
+ * by NPC id: where it is, whether it walks, and its activity clip ("" / "fishing" / "eating").
+ */
+export interface TownNpcView {
+  space: SpaceId;
+  x: number;
+  z: number;
+  heading: number;
+  motion: Motion;
+  activity: string;
+}
+
+/** Payload of `ServerMessage.NpcBark`. */
+export type NpcBarkMessage = AmbientBark & { id: string };
+
+/** Payload of `ServerMessage.NpcEmote`. */
+export interface NpcEmoteMessage {
+  npcId: NpcId;
+  emote: Emote;
+}
+
+/** Payload of `ClientMessage.VillagePrivacy` and `ServerMessage.VillagePrivacy`. */
+export interface VillagePrivacyMessage {
+  /** True: village news may use the player's display name; false: "someone". */
+  named: boolean;
 }
 
 /** The synced world clock and weather (the server's `TownWorld` schema). */
@@ -548,7 +589,10 @@ export interface NpcContextMessage {
   extraHints: number;
   /** The Gossip only (build plan M28): the lost items still lying in the shard today and where. */
   hints: LostItemHint[];
-  /** Village news (Gossip and Elder only). TODO(M31). */
+  /**
+   * Village news (build plan M31; Gossip and Elder only): English seeds from the server's batch of
+   * public events (village/events.ts), rumours for the Gossip and legends for the Elder.
+   */
   news: string[];
   world: { timeOfDay: TimeOfDay; weather: Weather; location: PlaceId; minutes: number };
   /** Turns left in this conversation (server limit). */

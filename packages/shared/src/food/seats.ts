@@ -12,7 +12,7 @@ import { type Area, rectToTown, TOWN_PROPS_LAYOUT, type Vec2 } from "../world/to
  * server checks the seat exists in the player's space, is within reach of its own walker and is
  * free; the avatar is drawn on the seat (the walker itself stays on the walkable ground beside
  * it) and plays the `sit` clip. Walking off stands the player up.
- * TODO(M31): sitting to eat opens ambient small talk with villagers nearby.
+ * Build plan M31: sitting down opens ambient small talk with a villager nearby (server rooms/npcLife.ts `smallTalk`).
  */
 
 export interface Seat {

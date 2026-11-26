@@ -1,6 +1,7 @@
 import {
   type ApprovedAction,
   canTalkTo,
+  type NpcLocator,
   type ConversationTelemetry,
   emptyTelemetry,
   getNpc,
@@ -21,7 +22,7 @@ import {
 } from "@hellovalley/shared";
 import { type InputHelpers, loadInputHelpers, loadNpcAi } from "../../ai/client";
 import { type NpcAi, NpcConversation, NpcRefusedError, type NpcRoom } from "../../net/npcConversation";
-import { townSession } from "../../net/townSession";
+import { liveNpcLocator, townSession } from "../../net/townSession";
 import { avatarStore } from "../../state/avatarStore";
 import { type Toast, toastStore } from "../../state/toastStore";
 import {
@@ -63,6 +64,8 @@ export interface ConversationDeps {
   checkTimeoutMs?: number;
   /** Shows a toast (defaults to the game's toast store). */
   toast?: (toast: Omit<Toast, "id">) => void;
+  /** Where the villagers are (build plan M31: the room's live positions; defaults to `liveNpcLocator`). */
+  locate?: NpcLocator;
 }
 
 /** The pre-send check never holds a line longer than this (my number: it must feel instant). */
@@ -101,6 +104,10 @@ export class ConversationController {
     private readonly deps: ConversationDeps,
     readonly store: ConversationStore = conversationStore,
   ) {}
+
+  private get locate(): NpcLocator {
+    return this.deps.locate ?? liveNpcLocator;
+  }
 
   private get state() {
     return this.store.getState();
@@ -170,7 +177,7 @@ export class ConversationController {
    * while the scene walks the player over (`updatePosition` starts it on arrival).
    */
   requestTalk(npcId: NpcId, space: SpaceId, pos: Vec2): void {
-    if (canTalkTo(npcId, space, pos)) {
+    if (canTalkTo(npcId, space, pos, 0, this.locate)) {
       void this.open(npcId);
       return;
     }
@@ -187,8 +194,8 @@ export class ConversationController {
    */
   updatePosition(space: SpaceId, pos: Vec2): void {
     const { npcId, pendingTalk } = this.state;
-    if (this.active && npcId && walkedAway(npcId, space, pos)) this.end();
-    if (pendingTalk && canTalkTo(pendingTalk, space, pos)) void this.open(pendingTalk);
+    if (this.active && npcId && walkedAway(npcId, space, pos, this.locate)) this.end();
+    if (pendingTalk && canTalkTo(pendingTalk, space, pos, 0, this.locate)) void this.open(pendingTalk);
   }
 
   /**

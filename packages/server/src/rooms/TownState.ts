@@ -1,5 +1,5 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
-import type { TownForageView, TownPlayerView, TownWorldView } from "@hellovalley/shared";
+import type { TownForageView, TownNpcView, TownPlayerView, TownWorldView } from "@hellovalley/shared";
 
 /**
  * One player in a TownRoom shard (build plan M16). Positions are on the ground plane in metres,
@@ -61,9 +61,26 @@ export const TownForageSpawn = schema(
 export type TownForageSpawn = SchemaType<typeof TownForageSpawn>;
 
 /**
- * Synced TownRoom state. NPCs stand at fixed posts for now (shared npcPosts.ts, build plan M23);
- * TODO(M31): NPC positions and schedule state. The day's forage spawns are shared
- * state (GDD §4.4, build plan M28). Fish shadows are private to the angler (`fish:cast`), not state.
+ * One villager (build plan M31), keyed by NPC id in `TownState.npcs`: where the server's NPC life
+ * has it (rooms/npcLife.ts), whether it walks, and its activity clip.
+ */
+export const TownNpc = schema(
+  {
+    space: t.string(),
+    x: t.number(),
+    z: t.number(),
+    heading: t.number(),
+    motion: t.string(),
+    activity: t.string(),
+  },
+  "TownNpc",
+);
+export type TownNpc = SchemaType<typeof TownNpc>;
+
+/**
+ * Synced TownRoom state. The villagers walk their schedules (build plan M31; at their posts when
+ * the room runs without NPC life). The day's forage spawns are shared state (GDD §4.4, build plan
+ * M28). Fish shadows are private to the angler (`fish:cast`), not state.
  */
 export const TownState = schema(
   {
@@ -73,6 +90,8 @@ export const TownState = schema(
     world: TownWorld,
     /** Spawn id → what lies there (build plan M28). */
     forage: t.map(TownForageSpawn),
+    /** NPC id → where the villager is (build plan M31). */
+    npcs: t.map(TownNpc),
   },
   "TownState",
 );
@@ -82,3 +101,4 @@ export type TownState = SchemaType<typeof TownState>;
 export type TownPlayerFieldsCheck = Pick<TownPlayer, keyof TownPlayerView>;
 export type TownWorldFieldsCheck = Pick<TownWorld, keyof TownWorldView>;
 export type TownForageFieldsCheck = Pick<TownForageSpawn, keyof TownForageView>;
+export type TownNpcFieldsCheck = Pick<TownNpc, keyof TownNpcView>;

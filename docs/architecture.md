@@ -264,7 +264,8 @@ Based on GDD §9.4.
 | `users/{uid}/collections/forage` (forage album, build plan M28) | — (sent over the room) | — | yes |
 | `users/{uid}/collections/recipes` (recipe book, build plan M29) | — (sent over the room) | — | yes |
 | `users/{uid}/collections/quests` (quest log per target language, build plan M30) | — (sent over the room) | — | yes |
-| `village/{shardId}/events/{id}` (TTL 14 days) | — | — | yes |
+| `village/{shardId}/events/{id}` (TTL 14 days; build plan M31: public events, `actorName` only for players who allow it) | — | — | yes |
+| `users/{uid}/privacy/village` (village news may name the player, build plan M31) | — (sent over the room) | — (`village:privacy` over the room) | yes |
 | `cache/lines`, `cache/tts`, `cache/labels` | signed-in | admin claim only | — |
 | `reports/{id}` | — | — | yes |
 
@@ -313,7 +314,7 @@ These replace the parts of GDD §9.1–9.2, §8.2, §9.4 and the build plan (M01
 | Server is hosted on Cloud Run | One Fly.io Machine |
 | Server-side cache of TTS and lines, with signed URLs | Shared cache is admin-seeded only. Play-time content is cached per player in IndexedDB |
 | Server-side AI moderation | Server blocklist + on-device checks on the sender and reader sides |
-| Village rumours and legends batch job | Generated inside the Gossip and Elder turns from events the server supplies |
+| Village rumours and legends batch job | Generated inside the Gossip and Elder turns from events the server supplies. Build plan M31: the server's periodic batch is deterministic (no model): it picks the newsworthy events and writes them as English seeds (`npc:context.news`), which the model retells as rumours or legends in the turn |
 | Server per-user AI budgets | AI Logic per-user RPM limit + App Check + project quotas, plus server `turnId` limits |
 
 ## 12. Open questions

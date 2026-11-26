@@ -5,7 +5,7 @@ import { getNpc, NPC_IDS, type NpcId } from "../data/npcs";
 import { recipeCardLabels } from "../food/recipeCard";
 import { questCardLabels } from "../quests/cardWords";
 import { INTERIOR_FURNITURE, interiorLayout, type FurnitureModuleId, type InteriorPiece, pieceArea } from "./interiors";
-import { NPC_PICK_HALF_M, NPC_PICK_HEIGHT_M, npcsInSpace } from "./npcPosts";
+import { NPC_PICK_HALF_M, NPC_PICK_HEIGHT_M, type NpcLocator, npcsInSpace } from "./npcPosts";
 import { rayBox, type SpaceId, spaceDoors } from "./player";
 import { type Rect, TOWN_PROPS, type TownPropModuleId } from "./props";
 import { type Area, difficultySigns, rectToTown, TOWN_PROPS_LAYOUT } from "./town";
@@ -204,8 +204,12 @@ function pieceBox(index: number, piece: InteriorPiece): LabelledObject {
  * live ApartmentRoom layout, `apartmentInteriorLayout(...).furniture`); otherwise the
  * interior's default layout is used.
  */
-export function labelledObjects(space: SpaceId, furniture?: readonly InteriorPiece[]): LabelledObject[] {
-  if (space === "town") return (townCache ??= townObjects());
+export function labelledObjects(space: SpaceId, furniture?: readonly InteriorPiece[], locate?: NpcLocator): LabelledObject[] {
+  if (space === "town") {
+    townCache ??= townObjects();
+    // Build plan M31: villagers walk through town too; their boxes follow them.
+    return locate ? [...townCache, ...npcBoxes(space, locate)] : townCache;
+  }
   const pieces = furniture ?? interiorLayout(space).furniture;
   const out = pieces.map((p, i) => pieceBox(i, p));
   for (const door of spaceDoors(space)) {
@@ -213,11 +217,14 @@ export function labelledObjects(space: SpaceId, furniture?: readonly InteriorPie
     const shrink = 0.4;
     out.push(box(`door:${door.id}`, DOOR_LABEL_KEY, [x0 + shrink, z0 + shrink, x1 - shrink, z1 - shrink], 0, 2.2));
   }
-  for (const post of npcsInSpace(space)) {
-    const h = NPC_PICK_HALF_M;
-    out.push(box(`npc:${post.npcId}`, npcLabelKey(post.npcId), [post.pos[0] - h, post.pos[1] - h, post.pos[0] + h, post.pos[1] + h], 0, NPC_PICK_HEIGHT_M));
-  }
+  out.push(...npcBoxes(space, locate));
   return out;
+}
+
+/** Pick boxes of the villagers in a space (where `locate` has them, else at their posts). */
+export function npcBoxes(space: SpaceId, locate?: NpcLocator): LabelledObject[] {
+  const h = NPC_PICK_HALF_M;
+  return npcsInSpace(space, locate).map((p) => box(`npc:${p.npcId}`, npcLabelKey(p.npcId), [p.pos[0] - h, p.pos[1] - h, p.pos[0] + h, p.pos[1] + h], 0, NPC_PICK_HEIGHT_M));
 }
 let townCache: LabelledObject[] | undefined;
 

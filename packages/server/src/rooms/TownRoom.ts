@@ -78,6 +78,23 @@ import {
   type WelcomeMessage,
   WORLD_WEATHER_SEED,
   worldDayAt,
+  activityState,
+  BARK_HEAR_RADIUS_M,
+  getFish,
+  getForage,
+  isNewsworthyRarity,
+  nearestPlace,
+  NPC_IDS,
+  NPC_TICK_MS,
+  type NpcActivity,
+  type NpcBarkMessage,
+  type NpcEmoteMessage,
+  type NpcLocator,
+  postLocator,
+  requestDoneEvent,
+  type SpaceId,
+  type VillageEventInput,
+  type VillagePrivacyMessage,
 } from "@hellovalley/shared";
 import { type IdTokenVerifier, InvalidIdTokenError, type VerifiedUser } from "../auth/idToken";
 import { type ChatModerator, moderateChat } from "../moderation/chat";
@@ -96,7 +113,10 @@ import type { ProfileStore } from "../profiles/profileStore";
 import type { SafetyStore } from "../safety/safetyStore";
 import { ApartmentRegistry } from "./apartmentRegistry";
 import { type RegisteredTown, TownRegistry } from "./townRegistry";
-import { TownForageSpawn, TownPlayer, TownState, TownWorld } from "./TownState";
+import { TownForageSpawn, TownNpc, TownPlayer, TownState, TownWorld } from "./TownState";
+import { type BarkEvent, NpcLife, type NpcLifeOptions } from "./npcLife";
+import { VillageService } from "../village/village";
+import { createMemoryVillageStore } from "../village/villageStore";
 
 /** GDD §4.4 / architecture §7.1: up to 40 players per shard. */
 export const TOWN_MAX_CLIENTS = 40;
@@ -112,6 +132,8 @@ export const RECONNECT_SECONDS = 20;
 export const VISIT_REQUEST_TTL_MS = 30_000;
 /** Shortest gap between two visit requests of one player (no ringing every doorbell at once). */
 export const VISIT_REQUEST_COOLDOWN_MS = 2000;
+/** A seated player gets small talk from a nearby villager at most this often (ms, my number). */
+export const SMALL_TALK_COOLDOWN_MS = 30_000;
 /** Slack on the intercom's reach for the server check (reports lag the client a little). */
 export const INTERCOM_REACH_SLACK_M = 0.5;
 /** Chat lines the room remembers, so reports carry the server's own copy of what was said. */
@@ -182,6 +204,8 @@ const noQuestStore: QuestStore = {
 };
 const noQuests = new QuestService(noQuestStore);
 const noNpcs = new NpcDialogueService(noNpcStore);
+/** Village memory in memory only: real rooms share one through `townRoomWith`. */
+const noVillage = new VillageService(createMemoryVillageStore());
 const noInventory = new InventoryService(noNpcStore);
 
 /** Knows no profiles, so nobody counts as onboarded. */
@@ -240,6 +264,8 @@ interface Session {
   buffExpiry: number | null;
   /** Quest accepts, hand-overs, progress and state reads run one after another (build plan M30). */
   questChain: Promise<void>;
+  /** When the player last got seated small talk (build plan M31). */
+  smallTalkAt: number;
 }
 
 /** A delivered chat line, as the room remembers it for reports. */
@@ -255,6 +281,11 @@ interface PendingVisit {
   visitor: string;
   owner: string;
   timer: Delayed;
+}
+
+/** The synced activity of a villager: its activity clip while it stands at its schedule target. */
+function activityFor(activity: NpcActivity, atTarget: boolean): string {
+  return atTarget ? activityState(activity) : "";
 }
 
 function wrapAngle(a: number): number {
@@ -293,6 +324,11 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected quests: QuestService = noQuests;
   /** Where joining players appear (tests start next to an NPC). */
   protected spawn: SpacePoint = TOWN_SPAWN;
+  /** NPC life (build plan M31): null keeps the villagers at their posts (room tests, no schedules). */
+  protected lifeOptions: NpcLifeOptions | null = null;
+  /** Public events, rumours and legends (build plan M31); shared by every shard. */
+  protected village: VillageService = noVillage;
+  private life: NpcLife | null = null;
   private readonly sessions = new Map<string, Session>();
   private readonly recentChat: RecentLine[] = [];
   private readonly visits = new Map<string, PendingVisit>();
@@ -321,6 +357,11 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     void this.setMetadata({ shard: this.state.shard });
     this.registry.addTown(this);
     this.clock.setInterval(() => this.tickWorld(), WORLD_TICK_MS);
+    // Build plan M31: the villagers walk their schedules (or stand at their posts without NPC life).
+    if (this.lifeOptions) this.life = new NpcLife(this.lifeOptions);
+    this.syncNpcs();
+    if (this.life) this.clock.setInterval(() => this.tickNpcs(), NPC_TICK_MS);
+    void this.village.open(this.state.shard);
 
     this.handle(ClientMessage.PlayerMove, (client, move) => this.onMove(client, move));
     this.handle(ClientMessage.Emote, (client, { emote }) => this.onEmote(client, emote));
@@ -363,6 +404,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.QuestTurnIn, (client, msg) => this.queueQuests(client.sessionId, () => this.onQuestHandOver(client.sessionId, msg)));
     this.handle(ClientMessage.SeatSit, (client, { seatId }) => this.onSit(client.sessionId, seatId));
     this.handle(ClientMessage.SeatStand, (client) => this.standUp(client.sessionId, true));
+    this.handle(ClientMessage.VillagePrivacy, (client, { named }) => void this.onVillagePrivacy(client.sessionId, named));
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
     this.handle(ClientMessage.VisitRequest, (client, { sessionId }) => this.onVisitRequest(client, sessionId));
     this.handle(ClientMessage.VisitAnswer, (client, { requestId, accept }) => this.onVisitAnswer(client, requestId, accept));
@@ -431,6 +473,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       eatTimer: null,
       buffExpiry: null,
       questChain: Promise.resolve(),
+      smallTalkAt: Number.NEGATIVE_INFINITY,
     });
     this.state.players.set(
       client.sessionId,
@@ -462,6 +505,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.sendBuffs(client.sessionId);
     this.sendRecipeBook(client.sessionId);
     this.sendQuests(client.sessionId);
+    void this.sendVillagePrivacy(client.sessionId);
     // Whoever muted this uid sees the new session id in their mute list.
     for (const [sessionId, other] of this.sessions) {
       if (sessionId !== client.sessionId && other.muted.has(uid)) this.sendSafety(sessionId);
@@ -493,6 +537,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
         this.forage.forget(session.uid);
         this.food.forget(session.uid);
         this.quests.forget(session.uid);
+        this.village.forget(session.uid);
       }
       session.biteTimer?.clear();
       session.eatTimer?.clear();
@@ -573,7 +618,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       this.stopFishing(client.sessionId, session);
     }
     // Walking away from an NPC (or out of the room) ends the conversation (GDD §8.1 step 4).
-    if (session.talkingTo && walkedAway(session.talkingTo, move.space, [move.x, move.z])) {
+    if (session.talkingTo && walkedAway(session.talkingTo, move.space, [move.x, move.z], this.locate)) {
       this.npc.end(session.uid, session.conversationId ?? undefined);
       this.stopTalking(client.sessionId, session);
     }
@@ -906,14 +951,15 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   }
 
   /**
-   * `npc:start`: only next to the NPC (the server's own walker, against the shared NPC posts;
-   * TODO(M31): live NPC positions). A new conversation replaces the previous one.
+   * `npc:start`: only next to the NPC (the server's own walker, against where the NPC is now: it
+   * may be walking, build plan M31; it stops while they talk). A new conversation replaces the
+   * previous one.
    */
   private async onNpcStart(client: TownClient, npcId: NpcId): Promise<void> {
     const session = this.sessions.get(client.sessionId);
     if (!session) return;
     const t = session.tracker;
-    if (!canTalkTo(npcId, t.space, t.pos, NPC_TALK_SLACK_M)) return this.refuseNpc(client.sessionId, { reason: "too_far", npcId });
+    if (!canTalkTo(npcId, t.space, t.pos, NPC_TALK_SLACK_M, this.locate)) return this.refuseNpc(client.sessionId, { reason: "too_far", npcId });
     const result = await this.npc.start({
       uid: session.uid,
       npcId,
@@ -921,6 +967,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       nativeLang: client.auth!.profile.nativeLang,
       // Build plan M28: the Gossip knows where today's lost items lie in this shard.
       ...(npcId === "gossip" ? { lostHints: this.forage.hints(this.state.shard) } : {}),
+      // Build plan M31: the last village batch (rumours for the Gossip, legends for the Elder).
+      news: this.village.news(this.state.shard, npcId),
     });
     if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, npcId });
     // The session may have left while the store answered.
@@ -1045,6 +1093,9 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       this.sendFishLog(sessionId);
       // Build plan M30: the server's catch counts for catch requests.
       this.questEvent(sessionId, { type: "caught", fishId: result.fishId });
+      // Build plan M31: a rare catch is village news.
+      const fish = getFish(result.fishId);
+      if (fish && isNewsworthyRarity(fish.rarity)) this.logVillage(session, { type: "fish_caught", payload: { fishId: fish.id, rarity: fish.rarity, place: nearestPlace(t.pos) } });
     }
   }
 
@@ -1094,6 +1145,9 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       await this.sendAlbumNow(sessionId, session);
       // Build plan M30: the server's pick-up counts for find requests.
       this.questEvent(sessionId, { type: "found", itemId: result.itemId });
+      // Build plan M31: a rare find is village news (lost items make news when they go back).
+      const found = getForage(result.itemId);
+      if (found && isNewsworthyRarity(found.rarity)) this.logVillage(session, { type: "forage_found", payload: { itemId: found.id, rarity: found.rarity, place: nearestPlace(t.pos) } });
     }
   }
 
@@ -1108,6 +1162,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (!result.ok) return this.refuseNpc(sessionId, { reason: result.reason, conversationId: msg.conversationId });
     this.clientOf(sessionId)?.send(ServerMessage.NpcReturned, result.returned);
     if (result.returned.ok) {
+      this.logVillage(session, { type: "lost_returned", payload: { itemId: msg.itemId, owner: c.npcId } });
       this.refreshInventory(sessionId);
       await this.sendAlbumNow(sessionId, session);
     }
@@ -1195,6 +1250,15 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     player.motion = "idle";
     const message: SeatStateMessage = { seatId: verdict.seat.id };
     this.clientOf(sessionId)?.send(ServerMessage.SeatState, message);
+    // Build plan M31 (GDD §5.4): sitting down opens small talk with a villager nearby.
+    const now = Date.now();
+    if (this.life && now - session.smallTalkAt >= SMALL_TALK_COOLDOWN_MS) {
+      const bark = this.life.smallTalk(t.space, t.pos, this.talkingNpcs());
+      if (bark) {
+        session.smallTalkAt = now;
+        this.sendBark(bark);
+      }
+    }
   }
 
   /** The player stands up (`seat:stand`, walking off, a teleport). */
@@ -1255,6 +1319,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   /** Tells the player what happened to their requests; a completion moved coins and items, and the log changed. */
   private questResults(sessionId: string, results: readonly QuestResultMessage[]): void {
     for (const r of results) this.clientOf(sessionId)?.send(ServerMessage.QuestResult, r);
+    this.logRequestsDone(sessionId, results);
     if (results.some((r) => r.ok && r.action === "complete")) this.refreshInventory(sessionId);
     if (results.some((r) => r.ok)) this.sendQuests(sessionId);
   }
@@ -1267,6 +1332,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       const { moved, completed } = await this.quests.onEvent(session.uid, session.targetLang, event);
       if (this.sessions.get(sessionId) !== session) return;
       for (const r of completed) this.clientOf(sessionId)?.send(ServerMessage.QuestResult, r);
+      this.logRequestsDone(sessionId, completed);
       if (completed.some((r) => r.ok)) this.refreshInventory(sessionId);
       if (moved) await this.sendQuestsNow(sessionId, session);
     });
@@ -1296,6 +1362,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (this.sessions.get(sessionId) !== session) return;
     this.clientOf(sessionId)?.send(ServerMessage.QuestResult, result);
     if (result.ok) {
+      this.logRequestsDone(sessionId, [result]);
       this.refreshInventory(sessionId);
       await this.sendQuestsNow(sessionId, session);
     }
@@ -1320,6 +1387,99 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     const questDay = this.quests.clock().day;
     if (this.questDay !== null && questDay !== this.questDay) for (const sessionId of this.sessions.keys()) this.sendQuests(sessionId);
     this.questDay = questDay;
+    // Build plan M31: the village batch turns the event log into rumours and legends.
+    this.village.maybeBatch();
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // NPC life and village memory (build plan M31, GDD §8.2–8.3)
+
+  /** Where each villager is now: the NPC life, or their posts without one. */
+  protected readonly locate: NpcLocator = (npcId) => (this.life ? this.life.locate(npcId) : postLocator(npcId));
+
+  /** NPC id → the server walker of a player talking to it. */
+  private talkingNpcs(): Map<NpcId, Vec2> {
+    const out = new Map<NpcId, Vec2>();
+    for (const session of this.sessions.values()) if (session.talkingTo && !out.has(session.talkingTo)) out.set(session.talkingTo, session.tracker.pos);
+    return out;
+  }
+
+  /** Mirrors the villagers into the state. */
+  private syncNpcs(): void {
+    for (const id of NPC_IDS) {
+      const where = this.locate(id);
+      const w = this.life?.walker(id);
+      const motion = w?.motion ?? "idle";
+      const standingAtTarget = !!w && w.legs.length === 0 && w.space === w.target.space && Math.hypot(w.pos[0] - w.target.pos[0], w.pos[1] - w.target.pos[1]) < 0.3;
+      const activity = w ? activityFor(w.target.activity, standingAtTarget) : "";
+      const npc = this.state.npcs.get(id);
+      if (!npc) {
+        this.state.npcs.set(id, new TownNpc({ space: where.space, x: where.pos[0], z: where.pos[1], heading: where.facing, motion, activity }));
+        continue;
+      }
+      if (npc.space !== where.space) npc.space = where.space;
+      if (npc.x !== where.pos[0]) npc.x = where.pos[0];
+      if (npc.z !== where.pos[1]) npc.z = where.pos[1];
+      if (npc.heading !== where.facing) npc.heading = where.facing;
+      if (npc.motion !== motion) npc.motion = motion;
+      if (npc.activity !== activity) npc.activity = activity;
+    }
+  }
+
+  private tickNpcs(): void {
+    if (!this.life) return;
+    const listeners: { space: SpaceId; pos: Vec2 }[] = [];
+    for (const session of this.sessions.values()) if (session.tracker.space !== "apartment") listeners.push({ space: session.tracker.space, pos: session.tracker.pos });
+    const events = this.life.tick(this.talkingNpcs(), listeners);
+    this.syncNpcs();
+    for (const e of events.emotes) {
+      const message: NpcEmoteMessage = { npcId: e.npcId, emote: e.emote };
+      for (const client of this.clients) if (this.sessions.get(client.sessionId)?.tracker.space === e.space) client.send(ServerMessage.NpcEmote, message);
+    }
+    for (const bark of events.barks) this.sendBark(bark);
+  }
+
+  /** A bark goes to the players who can hear it; each client words it in its own target language. */
+  private sendBark(e: BarkEvent): void {
+    const message: NpcBarkMessage = { ...e.bark, id: randomUUID() };
+    for (const client of this.clients) {
+      const t = this.sessions.get(client.sessionId)?.tracker;
+      if (t && t.space === e.space && Math.hypot(t.pos[0] - e.pos[0], t.pos[1] - e.pos[1]) <= BARK_HEAR_RADIUS_M) client.send(ServerMessage.NpcBark, message);
+    }
+  }
+
+  /** Logs a public event of this player in the shard's village memory. */
+  private logVillage(session: Session, input: VillageEventInput): void {
+    this.village.log(this.state.shard, { uid: session.uid, name: session.name }, input).catch((err: unknown) => console.error(`[town] village event of ${session.uid} failed:`, err));
+  }
+
+  private logRequestsDone(sessionId: string, results: readonly QuestResultMessage[]): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    for (const r of results) {
+      if (!r.ok || r.action !== "complete") continue;
+      const event = requestDoneEvent(r.questId);
+      if (event) this.logVillage(session, event);
+    }
+  }
+
+  private async sendVillagePrivacy(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const message: VillagePrivacyMessage = { named: await this.village.isNamed(session.uid) };
+    if (this.sessions.get(sessionId) === session) this.clientOf(sessionId)?.send(ServerMessage.VillagePrivacy, message);
+  }
+
+  /** `village:privacy`: the player's news opt-out; future events use it (logged ones stay as they were). */
+  private async onVillagePrivacy(sessionId: string, named: boolean): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    try {
+      await this.village.setNamed(session.uid, named);
+    } catch (err) {
+      console.error(`[town] saving the village privacy of ${session.uid} failed:`, err);
+    }
+    await this.sendVillagePrivacy(sessionId);
   }
 
   /** Registers a handler that only ever sees payloads that passed the shared schema. */
@@ -1360,6 +1520,10 @@ export interface TownRoomDeps {
   food?: FoodService;
   /** Daily requests and quests (build plan M30); shared by every shard. */
   quests?: QuestService;
+  /** NPC life (build plan M31); null or left out keeps the villagers at their posts. */
+  life?: NpcLifeOptions | null;
+  /** Village memory (build plan M31); shared by every shard. */
+  village?: VillageService;
 }
 
 export interface TownRoomOptions {
@@ -1379,6 +1543,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
   const forage = deps.forage ?? noForage;
   const food = deps.food ?? noFood;
   const quests = deps.quests ?? noQuests;
+  const village = deps.village ?? noVillage;
   return class extends TownRoom {
     override maxClients = options.maxClients ?? TOWN_MAX_CLIENTS;
     protected override verifier = deps.verifier;
@@ -1394,5 +1559,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override food = food;
     protected override quests = quests;
     protected override spawn = options.spawn ?? TOWN_SPAWN;
+    protected override lifeOptions = deps.life ?? null;
+    protected override village = village;
   };
 }

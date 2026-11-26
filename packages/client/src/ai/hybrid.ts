@@ -6,6 +6,11 @@ import {
   contentKeyMaterial,
   detectLanguagePrompt,
   elderBarkPlayerMaterial,
+  type AmbientBark,
+  ambientBarksPrompt,
+  type AmbientBarksResponse,
+  ambientPromptInput,
+  ambientSetPlayerMaterial,
   elderBarkPrompt,
   type ElderBarkPromptInput,
   type ElderBarkResponse,
@@ -127,6 +132,8 @@ export interface HybridAI {
   elderBark(input: ElderBarkPromptInput & { fishId: FishId }): Promise<TaskResult<ElderBarkResponse>>;
   /** A request's Town Hall notice (build plan M30): a seeded-cache miss, cloud first, per player. */
   questNotice(input: Omit<QuestNoticePromptInput, "level"> & { templateId: string; level: Level }): Promise<TaskResult<QuestNoticeResponse>>;
+  /** A villager's ambient lines or a pair's exchanges (build plan M31): a seeded-cache miss, cloud first, per player. */
+  ambientBarks(input: { bark: AmbientBark; targetLang: string; nativeLang: string }): Promise<TaskResult<AmbientBarksResponse>>;
 }
 
 export function createHybridAI(deps: HybridDeps): HybridAI {
@@ -215,6 +222,9 @@ export function createHybridAI(deps: HybridDeps): HybridAI {
     },
     questNotice(input) {
       return shared("questNotice", questNoticePrompt(input), questNoticePlayerMaterial(input.templateId, input.targetLang, input.nativeLang, input.level));
+    },
+    ambientBarks({ bark, targetLang, nativeLang }) {
+      return shared("ambientBarks", ambientBarksPrompt(ambientPromptInput(bark, targetLang, nativeLang)), ambientSetPlayerMaterial(bark, targetLang, nativeLang));
     },
   };
 }

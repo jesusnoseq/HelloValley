@@ -17,6 +17,7 @@ export const Collection = {
   Reports: "reports",
   Safety: "safety",
   Collections: "collections",
+  Privacy: "privacy",
 } as const;
 
 /** `users/{uid}/collections/fish`: the fish encyclopedia (server-only, build plan M27). */
@@ -27,6 +28,9 @@ export const FORAGE_ALBUM_DOC = "forage";
 export const RECIPE_BOOK_DOC = "recipes";
 /** `users/{uid}/collections/quests`: the quest log per target language (server-only, build plan M30). */
 export const QUEST_LOG_DOC = "quests";
+
+/** `users/{uid}/privacy/village`: whether village news may name the player (server-only, build plan M31). */
+export const VILLAGE_PRIVACY_DOC = "village";
 
 /** `users/{uid}/safety/blocks`: the player's block list (server-only, build plan M18). */
 export const BLOCK_LIST_DOC = "blocks";
@@ -68,6 +72,8 @@ export const FirestorePaths = {
   inventorySlot: (uid: string, slot: string) => join(C.Users, uid, C.Inventory, slot),
   apartmentLayout: (uid: string) => join(C.Users, uid, C.Apartment, APARTMENT_LAYOUT_DOC),
   villageEvent: (shardId: string, eventId: string) => join(C.Village, shardId, C.Events, eventId),
+  villageEvents: (shardId: string) => join(C.Village, shardId, C.Events),
+  villagePrivacy: (uid: string) => join(C.Users, uid, C.Privacy, VILLAGE_PRIVACY_DOC),
   cacheEntry: (kind: CacheKind, id: string) => join(C.Cache, kind, id),
   report: (id: string) => join(C.Reports, id),
   reports: () => C.Reports,

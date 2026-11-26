@@ -1,5 +1,5 @@
 import { aiStatusStore, refreshOnDeviceStatus } from "./availability";
-import type { FishId, GrammarFeedback, GrammarPromptInput, Level, QuestNotice } from "@hellovalley/shared";
+import type { AmbientBark, FishId, GrammarFeedback, GrammarPromptInput, Level, QuestNotice } from "@hellovalley/shared";
 import type { NpcAi } from "../net/npcConversation";
 import type { TaskResult } from "./hybrid";
 import type { ChatModeration } from "./moderation";
@@ -123,5 +123,12 @@ export function loadElderBark(input: { fishId: FishId; targetLang: string; nativ
 export function loadQuestNotice(input: { templateId: string; targetLang: string; nativeLang: string; level: Level }): Promise<QuestNotice | null> {
   return loadAiRuntime()
     .then((r) => r.questNotices().get(input))
+    .catch(() => null);
+}
+
+/** The words of an ambient bark in the player's target language (build plan M31); null when there are none (offline, no AI backend). */
+export function loadAmbientBark(input: { bark: AmbientBark; targetLang: string; nativeLang: string }): Promise<BarkLine[] | null> {
+  return loadAiRuntime()
+    .then((r) => r.ambientBarks().get(input))
     .catch(() => null);
 }

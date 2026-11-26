@@ -4,6 +4,7 @@ import { db } from "../firebase/firestore";
 import { storage } from "../firebase/storage";
 import { onDeviceReady, reportDownloadProgress, reportWarmUpDone } from "./availability";
 import { createElderBarks, type ElderBarks } from "./barks";
+import { type AmbientBarks, createAmbientBarks } from "./ambient";
 import { type ContentCache, createContentCache, createIdbStore, sha256Hex } from "./cache";
 import { createFirebaseModelPort, createFirebaseTemplatePorts, createFirebaseTtsPort, sharedAi } from "./firebaseModel";
 import { createHybridAI, type HybridAI } from "./hybrid";
@@ -38,6 +39,7 @@ let ttsInstance: TtsSpeaker | null = null;
 let labelInstance: LabelSource | null = null;
 let barkInstance: ElderBarks | null = null;
 let noticeInstance: QuestNotices | null = null;
+let ambientInstance: AmbientBarks | null = null;
 
 export function setUser(next: string | null) {
   if (next === uid) return;
@@ -49,6 +51,7 @@ export function setUser(next: string | null) {
   labelInstance = null;
   barkInstance = null;
   noticeInstance = null;
+  ambientInstance = null;
 }
 
 export function hybrid(): HybridAI {
@@ -139,6 +142,25 @@ export function questNotices(): QuestNotices {
     generate: (input) => hybrid().questNotice(input),
   });
   return noticeInstance;
+}
+
+/**
+ * Ambient barks (build plan M31): seeded `cache/lines/{hash}` (once signed in), then the player's
+ * own generation through the hybrid `ambientBarks` task.
+ */
+export function ambientBarks(): AmbientBarks {
+  ambientInstance ??= createAmbientBarks({
+    ...(uid
+      ? {
+          seeded: async (material: string) => {
+            const snap = await getDoc(doc(db, FirestorePaths.cacheEntry("lines", await sha256Hex(material))));
+            return snap.exists() ? snap.data() : null;
+          },
+        }
+      : {}),
+    generate: (input) => hybrid().ambientBarks(input),
+  });
+  return ambientInstance;
 }
 
 // Adapters for the M18 chat hooks; they look the instance up per call, so a uid change applies.
