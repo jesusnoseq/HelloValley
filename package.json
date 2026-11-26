@@ -35,6 +35,7 @@
     "assets:optimize": "node tools/optimize-assets.mjs",
     "assets:contact-sheet": "node scripts/assets-build.mjs --no-optimize --contact-sheet auto",
     "assets:fixtures": "node tools/fixtures/make-test-kit.mjs",
+    "assets:audio": "tsx tools/audio/generate-audio.ts",
     "seed:tts": "tsx tools/seed/seed-tts.ts",
     "seed:labels": "tsx tools/seed/seed-labels.ts",
     "seed:barks": "tsx tools/seed/seed-barks.ts",

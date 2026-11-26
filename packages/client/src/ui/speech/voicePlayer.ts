@@ -1,4 +1,5 @@
 import type { TtsClip } from "../../ai/tts";
+import { routeVoice, voiceElementUsable } from "../../audio/voiceRoute";
 
 /** Plays one clip at a time; a new play stops the previous one. */
 export interface VoicePlayer {
@@ -21,11 +22,17 @@ export function createVoicePlayer(): VoicePlayer {
   };
   return {
     async play(clip, rate) {
+      if (audio && !voiceElementUsable(audio)) {
+        audio.pause();
+        audio = null;
+      }
       audio ??= new Audio();
       audio.pause();
       release();
       url = URL.createObjectURL(new Blob([clip.data], { type: clip.mime }));
       audio.src = url;
+      // Build plan M35: through the mixer's voice bus (the Voices slider, music ducking).
+      routeVoice(audio);
       audio.preservesPitch = true;
       audio.defaultPlaybackRate = rate;
       audio.playbackRate = rate;

@@ -22,6 +22,7 @@ import {
   type SpacePoint,
   type Vec2,
 } from "@hellovalley/shared";
+import { audioFrame, playSfx } from "../audio/live";
 import { characterAssetsWith } from "../characters/assetCache";
 import { MoveSync } from "../net/moveSync";
 import { chat } from "../net/chatSession";
@@ -109,7 +110,9 @@ function clipTimings(manifest: CharacterManifest): ClipTimings {
  * (build plan M29): F at the apartment kitchen opens the recipe cards; F next to a bench or café
  * chair sits down (the avatar is drawn on the seat playing `sit`, the walker stays beside it) and
  * walking (or F again) stands up; a bite plays the eat clip; a walk-speed buff (bread) makes the
- * walker faster by the same factor the server's movement check allows.
+ * walker faster by the same factor the server's movement check allows. Audio (build plan M35): the
+ * walker is the listener (music and ambience follow where it is) and its steps sound like the
+ * surface under it; walking through a door chimes.
  */
 export function Player({ start }: { start: SpacePoint }) {
   // The apartment's walkability follows its furniture layout (build plan M17).
@@ -339,6 +342,9 @@ export function Player({ start }: { start: SpacePoint }) {
     }
 
     const { pos, motion, space } = controller.state;
+    // Build plan M35: the listener follows the walker; footsteps by surface, a chime at doors.
+    audioFrame(space, pos, fade.current.phase === "idle" ? motion : "idle", dt);
+    if (enteredDoor) playSfx("door.chime");
     // What F would use: only while standing still in the open (not mid-fade).
     const near = fade.current.phase === "idle" ? nearestInteractable(space, pos, liveNpcLocator) : null;
     if ((near?.id ?? null) !== (world.nearby?.id ?? null)) worldStore.setState({ nearby: near ? { id: near.id, kind: near.kind } : null });

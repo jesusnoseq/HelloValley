@@ -98,6 +98,11 @@ export const en = {
   "settings.style.loading": "Loading {style}…",
   "settings.style.loadError": "That style could not be loaded. Try again.",
   "settings.style.saveError": "Your style is shown but could not be saved.",
+  "settings.audio": "Sound",
+  "settings.audio.hint": "Saved on this device for your account.",
+  "settings.audio.music": "Music",
+  "settings.audio.voice": "Voices",
+  "settings.audio.sfx": "Effects and ambience",
 
   "animal.fox": "Fox",
   "animal.rabbit": "Rabbit",

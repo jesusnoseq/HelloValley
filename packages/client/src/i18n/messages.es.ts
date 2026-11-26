@@ -96,6 +96,11 @@ export const es: Catalog = {
   "settings.style.loading": "Cargando {style}…",
   "settings.style.loadError": "No se pudo cargar ese estilo. Inténtalo de nuevo.",
   "settings.style.saveError": "Se muestra tu estilo, pero no se pudo guardar.",
+  "settings.audio": "Sonido",
+  "settings.audio.hint": "Se guarda en este dispositivo para tu cuenta.",
+  "settings.audio.music": "Música",
+  "settings.audio.voice": "Voces",
+  "settings.audio.sfx": "Efectos y ambiente",
 
   "animal.fox": "Zorro",
   "animal.rabbit": "Conejo",

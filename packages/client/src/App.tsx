@@ -103,6 +103,19 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       stop?.();
     };
   }, [user.uid, profile.targetLangs]);
+  // Build plan M35: music, ambience, footsteps and effects, with this player's saved volumes
+  // (its own lazy chunk; the mixer starts on the first click or key press).
+  useEffect(() => {
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    void import("./audio/start").then(({ startAudio }) => {
+      if (!cancelled) stop = startAudio(user.uid);
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [user.uid]);
   // Build plan M25: the notebook of the first target language mirrors users/{uid}/langs/{lang}/notebook
   // and saves every clicked word (bubbles, chat, world labels). TODO(M37): a target-language switcher.
   const targetLang = profile.targetLangs[0] ?? null;

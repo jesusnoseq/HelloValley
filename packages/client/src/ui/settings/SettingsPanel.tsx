@@ -1,6 +1,8 @@
 import { type CSSProperties, useEffect, useId, useMemo } from "react";
 import { useStore } from "zustand";
-import { STYLE_IDS, type StyleId } from "@hellovalley/shared";
+import { AUDIO_CHANNELS, STYLE_IDS, type StyleId } from "@hellovalley/shared";
+import { playSfx } from "../../audio/live";
+import { setVolume, useVolumes } from "../../audio/volumeStore";
 import { useI18n } from "../../i18n/I18nProvider";
 import { preloadStyle } from "../../scene/stylePreload";
 import { saveStyle } from "../../settings/saveStyle";
@@ -44,7 +46,8 @@ function styleSwitcherFor(uid: string): StyleSwitcher {
 /**
  * The Settings panel (GDD §2: the town style can change any time). M34 adds the town style: a
  * choice loads that style's kit in the background while the current town stays on screen, then
- * swaps it in place and saves it to the profile. TODO(M35): volume sliders. TODO(M37): quality,
+ * swaps it in place and saves it to the profile. M35 adds the volume sliders (music, voices,
+ * effects and ambience), saved per player on this device (audio/volumeStore). TODO(M37): quality,
  * tilt-shift and the target-language switcher.
  */
 export function SettingsPanel({ uid, onClose }: { uid: string; onClose: () => void }) {
@@ -53,6 +56,7 @@ export function SettingsPanel({ uid, onClose }: { uid: string; onClose: () => vo
   const sw = useMemo(() => styleSwitcherFor(uid), [uid]);
   const { pending, error } = useStore(sw.store);
   const style = useDiorama((s) => s.style);
+  const volumes = useVolumes((s) => s.volumes);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -90,6 +94,26 @@ export function SettingsPanel({ uid, onClose }: { uid: string; onClose: () => vo
       <p role="status" aria-live="polite" style={{ margin: "6px 0 0", fontSize: 12, minHeight: 16 }}>
         {pending ? t("settings.style.loading", { style: t(`style.${pending}`) }) : error === "load" ? t("settings.style.loadError") : error === "save" ? t("settings.style.saveError") : ""}
       </p>
+      <fieldset style={{ border: "none", margin: "8px 0 0", padding: 0 }}>
+        <legend style={{ fontWeight: 600, padding: 0 }}>{t("settings.audio")}</legend>
+        <p style={{ margin: "2px 0 6px", fontSize: 12, opacity: 0.75 }}>{t("settings.audio.hint")}</p>
+        {AUDIO_CHANNELS.map((channel) => (
+          <label key={channel} style={{ display: "grid", gridTemplateColumns: "1fr 140px 34px", alignItems: "center", gap: 8, padding: "3px 4px" }}>
+            <span>{t(`settings.audio.${channel}`)}</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round(volumes[channel] * 100)}
+              onChange={(e) => setVolume(channel, Number(e.currentTarget.value) / 100)}
+              // Let the player hear the new effects level when they let go.
+              onPointerUp={channel === "sfx" ? () => playSfx("ui.pop") : undefined}
+            />
+            <small style={{ textAlign: "right" }}>{Math.round(volumes[channel] * 100)}</small>
+          </label>
+        ))}
+      </fieldset>
     </section>
   );
 }
