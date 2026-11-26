@@ -19,8 +19,10 @@ export const Collection = {
   Collections: "collections",
 } as const;
 
-/** `users/{uid}/collections/fish`: the fish encyclopedia (server-only, build plan M27). TODO(M28): the forage album beside it. */
+/** `users/{uid}/collections/fish`: the fish encyclopedia (server-only, build plan M27). */
 export const FISH_LOG_DOC = "fish";
+/** `users/{uid}/collections/forage`: the forage album beside it (server-only, build plan M28). */
+export const FORAGE_ALBUM_DOC = "forage";
 
 /** `users/{uid}/safety/blocks`: the player's block list (server-only, build plan M18). */
 export const BLOCK_LIST_DOC = "blocks";
@@ -67,4 +69,5 @@ export const FirestorePaths = {
   reports: () => C.Reports,
   blockList: (uid: string) => join(C.Users, uid, C.Safety, BLOCK_LIST_DOC),
   fishLog: (uid: string) => join(C.Users, uid, C.Collections, FISH_LOG_DOC),
+  forageAlbum: (uid: string) => join(C.Users, uid, C.Collections, FORAGE_ALBUM_DOC),
 } as const;

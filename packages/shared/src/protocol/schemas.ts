@@ -5,6 +5,7 @@ import { FurnitureIdSchema, FurnitureRotationSchema } from "../firestore/schemas
 import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
 import { ItemIdSchema } from "../data/items";
+import { LOST_ITEM_IDS, type LostItemId } from "../data/forage";
 import { NpcActionListSchema } from "../npc/actions";
 import { TOTAL_SLOTS } from "../npc/inventory";
 import { ConversationTelemetrySchema, NpcMemoryPayloadSchema } from "../npc/memory";
@@ -73,8 +74,8 @@ export const EntityIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
 
 export const InteractRequestSchema = z.discriminatedUnion("targetKind", [
   z.object({ targetKind: z.literal("npc"), targetId: NpcIdSchema }),
-  // TODO(M28): check object ids against the town's interactables (notice board, dock) and the live
-  // forage spawns; the static layout is world/town.ts. Shops need none: they are conversations (M26).
+  // Unused by the server: forage is picked with `forage:pick` (build plan M28), shops are
+  // conversations (M26). TODO(M30): the notice board (Town Hall requests).
   z.object({ targetKind: z.literal("object"), targetId: EntityIdSchema }),
 ]);
 export type InteractRequest = z.infer<typeof InteractRequestSchema>;
@@ -152,6 +153,13 @@ export const FishCastSchema = z.strictObject({
 /** `fish:reel`: the cast id the server handed out and how it ended. */
 export const FishReelSchema = z.strictObject({ castId: NpcTokenSchema, outcome: z.enum(["caught", "escaped"]) });
 
+/** Spawn ids are `d{day}-{n}` (forage/spawns.ts). */
+export const SpawnIdSchema = z.string().regex(/^d-?\d{1,9}-\d{1,4}$/);
+/** `forage:pick` (build plan M28): the spawn id; the server checks the day, the range and the bag. */
+export const ForagePickSchema = z.strictObject({ spawnId: SpawnIdSchema });
+/** `npc:return`: a lost item id; the server checks the conversation, the owner and the bag. */
+export const NpcReturnSchema = z.strictObject({ conversationId: NpcTokenSchema, itemId: z.enum(LOST_ITEM_IDS as [LostItemId, ...LostItemId[]]) });
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -176,6 +184,8 @@ export const ClientMessageSchemas = {
   [ClientMessage.InventoryMove]: InventoryMoveSchema,
   [ClientMessage.FishCast]: FishCastSchema,
   [ClientMessage.FishReel]: FishReelSchema,
+  [ClientMessage.ForagePick]: ForagePickSchema,
+  [ClientMessage.NpcReturn]: NpcReturnSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

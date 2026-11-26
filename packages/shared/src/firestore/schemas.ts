@@ -5,6 +5,7 @@ import { AnimalIdSchema, isFurTintFor } from "../data/animals";
 import { ApartmentIdSchema } from "../data/apartment";
 import { LevelSchema, MAX_LEVEL_STEP } from "../data/difficulty";
 import { FISH_IDS, type FishId } from "../data/fish";
+import { FORAGE_IDS, type ForageId, LOST_ITEM_IDS, type LostItemId } from "../data/forage";
 import { ItemIdSchema } from "../data/items";
 import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
@@ -266,6 +267,23 @@ export const FishLogDocSchema = z.strictObject({
   ),
 });
 export type FishLogDoc = z.infer<typeof FishLogDocSchema>;
+
+/**
+ * `users/{uid}/collections/forage`: the forage album (build plan M28), server-only like the fish
+ * encyclopedia. `found` counts forage and lost items picked up; `returned` counts lost items handed
+ * back to their owners and the in-game day of the last return (it caps the friendship reward).
+ */
+export const ForageAlbumDocSchema = z.strictObject({
+  found: z.partialRecord(
+    z.enum([...FORAGE_IDS, ...LOST_ITEM_IDS] as [ForageId | LostItemId, ...(ForageId | LostItemId)[]]),
+    z.strictObject({ count: z.number().int().min(1), first: TimestampSchema, last: TimestampSchema }),
+  ),
+  returned: z.partialRecord(
+    z.enum(LOST_ITEM_IDS as [LostItemId, ...LostItemId[]]),
+    z.strictObject({ count: z.number().int().min(1), lastDay: z.number().int() }),
+  ),
+});
+export type ForageAlbumDoc = z.infer<typeof ForageAlbumDocSchema>;
 
 /** Lines of the reported player attached to a report, newest last (the server's own copies). */
 export const REPORT_MAX_MESSAGES = 5;

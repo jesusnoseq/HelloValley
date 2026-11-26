@@ -8,6 +8,10 @@ import {
   type NpcGiftMessage,
   type NpcMemoryMessage,
   type NpcRememberedMessage,
+  type NpcReturnedMessage,
+  type NpcReturnMessage,
+  applyLostReturn,
+  newBond,
   type NpcLine,
   type NpcReplyMessage,
   type NpcTradeMessage,
@@ -44,6 +48,7 @@ export function fakeNpcServer(context: NpcContextMessage, options: { refuse?: Np
   let turn = 1;
   let hearts = context.hearts;
   let gifted = false;
+  const returned = new Set<string>();
   let tradeSeq = 0;
   const trades = new Map<string, PendingTrade>();
   const emit = (type: string, message: unknown) => {
@@ -95,6 +100,20 @@ export function fakeNpcServer(context: NpcContextMessage, options: { refuse?: Np
         answer = { conversationId: gift.conversationId, itemId: gift.itemId, ok: true, reaction, delta: hearts - before, hearts, inventory };
       }
       emit(ServerMessage.NpcGifted, answer);
+    } else if (type === ClientMessage.NpcReturn) {
+      // Build plan M28: the shared rule, once per item (the fake has no in-game days).
+      const ret = payload as NpcReturnMessage;
+      const held = inventory.find((e) => e.itemId === ret.itemId)?.qty ?? 0;
+      const outcome = applyLostReturn(newBond(hearts), context.npcId, ret.itemId, returned.has(ret.itemId) ? 0 : null, 0);
+      let answer: NpcReturnedMessage;
+      if (!outcome.ok || held < 1) answer = { conversationId: ret.conversationId, itemId: ret.itemId, ok: false, reason: outcome.ok ? "not_owned" : outcome.reason, delta: 0, hearts, inventory };
+      else {
+        hearts = outcome.bond.hearts;
+        returned.add(ret.itemId);
+        inventory = inventory.flatMap((e) => (e.itemId !== ret.itemId ? [e] : e.qty > 1 ? [{ ...e, qty: e.qty - 1 }] : []));
+        answer = { conversationId: ret.conversationId, itemId: ret.itemId, ok: true, delta: outcome.delta, hearts, inventory };
+      }
+      emit(ServerMessage.NpcReturned, answer);
     } else if (type === ClientMessage.NpcMemory) {
       const memory = payload as NpcMemoryMessage;
       const answer: NpcRememberedMessage = { conversationId: memory.conversationId, npcId: context.npcId, level: context.playerLevel, levelChange: options.levelChange ?? 0 };

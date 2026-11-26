@@ -36,6 +36,8 @@ const NotebookLayer = lazy(() =>
 const InventoryLayer = lazy(() => import("./ui/inventory/InventoryLayer").then((m) => ({ default: m.InventoryLayer })));
 // Build plan M27: casting, the reel mini-game, the catch card and the fish book (its own lazy chunk).
 const FishingLayer = lazy(() => import("./ui/fishing/FishingLayer").then((m) => ({ default: m.FishingLayer })));
+// Build plan M28: the pick-up hint and notice and the forage album (its own lazy chunk).
+const ForageLayer = lazy(() => import("./ui/forage/ForageLayer").then((m) => ({ default: m.ForageLayer })));
 
 const card: CSSProperties = {
   position: "fixed",
@@ -153,6 +155,9 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       </Suspense>
       <Suspense fallback={null}>
         <FishingLayer />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ForageLayer />
       </Suspense>
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>

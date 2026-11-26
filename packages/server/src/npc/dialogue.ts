@@ -13,6 +13,8 @@ import {
   type InventoryEntry,
   itemCounts,
   type ItemId,
+  type LostItemHint,
+  lostItemFlags,
   type NpcAction,
   type NpcAppliedMessage,
   npcBuys,
@@ -114,6 +116,8 @@ export interface StartRequest {
   npcId: NpcId;
   lang: string;
   nativeLang: string;
+  /** The Gossip's hint context (build plan M28): the lost items lying in the player's shard today. */
+  lostHints?: LostItemHint[];
 }
 
 export type Refused = { ok: false; reason: NpcRefusal };
@@ -227,7 +231,9 @@ export class NpcDialogueService {
       inventory: entries(record.slots),
       recipes: recipesTaughtBy(req.npcId).map((r) => ({ recipeId: r.id, heartsRequired: r.heartsRequired, known: record.knownRecipes.includes(r.id) })),
       quests: [], // TODO(M30): active quests involving this NPC.
-      flags: [], // TODO(M28/M29): context flags (lost items held, what the player ate today).
+      // Build plan M28: lost items the player carries. TODO(M29): what the player ate today.
+      flags: lostItemFlags(req.npcId, entries(record.slots)),
+      hints: req.npcId === "gossip" ? (req.lostHints ?? []) : [],
       news: [], // TODO(M31): village events for the Gossip and the Elder.
       world: { timeOfDay: clock.timeOfDay, weather: weatherAt(now, WORLD_WEATHER_SEED).weather, location: schedulePointAt(npc, clock.minutes)?.place ?? npc.building, minutes: Math.floor(clock.minutes) },
       turnsLeft: this.turnsLeft(p, conversation),
@@ -401,6 +407,19 @@ export class NpcDialogueService {
       p.closed.push(entry!);
       return { ok: false, reason: "unavailable" };
     }
+  }
+
+  /**
+   * `npc:return` (build plan M28): the open conversation a lost item is handed back in, paced
+   * like gifts. The forage service applies the return itself.
+   */
+  conversationFor(uid: string, conversationId: string, now = Date.now()): { ok: true; npcId: NpcId; lang: string } | Refused {
+    const p = this.player(uid, now);
+    const c = p.conversation;
+    if (!c || c.id !== conversationId) return { ok: false, reason: "no_conversation" };
+    if (!takeToken(p.replyBucket, NPC_REPLY_RATE, now)) return { ok: false, reason: "rate" };
+    c.lastActivity = now;
+    return { ok: true, npcId: c.npcId, lang: c.lang };
   }
 
   /** `npc:gift` (build plan M24): the player gives the NPC one item; liked, neutral or disliked (shared `applyGift`). */

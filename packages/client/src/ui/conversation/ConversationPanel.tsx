@@ -438,6 +438,21 @@ function CardView({ card, name, coins, controller, onDone }: { card: Card; name:
       </p>
     );
   }
+  if (card.kind === "returned") {
+    return (
+      <p className="hv-card" role="status">
+        ✨ {t(card.delta > 0 ? "convo.return.done" : "convo.return.again", { name, item: itemName(card.itemId, labels) })}
+        {card.delta !== 0 ? ` ${formatHeartsDelta(card.delta, locale)} ♥` : ""}
+      </p>
+    );
+  }
+  if (card.kind === "returnFailed") {
+    return (
+      <p className="hv-card" role="status">
+        ✨ {t(`convo.return.failed.${card.reason}` as MessageKey, { name, item: itemName(card.itemId, labels) })}
+      </p>
+    );
+  }
   if (card.kind === "giftFailed") {
     return (
       <p className="hv-card" role="status">

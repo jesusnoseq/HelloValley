@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { friendshipBand, isGiftable, type ItemId, MAX_HEARTS, type NpcContextMessage } from "@hellovalley/shared";
+import { friendshipBand, isGiftable, type ItemId, isLostItemId, lostItemOwner, MAX_HEARTS, type NpcContextMessage } from "@hellovalley/shared";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { MessageKey } from "../../i18n/messages.en";
 import type { ConversationController } from "./controller";
@@ -51,7 +51,8 @@ export interface NpcProfileCardProps {
  * The NPC profile card (build plan M24, GDD §8.2): who the NPC is, the hearts with them (0–10),
  * the friendship band, what this visit did (daily greeting, decay after a week away), when the
  * player last talked to them, and the gift picker (one gift per NPC per in-game day; the NPC's
- * liked and disliked items are found out by giving).
+ * liked and disliked items are found out by giving), and (build plan M28) the NPC's lost items the
+ * player found, to hand back for hearts.
  */
 export function NpcProfileCard({ context, name, controller, gifting, canGive }: NpcProfileCardProps) {
   const { t, locale } = useI18n();
@@ -59,6 +60,8 @@ export function NpcProfileCard({ context, name, controller, gifting, canGive }: 
   const labels = useLabelMap(context.lang);
   const band = friendshipBand(context.hearts);
   const giftable = context.inventory.filter((e) => e.qty > 0 && isGiftable(e.itemId));
+  // Build plan M28: this NPC's lost items the player found.
+  const theirs = context.inventory.flatMap((e) => (e.qty > 0 && isLostItemId(e.itemId) && lostItemOwner(e.itemId) === context.npcId ? [e.itemId] : []));
   const lastSeen = context.lastSeen !== null ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(context.lastSeen)) : null;
   return (
     <section className="hv-profile" aria-labelledby={titleId}>
@@ -88,6 +91,16 @@ export function NpcProfileCard({ context, name, controller, gifting, canGive }: 
               </button>
             ))
           )}
+        </div>
+      ) : null}
+      {canGive && theirs.length > 0 ? (
+        <div role="group" aria-label={t("convo.profile.return")} className="hv-profile__gifts">
+          <span>{t("convo.profile.return")}:</span>
+          {theirs.map((itemId) => (
+            <button key={itemId} type="button" disabled={gifting !== null} aria-busy={gifting === itemId || undefined} onClick={() => void controller.returnLost(itemId)}>
+              ✨ {itemName(itemId, labels)}
+            </button>
+          ))}
         </div>
       ) : null}
     </section>

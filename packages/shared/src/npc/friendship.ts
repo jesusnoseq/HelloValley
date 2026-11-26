@@ -37,7 +37,7 @@ export const DECAY_HEARTS_PER_WEEK = 0.5;
 /** Decay never takes hearts below this (hearts already lower stay where they are). */
 export const DECAY_FLOOR_HEARTS = 1;
 
-/** Item categories a player cannot give: tools, and lost items (they are *returned*, TODO(M28)). */
+/** Item categories a player cannot give: tools, and lost items (they are *returned*: `npc:return`, forage/lost.ts). */
 export const UNGIFTABLE_CATEGORIES = ["tool", "lost"] as const;
 
 export type GiftReaction = keyof typeof GIFT_HEARTS;

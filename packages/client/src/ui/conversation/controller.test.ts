@@ -11,9 +11,9 @@ const flush = () => new Promise((r) => setTimeout(r, 5));
 const player = { name: "Lia", animal: "fox", apartmentId: "3B" };
 
 function make(
-  o: { level?: "A1" | "B1" | "C1"; helpers?: InputHelpers | null; refuse?: boolean; checkTimeoutMs?: number; room?: boolean; levelChange?: -1 | 0 | 1; inventory?: NpcContextMessage["inventory"] } = {},
+  o: { level?: "A1" | "B1" | "C1"; helpers?: InputHelpers | null; refuse?: boolean; checkTimeoutMs?: number; room?: boolean; levelChange?: -1 | 0 | 1; inventory?: NpcContextMessage["inventory"]; npcId?: NpcContextMessage["npcId"] } = {},
 ) {
-  const ctx = { ...npcContextFixture({ lang: "es", playerLevel: o.level ?? "A1" }), inventory: o.inventory ?? [] };
+  const ctx = { ...npcContextFixture({ lang: "es", playerLevel: o.level ?? "A1", ...(o.npcId ? { npcId: o.npcId } : {}) }), inventory: o.inventory ?? [] };
   const server = fakeNpcServer(ctx, { ...(o.refuse ? { refuse: "baker" as const } : {}), levelChange: o.levelChange ?? 0 });
   const toasts: Omit<Toast, "id">[] = [];
   const ai = fakeNpcAi();
@@ -178,5 +178,20 @@ describe("ConversationController", () => {
     expect(store.getState().gifting).toBeNull();
     await controller.gift("carp");
     expect(store.getState().cards.at(-1)).toMatchObject({ kind: "giftFailed", itemId: "carp", reason: "gift_cap" });
+  });
+
+  it("hands a lost item back to its owner for hearts (M28)", async () => {
+    const { controller, store, server } = make({ inventory: [{ itemId: "lost_keys", qty: 1 }] });
+    await controller.open("baker");
+    // The Baker is not the owner of the Shopkeeper's keys.
+    await controller.returnLost("lost_keys");
+    expect(server.sent.find((m) => m.type === ClientMessage.NpcReturn)?.payload).toMatchObject({ itemId: "lost_keys" });
+    expect(store.getState().cards.at(-1)).toMatchObject({ kind: "returnFailed", itemId: "lost_keys", reason: "not_owner" });
+    const own = make({ inventory: [{ itemId: "lost_keys", qty: 1 }], npcId: "shopkeeper" });
+    await own.controller.open("shopkeeper");
+    await own.controller.returnLost("lost_keys");
+    expect(own.store.getState().cards.at(-1)).toMatchObject({ kind: "returned", itemId: "lost_keys", delta: 1.5 });
+    expect(own.store.getState().context).toMatchObject({ hearts: 1.5, inventory: [] });
+    expect(own.store.getState().gifting).toBeNull();
   });
 });

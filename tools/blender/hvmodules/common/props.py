@@ -174,7 +174,7 @@ class Basket(CommonModule):
 @register
 class NoticeBoard(CommonModule):
     """The town notice board (GDD §2): a framed board on two posts with pinned notes. ``board``
-    is where the client shows the village notices (TODO(M28))."""
+    is where the client shows the village notices (TODO(M30): the Town Hall requests)."""
 
     id = "notice_board"
     footprint = Footprint(w=2, d=1, h=2.4)

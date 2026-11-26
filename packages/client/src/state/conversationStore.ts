@@ -6,11 +6,13 @@ import type {
   GiftReaction,
   InputMethod,
   ItemId,
+  LostItemId,
   NpcContextMessage,
   NpcId,
   NpcGiftFailure,
   NpcLine,
   NpcRefusal,
+  NpcReturnFailure,
   PendingTrade,
   SuggestedReply,
   SuggestionStyle,
@@ -67,7 +69,10 @@ export type Card =
   | { id: number; kind: "recipe"; recipeId: string }
   /** The player gave the NPC an item (build plan M24): how the NPC took it. */
   | { id: number; kind: "given"; itemId: ItemId; reaction: GiftReaction; delta: number }
-  | { id: number; kind: "giftFailed"; itemId: ItemId; reason: NpcGiftFailure | "unavailable" };
+  | { id: number; kind: "giftFailed"; itemId: ItemId; reason: NpcGiftFailure | "unavailable" }
+  /** The player handed a lost item back to its owner (build plan M28): the hearts it earned. */
+  | { id: number; kind: "returned"; itemId: LostItemId; delta: number }
+  | { id: number; kind: "returnFailed"; itemId: LostItemId; reason: NpcReturnFailure };
 
 /** The grammar check before sending (GDD §6.2): soft, never blocking. */
 export type CheckState =

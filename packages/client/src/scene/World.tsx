@@ -1,6 +1,7 @@
 import { interiorArrivalPoint, SPAWN_POINT, type SpacePoint } from "@hellovalley/shared";
 import { useWorld } from "../state/worldStore";
 import { FishingLine } from "./FishingLine";
+import { ForageSpawns } from "./ForageSpawns";
 import { Interior } from "./Interior";
 import { Npcs } from "./Npcs";
 import { PlacementMode } from "./PlacementMode";
@@ -22,7 +23,7 @@ export const HOME_START: SpacePoint = interiorArrivalPoint("apartment");
  * The playable world (build plan M13): the town (kept loaded, hidden while indoors), the interior
  * the player is in, the local player and (online, build plan M16) the other players in the same
  * space, the villagers at their posts (M23), plus furniture placement mode in the apartment (M17)
- * and the world labels on hover (M25), and the fishing line in the river (M27). The fade between them is drawn by ui/FadeOverlay.
+ * and the world labels on hover (M25), the fishing line in the river (M27), and the day's forage spawns and lost items (M28). The fade between them is drawn by ui/FadeOverlay.
  */
 export function World({ start = HOME_START }: { start?: SpacePoint }) {
   const space = useWorld((s) => s.space);
@@ -36,6 +37,7 @@ export function World({ start = HOME_START }: { start?: SpacePoint }) {
       <PlacementMode />
       <WorldLabels />
       <FishingLine />
+      <ForageSpawns visible={space === "town"} />
     </>
   );
 }

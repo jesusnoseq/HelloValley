@@ -5,6 +5,7 @@ import {
   emptyTelemetry,
   getNpc,
   type ItemId,
+  type LostItemId,
   type InputMethod,
   type NpcAppliedMessage,
   type NpcId,
@@ -44,7 +45,8 @@ import {
  *   silently when on-device AI is unavailable or slow;
  * - the model turn, the server's verdict (`npc:applied`) and its cards: trades wait for Buy / No
  *   (`npc:confirm`, the server settles them), gifts, quests and recipes are shown;
- * - gifts from the NPC profile card (`npc:gift`, build plan M24);
+ * - gifts from the NPC profile card (`npc:gift`, build plan M24), and lost items handed back to
+ *   their owner (`npc:return`, build plan M28);
  * - goodbye, or walking away (`updatePosition`), sends `npc:end` at once; then, in the
  *   background, the compaction (on-device first, AI Logic cloud fallback) goes to the server as
  *   `npc:memory` with the panel's telemetry (suggested vs free replies, translations opened,
@@ -365,6 +367,26 @@ export class ConversationController {
     } catch {
       if (generation !== this.generation) return;
       card = { id: this.id(), kind: "giftFailed", itemId, reason: "unavailable" };
+    }
+    this.set({ gifting: null, cards: [...this.state.cards, card], context: conversation.context });
+  }
+
+  /** The profile card's Return (build plan M28): a lost item goes back to its owner for hearts. */
+  async returnLost(itemId: LostItemId): Promise<void> {
+    const conversation = this.conversation;
+    if (!conversation || this.state.gifting) return;
+    const generation = this.generation;
+    this.set({ gifting: itemId });
+    let card: Card;
+    try {
+      const returned = await conversation.returnLost(itemId);
+      if (generation !== this.generation) return;
+      card = returned.ok
+        ? { id: this.id(), kind: "returned", itemId, delta: returned.delta }
+        : { id: this.id(), kind: "returnFailed", itemId, reason: returned.reason ?? "unavailable" };
+    } catch {
+      if (generation !== this.generation) return;
+      card = { id: this.id(), kind: "returnFailed", itemId, reason: "unavailable" };
     }
     this.set({ gifting: null, cards: [...this.state.cards, card], context: conversation.context });
   }

@@ -37,6 +37,7 @@ import {
   type FishCastResultMessage,
   type FishReelMessage,
   type FishResultMessage,
+  type ForageResultMessage,
   type NpcId,
   NPC_TALK_SLACK_M,
   type NpcRefusedMessage,
@@ -68,13 +69,15 @@ import { type ChatModerator, moderateChat } from "../moderation/chat";
 import { InventoryService } from "../economy/inventory";
 import { FishingService } from "../fishing/fishing";
 import type { FishingStore } from "../fishing/fishingStore";
+import { ForageService } from "../forage/forage";
+import type { ForageStore } from "../forage/forageStore";
 import { NpcDialogueService } from "../npc/dialogue";
 import type { NpcStore } from "../npc/npcStore";
 import type { ProfileStore } from "../profiles/profileStore";
 import type { SafetyStore } from "../safety/safetyStore";
 import { ApartmentRegistry } from "./apartmentRegistry";
 import { type RegisteredTown, TownRegistry } from "./townRegistry";
-import { TownPlayer, TownState, TownWorld } from "./TownState";
+import { TownForageSpawn, TownPlayer, TownState, TownWorld } from "./TownState";
 
 /** GDD §4.4 / architecture §7.1: up to 40 players per shard. */
 export const TOWN_MAX_CLIENTS = 40;
@@ -136,6 +139,13 @@ const noFishingStore: FishingStore = {
   recordCatch: () => Promise.resolve(null),
 };
 const noFishing = new FishingService(noFishingStore);
+/** Knows no players: real rooms get the forage service through `townRoomWith`. */
+const noForageStore: ForageStore = {
+  album: () => Promise.resolve({ found: {}, returned: {} }),
+  recordFind: () => Promise.resolve(null),
+  returnLost: () => Promise.resolve(null),
+};
+const noForage = new ForageService(noForageStore);
 const noNpcs = new NpcDialogueService(noNpcStore);
 const noInventory = new InventoryService(noNpcStore);
 
@@ -182,6 +192,8 @@ interface Session {
   fishingChain: Promise<void>;
   /** Switches the synced activity from "fishing" to "reeling" at the bite. */
   biteTimer: Delayed | null;
+  /** Pick-ups, returns and album reads run one after another (build plan M28). */
+  forageChain: Promise<void>;
 }
 
 /** A delivered chat line, as the room remembers it for reports. */
@@ -227,6 +239,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected inventory: InventoryService = noInventory;
   /** Casts, catches and the fish encyclopedia (build plan M27). */
   protected fishing: FishingService = noFishing;
+  /** Daily forage spawns, pick-ups, lost items and the forage album (build plan M28). */
+  protected forage: ForageService = noForage;
   /** Where joining players appear (tests start next to an NPC). */
   protected spawn: SpacePoint = TOWN_SPAWN;
   private readonly sessions = new Map<string, Session>();
@@ -269,7 +283,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.ChatUnblock, (client, { uid }) => this.onChatUnblock(client, uid));
     this.handle(ClientMessage.ChatReport, (client, report) => this.onChatReport(client, report));
     this.handle(ClientMessage.Interact, (_client, _request) => {
-      // NPC conversations start with `npc:start` (build plan M21). World labels need no server (M25); TODO(M28): world objects you use (shops are conversations, M26).
+      // NPC conversations start with `npc:start` (build plan M21). World labels need no server (M25),
+      // forage is `forage:pick` (M28), shops are conversations (M26). TODO(M30): the notice board.
     });
     this.handle(ClientMessage.NpcStart, (client, { npcId }) => void this.onNpcStart(client, npcId));
     this.handle(ClientMessage.NpcReply, (client, reply) => void this.onNpcReply(client, reply));
@@ -288,6 +303,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     });
     this.handle(ClientMessage.FishCast, (client, cast) => this.queueFishing(client.sessionId, () => this.onFishCast(client.sessionId, cast)));
     this.handle(ClientMessage.FishReel, (client, reel) => this.queueFishing(client.sessionId, () => this.onFishReel(client.sessionId, reel)));
+    this.handle(ClientMessage.ForagePick, (client, { spawnId }) => this.queueForage(client.sessionId, () => this.onForagePick(client.sessionId, spawnId)));
+    this.handle(ClientMessage.NpcReturn, (client, msg) => this.queueForage(client.sessionId, () => this.onNpcReturn(client.sessionId, msg)));
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
     this.handle(ClientMessage.VisitRequest, (client, { sessionId }) => this.onVisitRequest(client, sessionId));
     this.handle(ClientMessage.VisitAnswer, (client, { requestId, accept }) => this.onVisitAnswer(client, requestId, accept));
@@ -349,6 +366,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       inventoryChain: Promise.resolve(),
       fishingChain: Promise.resolve(),
       biteTimer: null,
+      forageChain: Promise.resolve(),
     });
     this.state.players.set(
       client.sessionId,
@@ -375,6 +393,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.sendSafety(client.sessionId);
     this.refreshInventory(client.sessionId);
     this.sendFishLog(client.sessionId);
+    this.sendForageAlbum(client.sessionId);
     // Whoever muted this uid sees the new session id in their mute list.
     for (const [sessionId, other] of this.sessions) {
       if (sessionId !== client.sessionId && other.muted.has(uid)) this.sendSafety(sessionId);
@@ -403,6 +422,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
         this.npc.end(session.uid);
         this.inventory.forget(session.uid);
         this.fishing.forget(session.uid);
+        this.forage.forget(session.uid);
       }
       session.biteTimer?.clear();
     }
@@ -810,7 +830,14 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (!session) return;
     const t = session.tracker;
     if (!canTalkTo(npcId, t.space, t.pos, NPC_TALK_SLACK_M)) return this.refuseNpc(client.sessionId, { reason: "too_far", npcId });
-    const result = await this.npc.start({ uid: session.uid, npcId, lang: session.targetLang, nativeLang: client.auth!.profile.nativeLang });
+    const result = await this.npc.start({
+      uid: session.uid,
+      npcId,
+      lang: session.targetLang,
+      nativeLang: client.auth!.profile.nativeLang,
+      // Build plan M28: the Gossip knows where today's lost items lie in this shard.
+      ...(npcId === "gossip" ? { lostHints: this.forage.hints(this.state.shard) } : {}),
+    });
     if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, npcId });
     // The session may have left while the store answered.
     const player = this.state.players.get(client.sessionId);
@@ -941,6 +968,70 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     });
   }
 
+  // -------------------------------------------------------------------------------------------
+  // Foraging and lost items (build plan M28, GDD §5.3): the day's spawns are shared state; the
+  // server checks every pick-up against its own walker and hands lost items back to their owners.
+
+  private queueForage(sessionId: string, task: () => Promise<void>): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    session.forageChain = session.forageChain.then(task).catch((err: unknown) => console.error(`[town] foraging for ${session.uid} failed:`, err));
+  }
+
+  /** Mirrors the shard's open spawns into the state (a new in-game day replaces the whole set). */
+  private syncForage(): void {
+    const { spawns } = this.forage.open(this.state.shard);
+    const open = new Set(spawns.map((s) => s.spawnId));
+    const map = this.state.forage;
+    for (const id of [...map.keys()]) if (!open.has(id)) map.delete(id);
+    for (const s of spawns) {
+      if (!map.has(s.spawnId)) map.set(s.spawnId, new TownForageSpawn({ itemId: s.itemId, kind: s.kind, x: s.pos[0], z: s.pos[1] }));
+    }
+  }
+
+  private async onForagePick(sessionId: string, spawnId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const t = session.tracker;
+    const busy = session.talkingTo !== null || this.fishing.pending(session.uid) !== undefined;
+    const where = { space: t.space, pos: [t.pos[0], t.pos[1]] as [number, number], talking: busy };
+    const result: ForageResultMessage = await this.forage.pick(session.uid, session.targetLang, this.state.shard, spawnId, where);
+    this.syncForage();
+    if (this.sessions.get(sessionId) !== session) return;
+    this.clientOf(sessionId)?.send(ServerMessage.ForageResult, result);
+    if (result.ok) {
+      this.refreshInventory(sessionId);
+      await this.sendAlbumNow(sessionId, session);
+    }
+  }
+
+  /** `npc:return`: in a conversation with the owner, a lost item goes back for hearts (shared rules). */
+  private async onNpcReturn(sessionId: string, msg: ClientMessagePayloads[typeof ClientMessage.NpcReturn]): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const c = this.npc.conversationFor(session.uid, msg.conversationId);
+    if (!c.ok) return this.refuseNpc(sessionId, { reason: c.reason, conversationId: msg.conversationId });
+    const result = await this.forage.returnLost(session.uid, c.lang, msg.conversationId, c.npcId, msg.itemId);
+    if (this.sessions.get(sessionId) !== session) return;
+    if (!result.ok) return this.refuseNpc(sessionId, { reason: result.reason, conversationId: msg.conversationId });
+    this.clientOf(sessionId)?.send(ServerMessage.NpcReturned, result.returned);
+    if (result.returned.ok) {
+      this.refreshInventory(sessionId);
+      await this.sendAlbumNow(sessionId, session);
+    }
+  }
+
+  private async sendAlbumNow(sessionId: string, session: Session): Promise<void> {
+    const album = await this.forage.album(session.uid);
+    if (album && this.sessions.get(sessionId) === session) this.clientOf(sessionId)?.send(ServerMessage.ForageAlbum, album);
+  }
+
+  /** Sends the player's forage album. */
+  private sendForageAlbum(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) this.queueForage(sessionId, () => this.sendAlbumNow(sessionId, session));
+  }
+
   /** Refreshes the clock and weather in the state (wall time: survives restarts, architecture §3.1). */
   private tickWorld(): void {
     const now = Date.now();
@@ -951,6 +1042,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     world.weather = weather.weather;
     world.previousWeather = weather.previous;
     world.weatherSince = weather.slot * WEATHER_SLOT_MS;
+    // Build plan M28: a new in-game day (on the forage service's clock) brings fresh spawns.
+    this.syncForage();
   }
 
   /** Registers a handler that only ever sees payloads that passed the shared schema. */
@@ -985,6 +1078,8 @@ export interface TownRoomDeps {
   inventory?: InventoryService;
   /** Casts, catches and the encyclopedia (build plan M27); shared by every shard so the pacing holds across them. */
   fishing?: FishingService;
+  /** Daily spawns per shard, pick-ups, returns and the forage album (build plan M28); shared by every shard. */
+  forage?: ForageService;
 }
 
 export interface TownRoomOptions {
@@ -1001,6 +1096,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
   const npc = deps.npc ?? noNpcs;
   const inventory = deps.inventory ?? noInventory;
   const fishing = deps.fishing ?? noFishing;
+  const forage = deps.forage ?? noForage;
   return class extends TownRoom {
     override maxClients = options.maxClients ?? TOWN_MAX_CLIENTS;
     protected override verifier = deps.verifier;
@@ -1012,6 +1108,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override npc = npc;
     protected override inventory = inventory;
     protected override fishing = fishing;
+    protected override forage = forage;
     protected override spawn = options.spawn ?? TOWN_SPAWN;
   };
 }

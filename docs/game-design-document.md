@@ -413,6 +413,7 @@ users/{uid}/langs/{lang}/notebook/{entryId}   surface, lemma, reading, gloss, ex
 users/{uid}/langs/{lang}/npcMemory/{npcId}    summary, facts[], lastSeen
 users/{uid}/inventory/{slot}     itemId, qty
 users/{uid}/collections/fish     species{fishId: count, first, last}   (server-only, M27)
+users/{uid}/collections/forage   found{itemId: count, first, last}, returned{lostId: count, lastDay}   (server-only, M28)
 users/{uid}/apartment/layout     furniture[{itemId, x, z, rot}]
 village/{shardId}/events/{id}    type, actorName?, payload, ts       (TTL 14 days)
 village/global/legends/{id}      text by lang (generated)

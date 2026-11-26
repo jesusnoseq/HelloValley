@@ -13,6 +13,7 @@ import {
   fishingSpotAt,
   headingTowards,
   nearestInteractable,
+  nearestSpawn,
   npcPost,
   pickNpc,
   PlayerController,
@@ -32,6 +33,8 @@ import { conversationStore } from "../state/conversationStore";
 import { conversation } from "../ui/conversation/controller";
 import { dioramaStore } from "../state/dioramaStore";
 import { fishingActive, fishingLive, fishingStore } from "../state/fishingStore";
+import { forageStore } from "../state/forageStore";
+import { sendPick } from "../net/forageSession";
 import { inventoryStore } from "../state/inventoryStore";
 import { notebookStore } from "../state/notebookStore";
 import { placementStore } from "../state/placementStore";
@@ -94,7 +97,8 @@ function clipTimings(manifest: CharacterManifest): ClipTimings {
  * the avatar faces the NPC and plays the talk clip, the camera eases in on the pair, and walking
  * away (keys or a click elsewhere) ends the conversation. Fishing (build plan M27): while a line is
  * out the walker stands still facing the cast and plays fish_cast, then fish_reel in the mini-game;
- * the fishing layer (ui/fishing) reads where the player stands. TODO(M29): the `seated` input.
+ * the fishing layer (ui/fishing) reads where the player stands. Foraging (build plan M28): F next to
+ * a forage spawn or a lost item picks it up (the server checks the range). TODO(M29): the `seated` input.
  */
 export function Player({ start }: { start: SpacePoint }) {
   // The apartment's walkability follows its furniture layout (build plan M17).
@@ -180,6 +184,13 @@ export function Player({ start }: { start: SpacePoint }) {
         keys.clear();
         if (nearby === "mirror") avatarStore.getState().openMirror();
         else openIntercom();
+        return;
+      }
+      // Build plan M28: F next to a forage spawn (or a lost item) asks the server to pick it up.
+      const spawn = forageStore.getState().nearby;
+      if (e.code === "KeyF" && fade.current.phase === "idle" && !nearby && spawn && conversationStore.getState().phase === "idle") {
+        keys.clear();
+        sendPick(spawn);
         return;
       }
       const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
@@ -308,6 +319,10 @@ export function Player({ start }: { start: SpacePoint }) {
     const spot = fade.current.phase === "idle" ? fishingSpotAt(space, pos) : null;
     if (spot !== world.fishingSpot) worldStore.setState({ fishingSpot: spot });
     fishingLive.pos = space === "town" ? [pos[0], pos[1]] : null;
+    // Foraging (build plan M28): the spawn within reach (the server checks the range again).
+    const forage = forageStore.getState();
+    const reach = fade.current.phase === "idle" && space === "town" ? (nearestSpawn(Object.values(forage.spawns), pos)?.spawnId ?? null) : null;
+    if (reach !== forage.nearby) forageStore.setState({ nearby: reach });
     fishingLive.heading = heading.current;
 
     cameraRig.follow = [pos[0], 0, pos[1]];

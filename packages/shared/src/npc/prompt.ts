@@ -5,6 +5,7 @@ import { getNpc, NPC_IDS, type NpcId } from "../data/npcs";
 import type { NpcContextMessage } from "../protocol/messages";
 import { BAND_LEVEL, cefrDescriptor, friendshipBandHint, type FriendshipBand, type LevelBand, maxWordsPerLine, type OpenerTimeBand, requestedSuggestions } from "./levels";
 import { cefrOf } from "../data/difficulty";
+import { getLostItem } from "../forage/lost";
 
 /**
  * The NPC turn prompt builder (build plan M21, docs/prompts/npc-runtime.md §1). The persona and
@@ -125,7 +126,19 @@ export function buildNpcTurnVariables(ctx: NpcContextMessage, player: NpcPlayerI
     quests_json: ctx.quests.length ? JSON.stringify(ctx.quests) : "",
     village_news: gossipy && ctx.news.length ? JSON.stringify(ctx.news.map((n) => note(n, 200))) : "",
     context_flags: ctx.flags.length ? ctx.flags.map((f) => note(f, 120)).join("; ") : "",
+    // Build plan M28: the Gossip's hint context, the lost items lying in town today and where.
+    lost_item_hints: ctx.npcId === "gossip" && ctx.hints.length ? lostItemHintsJson(ctx.hints) : "",
   };
+}
+
+/** `{{lost_item_hints}}`: what is lost, whose it is, and the place it lies near (server data). */
+export function lostItemHintsJson(hints: NpcContextMessage["hints"]): string {
+  return JSON.stringify(
+    hints.flatMap((h) => {
+      const item = getLostItem(h.itemId);
+      return item ? [{ item: item.englishName, owner: getNpc(h.owner).englishName, near: placeName(h.place) }] : [];
+    }),
+  );
 }
 
 export type InputMethod = "suggested" | "typed" | "spoken";

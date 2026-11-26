@@ -5,6 +5,9 @@ import {
   type ConversationTelemetry,
   getNpc,
   type ItemId,
+  type LostItemId,
+  type NpcReturnedMessage,
+  type NpcReturnMessage,
   type NpcAppliedMessage,
   type NpcGiftedMessage,
   type NpcGiftMessage,
@@ -196,6 +199,17 @@ export class NpcConversation {
     const gifted = await answer;
     this.context = { ...this.context, hearts: gifted.hearts, inventory: gifted.inventory, giftedToday: this.context.giftedToday || gifted.ok || gifted.reason === "gift_cap" };
     return gifted;
+  }
+
+  /** Hands a lost item back to its owner (build plan M28); the server checks the owner and adds the hearts. */
+  async returnLost(itemId: LostItemId): Promise<NpcReturnedMessage> {
+    const id = this.context.conversationId;
+    const answer = waitFor<NpcReturnedMessage>(this.room, ServerMessage.NpcReturned, (m) => m.conversationId === id && m.itemId === itemId, (m) => m.conversationId === id && !m.turnId);
+    const message: NpcReturnMessage = { conversationId: id, itemId };
+    this.room.send(ClientMessage.NpcReturn, message);
+    const returned = await answer;
+    this.context = { ...this.context, hearts: returned.hearts, inventory: returned.inventory, flags: returned.ok ? this.context.flags.filter((f) => !f.includes("your lost")) : this.context.flags };
+    return returned;
   }
 
   /** Goodbye or walk-away: `npc:end` goes at once; `remember` sends the compaction after it. */

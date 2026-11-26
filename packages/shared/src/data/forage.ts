@@ -49,7 +49,7 @@ export function forageIdsOfKind(...kinds: ForageKind[]): ForageId[] {
 
 /**
  * The spawn table for a zone, weighted by rarity.
- * TODO(M28): daily spawns per shard, seeded per in-game day.
+ * The daily spawns per shard are forage/spawns.ts (build plan M28).
  */
 export function forageTable(zone: ForageZone): WeightedEntry<ForageId>[] {
   return (FORAGE as readonly (ForageDef & { id: ForageId })[])
@@ -66,7 +66,7 @@ export interface LostItemDef {
   hintPlaces: readonly PlaceId[];
 }
 
-/** Lost items are quest objects: they cannot be sold. TODO(M28): spawning and the return flow. */
+/** Lost items are quest objects: they cannot be sold. Spawning and the return flow: forage/spawns.ts, forage/lost.ts (M28). */
 export const LOST_ITEMS = [
   { id: "lost_glasses", englishName: "Reading glasses", owner: "librarian", hintPlaces: ["bridge", "fountain"] },
   { id: "lost_hat", englishName: "Straw hat", owner: "farmer", hintPlaces: ["river_bank", "square_bench"] },

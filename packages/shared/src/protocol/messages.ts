@@ -14,6 +14,10 @@ import type { Rarity } from "../data/rarity";
 import type { FishCastRefusal, FishReelRefusal } from "../fishing/cast";
 import type { FishLog, FishLogEntry } from "../fishing/log";
 import type { FishShadow } from "../fishing/roll";
+import type { AlbumEntry, ForageAlbum } from "../forage/album";
+import type { LostItemHint, LostReturnRefusal } from "../forage/lost";
+import type { CollectibleId, ForagePickRefusal, SpawnKind } from "../forage/spawns";
+import type { LostItemId } from "../data/forage";
 import type { Motion, SpaceId } from "../world/player";
 
 /** Colyseus room names registered by the server (architecture §7.1). */
@@ -80,6 +84,10 @@ export const ClientMessage = {
   FishCast: "fish:cast",
   /** How the cast ended: the mini-game landed the fish, or it got away (or the player gave up). */
   FishReel: "fish:reel",
+  /** Pick up a forage spawn (or a lost item) the player stands next to (build plan M28). */
+  ForagePick: "forage:pick",
+  /** During a conversation: hand a lost item back to its owner (build plan M28). */
+  NpcReturn: "npc:return",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -134,6 +142,12 @@ export const ServerMessage = {
   FishResult: "fish:result",
   /** The player's fish encyclopedia (after the join and after every catch). */
   FishLog: "fish:log",
+  /** Answer to `forage:pick`: what went into the bag, or why not (build plan M28). */
+  ForageResult: "forage:result",
+  /** The player's forage album (after the join, every pick-up and every return). */
+  ForageAlbum: "forage:album",
+  /** Answer to `npc:return`: the owner took the lost item back (and the hearts it earned), or why not. */
+  NpcReturned: "npc:returned",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -226,6 +240,17 @@ export interface TownPlayerView {
    * "reeling". Remote avatars play the fish_cast / fish_reel clips from it.
    */
   activity: string;
+}
+
+/**
+ * One forage spawn or lost item lying in the town today (the server's `TownForageSpawn` schema,
+ * keyed by spawn id in the synced `forage` map; build plan M28). Picked ones leave the map.
+ */
+export interface TownForageView {
+  itemId: CollectibleId;
+  kind: SpawnKind;
+  x: number;
+  z: number;
 }
 
 /** The synced world clock and weather (the server's `TownWorld` schema). */
@@ -474,8 +499,13 @@ export interface NpcContextMessage {
   recipes: { recipeId: string; heartsRequired: number; known: boolean }[];
   /** Active quests involving this NPC. TODO(M30). */
   quests: string[];
-  /** Extra context ("player ate 3 cakes today"). TODO(M28/M29). */
+  /**
+   * Extra context: the lost items the player carries (build plan M28, forage/lost.ts
+   * `lostItemFlags`). TODO(M29): what the player ate today.
+   */
   flags: string[];
+  /** The Gossip only (build plan M28): the lost items still lying in the shard today and where. */
+  hints: LostItemHint[];
   /** Village news (Gossip and Elder only). TODO(M31). */
   news: string[];
   world: { timeOfDay: TimeOfDay; weather: Weather; location: PlaceId; minutes: number };
@@ -681,6 +711,52 @@ export type FishResultMessage =
 /** Payload of `ServerMessage.FishLog`. */
 export interface FishLogMessage {
   species: FishLog;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Foraging and lost items (build plan M28, GDD §5.3)
+
+/** Payload of `ClientMessage.ForagePick`. */
+export interface ForagePickMessage {
+  spawnId: string;
+}
+
+/** Payload of `ServerMessage.ForageResult`. */
+export type ForageResultMessage =
+  | {
+      spawnId: string;
+      ok: true;
+      itemId: CollectibleId;
+      kind: SpawnKind;
+      /** New to the album. */
+      first: boolean;
+      entry: AlbumEntry;
+    }
+  | { spawnId: string; ok: false; reason: ForagePickRefusal };
+
+/** Payload of `ServerMessage.ForageAlbum`. */
+export interface ForageAlbumMessage {
+  album: ForageAlbum;
+}
+
+/** Payload of `ClientMessage.NpcReturn`. */
+export interface NpcReturnMessage {
+  conversationId: string;
+  itemId: LostItemId;
+}
+
+export type NpcReturnFailure = LostReturnRefusal | "not_owned" | "unavailable";
+
+/** Payload of `ServerMessage.NpcReturned`. */
+export interface NpcReturnedMessage {
+  conversationId: string;
+  itemId: LostItemId;
+  ok: boolean;
+  reason?: NpcReturnFailure;
+  /** Hearts gained (0 when refused, or when this item already went back today). */
+  delta: number;
+  hearts: number;
+  inventory: InventoryEntry[];
 }
 
 export const CLIENT_MESSAGE_TYPES: readonly ClientMessage[] = Object.values(ClientMessage);

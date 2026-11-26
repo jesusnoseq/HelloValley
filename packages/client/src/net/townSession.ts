@@ -21,6 +21,7 @@ import {
 import { RemoteTrack, type RemoteSample } from "./interpolation";
 import { chat } from "./chatSession";
 import { attachFishing } from "./fishingSession";
+import { attachForage } from "./forageSession";
 import { attachInventory } from "./inventorySession";
 import { attachVisitMessages } from "./visitSession";
 
@@ -108,7 +109,7 @@ function sampleOf(p: TownPlayerView): RemoteSample {
 /**
  * Mirrors `room` into the stores until the returned function is called (or the room is left):
  * other players' info and interpolation tracks, the welcome, corrections, emotes and the clock
- * sync, plus the chat (net/chatSession.ts), the inventory (net/inventorySession.ts) and fishing (net/fishingSession.ts). `onWelcome` gets the welcome message (uid and shard
+ * sync, plus the chat (net/chatSession.ts), the inventory (net/inventorySession.ts), fishing (net/fishingSession.ts) and foraging (net/forageSession.ts). `onWelcome` gets the welcome message (uid and shard
  * for the HUD).
  */
 export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage) => void): () => void {
@@ -119,7 +120,7 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
   townLive.welcomed = false;
   townSession.setState({ room, shard: null, remotes: {} });
 
-  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room)];
+  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room)];
   offs.push(
     room.onMessage(ServerMessage.Welcome, (welcome: WelcomeMessage) => {
       townLive.spawn = welcome.spawn;

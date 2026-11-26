@@ -348,7 +348,7 @@ export function townPlaces(): Readonly<Record<PlaceId, Vec2>> {
   };
 }
 
-/** Forage spawn zones (GDD §5.3) as areas in metres; spawns go on walkable cells inside them (TODO(M28)). */
+/** Forage spawn zones (GDD §5.3) as areas in metres; spawns go on walkable cells inside them (forage/spawns.ts). */
 export const FORAGE_ZONE_AREAS: Readonly<Record<ForageZone, readonly Area[]>> = {
   meadow: [[2, 34, 23, 98]],
   forest_edge: [[50, 34, 62, 98]],

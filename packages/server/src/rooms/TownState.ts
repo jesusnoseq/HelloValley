@@ -1,5 +1,5 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
-import type { TownPlayerView, TownWorldView } from "@hellovalley/shared";
+import type { TownForageView, TownPlayerView, TownWorldView } from "@hellovalley/shared";
 
 /**
  * One player in a TownRoom shard (build plan M16). Positions are on the ground plane in metres,
@@ -44,9 +44,24 @@ export const TownWorld = schema(
 export type TownWorld = SchemaType<typeof TownWorld>;
 
 /**
+ * One forage spawn or lost item lying in the town today (build plan M28), keyed by its spawn id
+ * in `TownState.forage`. The set is the shared `dailySpawns(shard, day)`; picked ones leave the map.
+ */
+export const TownForageSpawn = schema(
+  {
+    itemId: t.string(),
+    kind: t.string(),
+    x: t.number(),
+    z: t.number(),
+  },
+  "TownForageSpawn",
+);
+export type TownForageSpawn = SchemaType<typeof TownForageSpawn>;
+
+/**
  * Synced TownRoom state. NPCs stand at fixed posts for now (shared npcPosts.ts, build plan M23);
- * TODO(M31): NPC positions and schedule state. TODO(M28): forage spawns
- * (architecture §7.1). Fish shadows are private to the angler (`fish:cast`), not state.
+ * TODO(M31): NPC positions and schedule state. The day's forage spawns are shared
+ * state (GDD §4.4, build plan M28). Fish shadows are private to the angler (`fish:cast`), not state.
  */
 export const TownState = schema(
   {
@@ -54,6 +69,8 @@ export const TownState = schema(
     shard: t.number(),
     players: t.map(TownPlayer),
     world: TownWorld,
+    /** Spawn id → what lies there (build plan M28). */
+    forage: t.map(TownForageSpawn),
   },
   "TownState",
 );
@@ -62,3 +79,4 @@ export type TownState = SchemaType<typeof TownState>;
 // Compile-time check that the schemas carry every field the client reads (shared protocol types).
 export type TownPlayerFieldsCheck = Pick<TownPlayer, keyof TownPlayerView>;
 export type TownWorldFieldsCheck = Pick<TownWorld, keyof TownWorldView>;
+export type TownForageFieldsCheck = Pick<TownForageSpawn, keyof TownForageView>;

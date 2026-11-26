@@ -11,6 +11,8 @@ import type { ChatModerator } from "./moderation/chat";
 import { InventoryService } from "./economy/inventory";
 import { FishingService, type FishingServiceOptions } from "./fishing/fishing";
 import { createMemoryFishingStore, type FishingStore, firestoreFishingStoreFor } from "./fishing/fishingStore";
+import { ForageService, type ForageServiceOptions } from "./forage/forage";
+import { createMemoryForageStore, type ForageStore, firestoreForageStoreFor } from "./forage/forageStore";
 import { NpcDialogueService } from "./npc/dialogue";
 import { createMemoryNpcStore, firestoreNpcStoreFor, type MemoryNpcStore, type NpcStore } from "./npc/npcStore";
 import { createMemoryStreakStore, firestoreStreakStoreFor, type StreakStore } from "./notebook/streakStore";
@@ -56,6 +58,8 @@ export interface GameServerOptions {
    * over an in-memory `npcStore`, in tests); tests also fix the clock and the seed.
    */
   fishing?: FishingServiceOptions & { store?: FishingStore };
+  /** Foraging (build plan M28): the store defaults like fishing's; tests also fix the clock. */
+  forage?: ForageServiceOptions & { store?: ForageStore };
 }
 
 export interface GameServer extends Server {
@@ -82,6 +86,10 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
     options.fishing?.store ??
     (firebase ? firestoreFishingStoreFor(adminApp(firebase)) : createMemoryFishingStore("players" in npcStore ? (npcStore as MemoryNpcStore) : createMemoryNpcStore()));
   const fishing = new FishingService(fishingStore, options.fishing);
+  const forageStore =
+    options.forage?.store ??
+    (firebase ? firestoreForageStoreFor(adminApp(firebase)) : createMemoryForageStore("players" in npcStore ? (npcStore as MemoryNpcStore) : createMemoryNpcStore()));
+  const forage = new ForageService(forageStore, options.forage);
   const streaks = options.streaks ?? (firebase ? firestoreStreakStoreFor(adminApp(firebase)) : createMemoryStreakStore());
   const towns = new TownRegistry();
   const apartments = new ApartmentRegistry();
@@ -95,7 +103,7 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   // A full shard is locked by Colyseus, so joinOrCreate creates the next one. Joining a friend's
   // shard goes through GET /api/shards?friend=<uid> and joinById.
   server
-    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing }, options.town))
+    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing, forage }, options.town))
     .sortBy({ "metadata.shard": 1 });
   // Build plan M17: one private ApartmentRoom per owner. Visitors get in with a pass the owner
   // granted at the lobby intercom (TownRoom).
