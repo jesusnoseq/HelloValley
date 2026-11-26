@@ -22,6 +22,7 @@ import {
   REPORT_MAX_MESSAGES,
   type EmoteBroadcast,
   type IntercomEntry,
+  type InventoryStateMessage,
   type IntercomListMessage,
   intercomInteractable,
   interiorArrivalPoint,
@@ -59,7 +60,9 @@ import {
 } from "@hellovalley/shared";
 import { type IdTokenVerifier, InvalidIdTokenError, type VerifiedUser } from "../auth/idToken";
 import { type ChatModerator, moderateChat } from "../moderation/chat";
+import { InventoryService } from "../economy/inventory";
 import { NpcDialogueService } from "../npc/dialogue";
+import type { NpcStore } from "../npc/npcStore";
 import type { ProfileStore } from "../profiles/profileStore";
 import type { SafetyStore } from "../safety/safetyStore";
 import { ApartmentRegistry } from "./apartmentRegistry";
@@ -109,14 +112,18 @@ const noSafety: SafetyStore = {
   addReport: () => Promise.reject(new Error("no safety store")),
 };
 
-/** Reads nothing: real rooms get the dialogue service through `townRoomWith`. */
-const noNpcs = new NpcDialogueService({
+/** Reads nothing: real rooms get the dialogue and inventory services through `townRoomWith`. */
+const noNpcStore: NpcStore = {
   load: () => Promise.resolve(null),
   apply: () => Promise.reject(new Error("no NPC store")),
   contact: () => Promise.resolve(null),
   gift: () => Promise.reject(new Error("no NPC store")),
   remember: () => Promise.resolve(null),
-});
+  wallet: () => Promise.resolve(null),
+  moveSlot: () => Promise.resolve(null),
+};
+const noNpcs = new NpcDialogueService(noNpcStore);
+const noInventory = new InventoryService(noNpcStore);
 
 /** Knows no profiles, so nobody counts as onboarded. */
 const noProfiles: ProfileStore = {
@@ -155,6 +162,8 @@ interface Session {
   /** The NPC conversation this session is in (build plan M23), for the "chatting" indicator. */
   talkingTo: NpcId | null;
   conversationId: string | null;
+  /** Inventory reads and moves run one after another, so `inventory:state` messages arrive in order (build plan M26). */
+  inventoryChain: Promise<void>;
 }
 
 /** A delivered chat line, as the room remembers it for reports. */
@@ -196,6 +205,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected safety: SafetyStore = noSafety;
   protected moderateChat: ChatModerator = moderateChat;
   protected npc: NpcDialogueService = noNpcs;
+  /** Coins and inventory slots (build plan M26); shares the NPC store so trades and moves see the same records. */
+  protected inventory: InventoryService = noInventory;
   /** Where joining players appear (tests start next to an NPC). */
   protected spawn: SpacePoint = TOWN_SPAWN;
   private readonly sessions = new Map<string, Session>();
@@ -238,7 +249,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.ChatUnblock, (client, { uid }) => this.onChatUnblock(client, uid));
     this.handle(ClientMessage.ChatReport, (client, report) => this.onChatReport(client, report));
     this.handle(ClientMessage.Interact, (_client, _request) => {
-      // NPC conversations start with `npc:start` (build plan M21). World labels need no server (M25); TODO(M26/M28): world objects you use.
+      // NPC conversations start with `npc:start` (build plan M21). World labels need no server (M25); TODO(M28): world objects you use (shops are conversations, M26).
     });
     this.handle(ClientMessage.NpcStart, (client, { npcId }) => void this.onNpcStart(client, npcId));
     this.handle(ClientMessage.NpcReply, (client, reply) => void this.onNpcReply(client, reply));
@@ -251,6 +262,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     });
     this.handle(ClientMessage.NpcMemory, (client, memory) => void this.onNpcMemory(client, memory));
     this.handle(ClientMessage.NpcGift, (client, gift) => void this.onNpcGift(client, gift));
+    this.handle(ClientMessage.InventoryMove, (client, move) => {
+      const session = this.sessions.get(client.sessionId);
+      if (session) this.queueInventory(client.sessionId, session, () => this.inventory.move(session.uid, session.targetLang, move));
+    });
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
     this.handle(ClientMessage.VisitRequest, (client, { sessionId }) => this.onVisitRequest(client, sessionId));
     this.handle(ClientMessage.VisitAnswer, (client, { requestId, accept }) => this.onVisitAnswer(client, requestId, accept));
@@ -309,6 +324,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       lastReportMs: Number.NEGATIVE_INFINITY,
       talkingTo: null,
       conversationId: null,
+      inventoryChain: Promise.resolve(),
     });
     this.state.players.set(
       client.sessionId,
@@ -332,6 +348,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     };
     client.send(ServerMessage.Welcome, welcome);
     this.sendSafety(client.sessionId);
+    this.refreshInventory(client.sessionId);
     // Whoever muted this uid sees the new session id in their mute list.
     for (const [sessionId, other] of this.sessions) {
       if (sessionId !== client.sessionId && other.muted.has(uid)) this.sendSafety(sessionId);
@@ -356,7 +373,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       this.registry.unbindSession(session.uid, client.sessionId);
       this.leaveApartment(session);
       // A replaced tab leaves after its successor joined: the conversation is the new tab's now.
-      if (!this.replaced.has(client.sessionId)) this.npc.end(session.uid);
+      if (!this.replaced.has(client.sessionId)) {
+        this.npc.end(session.uid);
+        this.inventory.forget(session.uid);
+      }
     }
     for (const visit of [...this.visits.values()]) {
       if (visit.visitor === client.sessionId || visit.owner === client.sessionId) this.closeVisit(visit, "unavailable");
@@ -773,6 +793,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     const result = await this.npc.reply(session.uid, reply);
     if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: reply.conversationId, turnId: reply.turnId });
     this.clientOf(client.sessionId)?.send(ServerMessage.NpcApplied, result.applied);
+    // An NPC's gift landed in the inventory.
+    if (result.applied.accepted.some((a) => a.type === "give")) this.refreshInventory(client.sessionId);
   }
 
   private async onNpcConfirm(client: TownClient, confirm: ClientMessagePayloads[typeof ClientMessage.NpcConfirm]): Promise<void> {
@@ -781,6 +803,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     const result = await this.npc.confirm(session.uid, confirm);
     if ("reason" in result && !("tradeId" in result)) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: confirm.conversationId });
     this.clientOf(client.sessionId)?.send(ServerMessage.NpcTrade, result);
+    if ("ok" in result && result.ok) this.refreshInventory(client.sessionId);
   }
 
   /** `npc:memory` (build plan M24): the compaction of a conversation that ended; the server stores it and adapts the level. */
@@ -799,6 +822,26 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     const result = await this.npc.gift(session.uid, gift);
     if (!result.ok) return this.refuseNpc(client.sessionId, { reason: result.reason, conversationId: gift.conversationId });
     this.clientOf(client.sessionId)?.send(ServerMessage.NpcGifted, result.gifted);
+    if (result.gifted.ok) this.refreshInventory(client.sessionId);
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // Inventory (build plan M26, GDD §5.6): the server's records, pushed to the player.
+
+  /** Runs an inventory read or move after the ones already queued for this session and sends the answer. */
+  private queueInventory(sessionId: string, session: Session, task: () => Promise<InventoryStateMessage | null>): void {
+    session.inventoryChain = session.inventoryChain
+      .then(task)
+      .then((state) => {
+        if (state && this.sessions.get(sessionId) === session) this.clientOf(sessionId)?.send(ServerMessage.InventoryState, state);
+      })
+      .catch((err: unknown) => console.error(`[town] inventory update for ${session.uid} failed:`, err));
+  }
+
+  /** Sends the player's current coins and slots. */
+  private refreshInventory(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) this.queueInventory(sessionId, session, () => this.inventory.state(session.uid, session.targetLang));
   }
 
   /** Refreshes the clock and weather in the state (wall time: survives restarts, architecture §3.1). */
@@ -841,6 +884,8 @@ export interface TownRoomDeps {
   apartments?: ApartmentRegistry;
   /** NPC conversations (build plan M21); shared by every shard so the per-day limits hold. */
   npc?: NpcDialogueService;
+  /** Coins and inventory slots (build plan M26), over the same store as `npc`. */
+  inventory?: InventoryService;
 }
 
 export interface TownRoomOptions {
@@ -855,6 +900,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
   const registry = deps.registry ?? new TownRegistry();
   const apartments = deps.apartments ?? new ApartmentRegistry();
   const npc = deps.npc ?? noNpcs;
+  const inventory = deps.inventory ?? noInventory;
   return class extends TownRoom {
     override maxClients = options.maxClients ?? TOWN_MAX_CLIENTS;
     protected override verifier = deps.verifier;
@@ -864,6 +910,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override safety = deps.safety;
     protected override moderateChat = deps.moderateChat ?? moderateChat;
     protected override npc = npc;
+    protected override inventory = inventory;
     protected override spawn = options.spawn ?? TOWN_SPAWN;
   };
 }

@@ -6,6 +6,7 @@ import { LanguageCodeSchema } from "../data/languages";
 import { NpcIdSchema } from "../data/npcs";
 import { ItemIdSchema } from "../data/items";
 import { NpcActionListSchema } from "../npc/actions";
+import { TOTAL_SLOTS } from "../npc/inventory";
 import { ConversationTelemetrySchema, NpcMemoryPayloadSchema } from "../npc/memory";
 import { INTERIOR_IDS } from "../world/interiors";
 import { CHAT_MAX_LENGTH, CHAT_REPORT_REASONS, ClientMessage } from "./messages";
@@ -72,8 +73,8 @@ export const EntityIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
 
 export const InteractRequestSchema = z.discriminatedUnion("targetKind", [
   z.object({ targetKind: z.literal("npc"), targetId: NpcIdSchema }),
-  // TODO(M26/M28): check object ids against the town's interactables (notice board, dock, shop
-  // counters) and the live forage spawns; the static layout is world/town.ts.
+  // TODO(M28): check object ids against the town's interactables (notice board, dock) and the live
+  // forage spawns; the static layout is world/town.ts. Shops need none: they are conversations (M26).
   z.object({ targetKind: z.literal("object"), targetId: EntityIdSchema }),
 ]);
 export type InteractRequest = z.infer<typeof InteractRequestSchema>;
@@ -138,6 +139,10 @@ export const NpcMemoryMessageSchema = NpcMemoryPayloadSchema.extend({
 /** `npc:gift`: any item id; the server checks it is giftable and held. */
 export const NpcGiftSchema = z.strictObject({ conversationId: NpcTokenSchema, itemId: ItemIdSchema });
 
+const slotIndex = z.number().int().min(0).max(TOTAL_SLOTS - 1);
+/** `inventory:move` (build plan M26): two slot indexes; the server checks the source holds something. */
+export const InventoryMoveSchema = z.strictObject({ from: slotIndex, to: slotIndex, moveId: editId });
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -159,6 +164,7 @@ export const ClientMessageSchemas = {
   [ClientMessage.NpcEnd]: NpcEndSchema,
   [ClientMessage.NpcMemory]: NpcMemoryMessageSchema,
   [ClientMessage.NpcGift]: NpcGiftSchema,
+  [ClientMessage.InventoryMove]: InventoryMoveSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

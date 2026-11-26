@@ -3,7 +3,7 @@ import { SHOPS } from "../data/items";
 import type { NpcId } from "../data/npcs";
 import { recipesTaughtBy } from "../data/recipes";
 import type { NpcContextMessage } from "../protocol/messages";
-import { adjustedUnitPrice } from "./actions";
+import { npcSellUnitPrice } from "./actions";
 import type { NpcTurnReplyInput } from "./reply";
 
 /**
@@ -30,7 +30,7 @@ export function npcContextFixture(o: { npcId?: NpcId; lang: string; nativeLang?:
     coins: 50,
     memory: null,
     learningWords: [],
-    stock: (SHOPS[npcId]?.sells ?? []).map((itemId) => ({ itemId, price: adjustedUnitPrice(itemId) })),
+    stock: (SHOPS[npcId]?.sells ?? []).map((itemId) => ({ itemId, price: npcSellUnitPrice(npcId, itemId) })),
     buys: [],
     inventory: [],
     recipes: recipesTaughtBy(npcId).map((r) => ({ recipeId: r.id, heartsRequired: r.heartsRequired, known: false })),

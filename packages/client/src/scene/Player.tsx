@@ -30,6 +30,7 @@ import { avatarStore, useAvatar } from "../state/avatarStore";
 import { conversationStore } from "../state/conversationStore";
 import { conversation } from "../ui/conversation/controller";
 import { dioramaStore } from "../state/dioramaStore";
+import { inventoryStore } from "../state/inventoryStore";
 import { notebookStore } from "../state/notebookStore";
 import { placementStore } from "../state/placementStore";
 import { worldStore } from "../state/worldStore";
@@ -50,14 +51,15 @@ function isEditable(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-/** A dialog, placement mode, the chat input or the notebook has the keyboard and mouse: the walker stands still. */
+/** A dialog, placement mode, the chat input, the notebook or the bag has the keyboard and mouse: the walker stands still. */
 function inputPaused(): boolean {
   return (
     avatarStore.getState().mirrorOpen ||
     visitSession.getState().intercomOpen ||
     placementStore.getState().open ||
     chat.store.getState().typing ||
-    notebookStore.getState().open
+    notebookStore.getState().open ||
+    inventoryStore.getState().open
   );
 }
 

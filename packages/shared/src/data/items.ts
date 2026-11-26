@@ -198,8 +198,12 @@ const PLANTS_AND_MUSHROOMS: ForageKind[] = ["flower", "mushroom", "berry", "herb
 
 /**
  * Buy and sell lists per NPC (GDD §5.1). The server checks `offer`/`buy` proposals against these
- * and recomputes prices from `ITEMS` (architecture §6.1).
- * TODO(M26): buy-back multipliers (the Shopkeeper's lowball price), clothing colours, transactions.
+ * and recomputes prices from `ITEMS` (architecture §6.1); the price rules (the Shopkeeper's
+ * inflated opening, haggling, buy-back rates) are npc/actions.ts. Trades settle in one Admin SDK
+ * transaction after the player confirms them (build plans M21, M26).
+ * The GDD's "clothing colours" at the general store are not sold: the mirror (M15) already lets
+ * every player pick any colour for free, so there is nothing to unlock (decision in pending.md).
+ * Fish have no specialist buyer yet (only the Shopkeeper's lowball). TODO(M27): who buys fish.
  */
 export const SHOPS: Partial<Record<NpcId, ShopDef>> = {
   baker: {
@@ -241,6 +245,24 @@ export const SHOPS: Partial<Record<NpcId, ShopDef>> = {
     sells: ["village_history", "fish_guide", "romance_novel"],
     buys: forageIdsOfKind("rare_find"),
   },
+};
+
+/**
+ * What each villager may hand the player as a gift (the model's `give`, architecture §6.1: only from
+ * this table, at most one per NPC per in-game day). Small, cheap things in character, so a forged
+ * `give` gets no more than a friendly chat would (build plan M26, my lists). The residents, who
+ * sell nothing, give too.
+ */
+export const NPC_GIFTS: Readonly<Record<NpcId, readonly ItemId[]>> = {
+  shopkeeper: ["flour", "sugar"],
+  baker: ["bread", "croissant", "cinnamon_roll"],
+  barista: ["coffee", "tea", "cookie"],
+  farmer: ["carrot", "potato", "egg", "flower_seeds"],
+  mayor: ["cookie", "flower_seeds"],
+  librarian: ["tea"],
+  doctor: ["cough_drops", "herbal_tea"],
+  gossip: ["cookie", "croissant"],
+  elder: ["tea", "herb_seeds"],
 };
 
 export function npcSells(npcId: NpcId, itemId: ItemId): boolean {

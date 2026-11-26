@@ -155,6 +155,8 @@ describe("NpcDialogueService", () => {
       contact: (...args) => memory.contact(...args),
       gift: (...args) => memory.gift(...args),
       remember: (...args) => memory.remember(...args),
+      wallet: (...args) => memory.wallet(...args),
+      moveSlot: (...args) => memory.moveSlot(...args),
     };
     const npc = new NpcDialogueService(store);
     const ctx = await startOk(npc, "lia", "es");

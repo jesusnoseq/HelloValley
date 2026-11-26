@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getItem, type ItemId, isItemId, npcBuys, npcSells, SHOPS } from "../data/items";
+import { getItem, type ItemId, isItemId, NPC_GIFTS, npcBuys, npcSells } from "../data/items";
 import type { NpcId } from "../data/npcs";
 import { getRecipe } from "../data/recipes";
 import { MAX_HEARTS } from "../firestore/schemas";
@@ -12,7 +12,7 @@ import { clampHearts, QUEST_COMPLETION_HEARTS } from "./friendship";
  * | Proposal | Server rule |
  * |---|---|
  * | `offer` / `buy` | the item is on this NPC's sell / buy list; the proposed price is ignored and recomputed |
- * | `priceAdjustment` | Shopkeeper only, clamped to −30..+10 %, discounts scaled by friendship, once per item per conversation |
+ * | `priceAdjustment` | Shopkeeper only, clamped to −30..+10 % of the base price (he opens at +10 %), discounts scaled by friendship, once per item per conversation |
  * | `friendshipDelta` | clamped to −1..+1; at most +1 per conversation and +2 per NPC per in-game day |
  * | `give` | only from the NPC's gift table, at most one gift per NPC per in-game day |
  * | `giveQuest` / `completeQuest` | only quests the server offers / whose conditions hold (TODO(M30)); a completed one adds QUEST_COMPLETION_HEARTS |
@@ -54,14 +54,24 @@ export const HEARTS_PER_FRIENDSHIP_POINT = 0.5;
 /** Gifts per NPC per in-game day (architecture §6.1). */
 export const GIFTS_PER_DAY = 1;
 /**
- * The default gift table (my rule until per-NPC tables exist): an NPC may give one of the cheap
- * things it sells (base price ≤ this). TODO(M26): real gift tables, including the residents. (Gifts from the player are npc/friendship.ts.)
+ * What an NPC pays for a shop good it buys back (flour, eggs), as a fraction of the base price
+ * (build plan M26, my number). Haggling only lowers what the Shopkeeper charges; sales to NPCs are
+ * never haggled (GDD §5.1 describes haggling as bargaining an inflated price down).
  */
-export const GIFT_MAX_BASE_PRICE = 5;
-/** What NPCs pay for what they buy, as a fraction of the base price. TODO(M26): tune, haggling on sales. */
 export const NPC_BUY_BACK_RATE = 0.5;
-/** The Shopkeeper buys anything, at a lowball price (persona). */
+/**
+ * What an NPC that lists a find (fish, forage) pays for it: the full base price, because
+ * `basePrice` of fish and forage is their sell price (data/fish.ts, data/forage.ts). The farm
+ * pays this for foraged plants, the Clinic for herbs, the Library for rare finds.
+ */
+export const FIND_BUY_BACK_RATE = 1;
+/** The Shopkeeper buys anything, at a lowball price (persona), finds included. */
 export const SHOPKEEPER_BUY_BACK_RATE = 0.3;
+/**
+ * The Shopkeeper opens with inflated prices (GDD §5.1, npc-runtime.md persona): every item he sells
+ * starts at base × (1 + this %), the top of the haggle range, so haggling can only lower it.
+ */
+export const SHOPKEEPER_OPENING_PCT = PRICE_ADJUSTMENT_MAX_PCT;
 
 // ---------------------------------------------------------------------------------------------
 // Proposal schema (lenient: unknown types and malformed actions are dropped, not fatal)
@@ -110,22 +120,34 @@ export const NpcActionListSchema = z
 
 const roundCoins = (n: number) => Math.max(1, Math.round(n));
 
-/** What the NPC charges for one item with a price adjustment (percent). */
+/** What the NPC charges for one item with a price adjustment (percent of the base price). */
 export function adjustedUnitPrice(itemId: ItemId, pct = 0): number {
   const base = getItem(itemId)?.basePrice ?? 0;
   return roundCoins(base * (1 + pct / 100));
 }
 
+/** The price adjustment an NPC starts every conversation with: the Shopkeeper's inflated opening, else 0. */
+export function openingAdjustment(npcId: NpcId): number {
+  return npcId === "shopkeeper" ? SHOPKEEPER_OPENING_PCT : 0;
+}
+
+/** The fraction of the base price an NPC pays for an item it buys (see the rates above). */
+export function npcBuyBackRate(npcId: NpcId, itemId: ItemId): number {
+  if (npcId === "shopkeeper") return SHOPKEEPER_BUY_BACK_RATE;
+  const category = getItem(itemId)?.category;
+  return category === "fish" || category === "forage" ? FIND_BUY_BACK_RATE : NPC_BUY_BACK_RATE;
+}
+
 /** What an NPC pays the player for one item. */
 export function npcBuyUnitPrice(npcId: NpcId, itemId: ItemId): number {
   const base = getItem(itemId)?.basePrice ?? 0;
-  const rate = npcId === "shopkeeper" ? SHOPKEEPER_BUY_BACK_RATE : NPC_BUY_BACK_RATE;
-  return Math.max(1, Math.floor(base * rate));
+  return Math.max(1, Math.floor(base * npcBuyBackRate(npcId, itemId)));
 }
 
 /**
- * The model's haggle, made safe: rounded, clamped to −30..+10 %, and discounts scaled by
- * friendship (half the discount at 0 hearts, all of it at 10).
+ * The model's haggle, made safe (GDD §5.1, architecture §6.1): rounded, clamped to −30..+10 %, and
+ * discounts scaled by friendship (half the discount at 0 hearts, all of it at 10). The result is a
+ * percentage of the base price, so it replaces the Shopkeeper's +10 % opening rather than adding to it.
  */
 export function clampPriceAdjustment(pct: number, hearts: number): number {
   const clamped = Math.min(PRICE_ADJUSTMENT_MAX_PCT, Math.max(PRICE_ADJUSTMENT_MIN_PCT, Math.round(Number.isFinite(pct) ? pct : 0)));
@@ -135,9 +157,9 @@ export function clampPriceAdjustment(pct: number, hearts: number): number {
   return scaled === 0 ? 0 : scaled;
 }
 
-/** The NPC's gift table (see GIFT_MAX_BASE_PRICE). */
+/** What the NPC may hand the player as a gift (`give`; data/items.ts `NPC_GIFTS`). */
 export function npcGiftTable(npcId: NpcId): ItemId[] {
-  return (SHOPS[npcId]?.sells ?? []).filter((i) => (getItem(i)?.basePrice ?? Infinity) <= GIFT_MAX_BASE_PRICE);
+  return [...NPC_GIFTS[npcId]];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -261,9 +283,17 @@ const ORDER: Record<NpcActionType, number> = {
   endConversation: 4,
 };
 
-/** The adjustment in effect for an item in this conversation (item-specific, else shop-wide). */
-export function adjustmentFor(ledger: ConversationLedger, itemId: string): number {
-  return ledger.adjustments[itemId] ?? ledger.adjustments["*"] ?? 0;
+/**
+ * The adjustment in effect for an item in this conversation: item-specific, else shop-wide, else
+ * the NPC's opening (the Shopkeeper's inflated +10 %).
+ */
+export function adjustmentFor(ledger: ConversationLedger, itemId: string, npcId: NpcId): number {
+  return ledger.adjustments[itemId] ?? ledger.adjustments["*"] ?? openingAdjustment(npcId);
+}
+
+/** What an NPC charges for one item it sells in this conversation (the server's price; the model's is ignored). */
+export function npcSellUnitPrice(npcId: NpcId, itemId: ItemId, ledger: ConversationLedger = emptyConversationLedger()): number {
+  return adjustedUnitPrice(itemId, adjustmentFor(ledger, itemId, npcId));
 }
 
 /** Validates and clamps one turn's proposed actions (architecture §6.1). Pure. */
@@ -325,8 +355,7 @@ export function validateNpcActions(actions: readonly NpcAction[], ctx: ActionCon
           }
         }
         // The proposed price is ignored: the server's own price, with this conversation's haggle.
-        const unitPrice =
-          action.type === "offer" ? adjustedUnitPrice(action.itemId, adjustmentFor(conversation, action.itemId)) : npcBuyUnitPrice(ctx.npcId, action.itemId);
+        const unitPrice = action.type === "offer" ? npcSellUnitPrice(ctx.npcId, action.itemId, conversation) : npcBuyUnitPrice(ctx.npcId, action.itemId);
         const trade: TradeProposal = { kind: action.type, itemId: action.itemId, qty: action.qty, unitPrice, price: unitPrice * action.qty };
         trades.push(trade);
         const { kind, ...terms } = trade;

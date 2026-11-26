@@ -26,6 +26,7 @@ import { FadeOverlay } from "../ui/FadeOverlay";
 import { MirrorLayer } from "../ui/mirror/MirrorLayer";
 import type { SaveAppearance } from "../ui/mirror/MirrorPanel";
 import { ConversationLayer } from "../ui/conversation/ConversationLayer";
+import { InventoryLayer } from "../ui/inventory/InventoryLayer";
 import { PerfHud } from "../ui/PerfHud";
 
 const panel: CSSProperties = {
@@ -105,6 +106,7 @@ const fakeSave: SaveAppearance = async (request) => {
  * no server); in town, F at the intercom beside the apartment block door opens the (empty) panel.
  * M23: every interior has its villager; F or a click next to one opens the conversation panel,
  * which says it is offline here (no TownRoom; the component tests drive it with a mocked room).
+ * M26: the hotbar and the bag (Tab) show, empty and offline (no TownRoom to send `inventory:state`).
  */
 export function PlayView() {
   const space = useWorld((st) => st.space);
@@ -115,6 +117,7 @@ export function PlayView() {
       <MirrorLayer save={fakeSave} />
       <ApartmentHud />
       <ConversationLayer />
+      <InventoryLayer />
       <PerfHud />
       <div style={panel}>
         <strong>Play (M13, M15, M17)</strong>

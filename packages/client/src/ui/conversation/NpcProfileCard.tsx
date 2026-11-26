@@ -3,19 +3,11 @@ import { friendshipBand, isGiftable, type ItemId, MAX_HEARTS, type NpcContextMes
 import { useI18n } from "../../i18n/I18nProvider";
 import type { MessageKey } from "../../i18n/messages.en";
 import type { ConversationController } from "./controller";
-import type { LabelMap } from "../../labels/labelSource";
 import { useLabelMap } from "../../labels/labelStore";
+import { itemName } from "../items/items";
 
-/**
- * An item's name: its world label in the target language when loaded (build plan M25, GDD §6.5:
- * names are practice too), else the id as readable English.
- */
-export function itemName(id: string, labels?: LabelMap | null): string {
-  const label = labels?.[`item.${id}`]?.word;
-  if (label) return label;
-  const words = id.replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
+/** Item names live with the inventory UI (build plan M26); re-exported for the conversation panel. */
+export { itemName };
 
 /** Hearts as a short number in the UI language (2.25 → "2.25", 3 → "3"). */
 export function formatHearts(hearts: number, locale: string): string {

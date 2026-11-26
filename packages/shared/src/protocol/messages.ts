@@ -7,6 +7,7 @@ import type { Level } from "../data/difficulty";
 import type { PlaceId, TimeOfDay, Weather } from "../data/world";
 import type { ActionRejectReason, ApprovedAction, NpcActionInput, NpcActionType, TradeFailure, TradeProposal } from "../npc/actions";
 import type { GiftReaction, GiftRefusal } from "../npc/friendship";
+import type { MoveSlotRefusal, SlotEntry } from "../npc/inventory";
 import type { ConversationTelemetryInput } from "../npc/memory";
 import type { Motion, SpaceId } from "../world/player";
 
@@ -65,6 +66,8 @@ export const ClientMessage = {
   NpcMemory: "npc:memory",
   /** During a conversation: give the NPC one item from the inventory (build plan M24). */
   NpcGift: "npc:gift",
+  /** Drag a stack from one inventory slot to another (bag or hotbar, build plan M26). The server answers with `inventory:state`. */
+  InventoryMove: "inventory:move",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -108,6 +111,11 @@ export const ServerMessage = {
   NpcRemembered: "npc:remembered",
   /** Answer to `npc:gift`: how the NPC took it, or why not. */
   NpcGifted: "npc:gifted",
+  /**
+   * The player's coins and inventory slots, from the server's records (build plan M26): after the
+   * join, after every trade, gift or move, and as the answer to `inventory:move`.
+   */
+  InventoryState: "inventory:state",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -562,6 +570,33 @@ export interface NpcRefusedMessage {
   npcId?: NpcId;
   conversationId?: string;
   turnId?: string;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Inventory (build plan M26, GDD §5.6)
+
+/** Payload of `ClientMessage.InventoryMove`: slot indexes 0–29 (24 bag slots, then the 6 hotbar slots). */
+export interface InventoryMoveMessage {
+  from: number;
+  to: number;
+  /** Client counter echoed in the answer. */
+  moveId: number;
+}
+
+/** Why a move was refused: `bad_slot` / `empty_slot` (npc/inventory.ts `moveSlot`), `rate`, `unavailable` (the store failed). */
+export type InventoryMoveRefusal = MoveSlotRefusal | "rate" | "unavailable";
+
+/** Payload of `ServerMessage.InventoryState`. */
+export interface InventoryStateMessage {
+  /** The target language whose coins these are (coins live in `users/{uid}/langs/{lang}`). */
+  lang: string;
+  coins: number;
+  /** The filled slots, by slot index. */
+  slots: SlotEntry[];
+  /** With an answer to `inventory:move`: its `moveId`. */
+  moveId?: number;
+  /** With `moveId`: why the move did not happen (the slots are then unchanged). */
+  refused?: InventoryMoveRefusal;
 }
 
 export const CLIENT_MESSAGE_TYPES: readonly ClientMessage[] = Object.values(ClientMessage);

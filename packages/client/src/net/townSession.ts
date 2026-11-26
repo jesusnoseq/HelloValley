@@ -20,6 +20,7 @@ import {
 } from "@hellovalley/shared";
 import { RemoteTrack, type RemoteSample } from "./interpolation";
 import { chat } from "./chatSession";
+import { attachInventory } from "./inventorySession";
 import { attachVisitMessages } from "./visitSession";
 
 /**
@@ -104,7 +105,7 @@ function sampleOf(p: TownPlayerView): RemoteSample {
 /**
  * Mirrors `room` into the stores until the returned function is called (or the room is left):
  * other players' info and interpolation tracks, the welcome, corrections, emotes and the clock
- * sync, plus the chat (net/chatSession.ts). `onWelcome` gets the welcome message (uid and shard
+ * sync, plus the chat (net/chatSession.ts) and the inventory (net/inventorySession.ts). `onWelcome` gets the welcome message (uid and shard
  * for the HUD).
  */
 export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage) => void): () => void {
@@ -115,7 +116,7 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
   townLive.welcomed = false;
   townSession.setState({ room, shard: null, remotes: {} });
 
-  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room)];
+  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room)];
   offs.push(
     room.onMessage(ServerMessage.Welcome, (welcome: WelcomeMessage) => {
       townLive.spawn = welcome.spawn;

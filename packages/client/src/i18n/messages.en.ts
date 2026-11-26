@@ -385,6 +385,23 @@ export const en = {
   "notebook.review.rate": "How well did you remember it?",
   "notebook.review.show": "Show meaning",
   "mirror.labels": "In {language}:",
+  "inventory.button": "Bag",
+  "inventory.title": "Bag",
+  "inventory.close": "Close the bag",
+  "inventory.coins": "{coins} coins",
+  "inventory.hotbar": "Hotbar",
+  "inventory.bag": "Bag slots",
+  "inventory.offline": "Your bag is not loaded yet.",
+  "inventory.empty": "Empty slot",
+  "inventory.slot": "{item} ×{qty}",
+  "inventory.slot.english": "{item} ({english}) ×{qty}",
+  "inventory.help": "Click a stack, then click where it goes (or drag it). Arrow keys move, Enter picks up and puts down. Esc closes.",
+  "inventory.holding": "Moving {item}: choose a slot.",
+  "inventory.selected": "In hand: {item}",
+  "inventory.refused.empty_slot": "That slot is empty.",
+  "inventory.refused.bad_slot": "That is not a slot.",
+  "inventory.refused.rate": "Slow down a little.",
+  "inventory.refused.unavailable": "Your bag could not be saved. Try again.",
 } as const satisfies Record<string, string>;
 
 export type MessageKey = keyof typeof en;

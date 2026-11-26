@@ -12,8 +12,9 @@ import { INTERIOR_FURNITURE, type FurnitureModuleId } from "../world/interiors";
  *   `FURNITURE_ITEM_LOOKS`). The studio starts with some of them already placed.
  *
  * Layout documents store these ids in the `itemId` field (GDD §9.4).
- * TODO(M26): furniture bought in shops arrives in the apartment's storage; stored shop furniture
- * may then be sold or gifted through the inventory.
+ * Build plan M26: furniture bought from the Shopkeeper lands in the inventory like any item (it can
+ * be sold back or gifted from there). TODO(no milestone yet): moving a piece between the inventory
+ * and the apartment's storage (both server-written; the live ApartmentRoom owns the layout).
  */
 
 export interface FurnitureDef {

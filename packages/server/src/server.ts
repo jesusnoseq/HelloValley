@@ -8,6 +8,7 @@ import { readFirebaseConfig } from "./config";
 import { adminApp } from "./firebase/admin";
 import { type HttpDeps, registerHttpRoutes } from "./http";
 import type { ChatModerator } from "./moderation/chat";
+import { InventoryService } from "./economy/inventory";
 import { NpcDialogueService } from "./npc/dialogue";
 import { createMemoryNpcStore, firestoreNpcStoreFor, type NpcStore } from "./npc/npcStore";
 import { createMemoryStreakStore, firestoreStreakStoreFor, type StreakStore } from "./notebook/streakStore";
@@ -42,7 +43,7 @@ export interface GameServerOptions {
   /** The mandatory server chat check (tests inject one; default `moderateChat`, a stub until M36). */
   moderateChat?: ChatModerator;
   /**
-   * What NPC conversations read and write (build plan M21); defaults to Firestore through
+   * What NPC conversations and the inventory (build plans M21, M26) read and write; defaults to Firestore through
    * firebase-admin (in memory when both the verifier and the profile store are injected).
    */
   npcStore?: NpcStore;
@@ -66,7 +67,10 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   // With an injected verifier and profile store (tests) there is no Firebase app to fall back on.
   const layouts = options.layouts ?? (firebase ? firestoreLayoutStoreFor(adminApp(firebase)) : createMemoryLayoutStore());
   const safety = options.safety ?? (firebase ? firestoreSafetyStoreFor(adminApp(firebase)) : createMemorySafetyStore());
-  const npc = new NpcDialogueService(options.npcStore ?? (firebase ? firestoreNpcStoreFor(adminApp(firebase)) : createMemoryNpcStore()));
+  // Build plan M26: the inventory service reads and moves through the same store as NPC trades.
+  const npcStore = options.npcStore ?? (firebase ? firestoreNpcStoreFor(adminApp(firebase)) : createMemoryNpcStore());
+  const npc = new NpcDialogueService(npcStore);
+  const inventory = new InventoryService(npcStore);
   const streaks = options.streaks ?? (firebase ? firestoreStreakStoreFor(adminApp(firebase)) : createMemoryStreakStore());
   const towns = new TownRegistry();
   const apartments = new ApartmentRegistry();
@@ -80,7 +84,7 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   // A full shard is locked by Colyseus, so joinOrCreate creates the next one. Joining a friend's
   // shard goes through GET /api/shards?friend=<uid> and joinById.
   server
-    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc }, options.town))
+    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory }, options.town))
     .sortBy({ "metadata.shard": 1 });
   // Build plan M17: one private ApartmentRoom per owner. Visitors get in with a pass the owner
   // granted at the lobby intercom (TownRoom).

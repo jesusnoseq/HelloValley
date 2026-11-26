@@ -10,6 +10,7 @@ import { NpcIdSchema } from "../data/npcs";
 import { ClothingColorSchema } from "../data/palette";
 import { StyleIdSchema } from "../data/styles";
 import { SCRIPT_MODES } from "../language/scriptMode";
+import { MAX_STACK } from "../npc/inventory";
 import { CHAT_REPORT_REASONS } from "../protocol/messages";
 import { FsrsCardSchema } from "../srs/fsrs";
 
@@ -194,10 +195,14 @@ export const NpcMemorySchema = z.strictObject({
 });
 export type NpcMemory = z.infer<typeof NpcMemorySchema>;
 
-/** `users/{uid}/inventory/{slot}`: server-written. TODO(M26): slot count and stack limits. */
+/**
+ * `users/{uid}/inventory/{slot}`: server-written (Admin SDK only; the rules deny client writes).
+ * The document id is the slot, "0"–"29" (npc/inventory.ts: 24 bag slots, then 6 hotbar slots),
+ * and a stack holds at most MAX_STACK.
+ */
 export const InventorySlotSchema = z.strictObject({
   itemId: ItemIdSchema,
-  qty: z.number().int().min(1),
+  qty: z.number().int().min(1).max(MAX_STACK),
 });
 export type InventorySlot = z.infer<typeof InventorySlotSchema>;
 

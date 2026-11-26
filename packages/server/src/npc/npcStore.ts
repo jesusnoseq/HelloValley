@@ -15,6 +15,8 @@ import {
   LangProgressSchema,
   LEARNING_WORDS_MAX,
   LEARNING_WORDS_SCAN,
+  type MoveSlotRefusal,
+  moveSlot,
   type Level,
   levelToStep,
   MAX_HEARTS,
@@ -111,7 +113,19 @@ export interface NpcStore {
   gift(uid: string, lang: string, npcId: NpcId, itemId: ItemId, today: number): Promise<GiftResult>;
   /** A conversation was compacted: the merged memory, lastSeen and the level update. Null: no `langs/{lang}`. */
   remember(uid: string, lang: string, npcId: NpcId, update: MemoryUpdate): Promise<RememberOutcome | null>;
+  /** The player's coins (in `langs/{lang}`) and inventory slots (build plan M26). Null: no `langs/{lang}`. */
+  wallet(uid: string, lang: string): Promise<PlayerWallet | null>;
+  /** Moves a stack between two slots (shared `moveSlot`) in one transaction. Null: no `langs/{lang}`. */
+  moveSlot(uid: string, lang: string, from: number, to: number): Promise<MoveOutcome | null>;
 }
+
+/** Coins and slots, as the inventory UI shows them. */
+export interface PlayerWallet {
+  coins: number;
+  slots: SlotEntry[];
+}
+
+export type MoveOutcome = ({ ok: true } & PlayerWallet) | ({ ok: false; reason: MoveSlotRefusal } & PlayerWallet);
 
 /**
  * Notebook words passed to NPCs (build plan M25: up to 5): `pickLearningWords` over the newest
@@ -284,6 +298,24 @@ export function createFirestoreNpcStore(db: Firestore): NpcStore {
         return { memory: text, level: level.state.level, levelEstimate: level.state.levelEstimate, change: level.change };
       });
     },
+    async wallet(uid, lang) {
+      const [langSnap, invSnap] = await Promise.all([db.doc(FirestorePaths.lang(uid, lang)).get(), inventory(uid).get()]);
+      if (!langSnap.exists) return null;
+      return { coins: LangProgressSchema.parse(langSnap.data()).coins, slots: readSlots(invSnap.docs) };
+    },
+    async moveSlot(uid, lang, from, to) {
+      const langRef = db.doc(FirestorePaths.lang(uid, lang));
+      return db.runTransaction(async (tx): Promise<MoveOutcome | null> => {
+        const [langSnap, invSnap] = await Promise.all([tx.get(langRef), tx.get(inventory(uid))]);
+        if (!langSnap.exists) return null;
+        const coins = LangProgressSchema.parse(langSnap.data()).coins;
+        const slots = readSlots(invSnap.docs);
+        const result = moveSlot(slots, from, to, TOTAL_SLOTS);
+        if (!result.ok) return { ok: false, reason: result.reason, coins, slots };
+        writeSlots(tx, uid, result.slots, result.changed);
+        return { ok: true, coins, slots: result.slots };
+      });
+    },
   };
 }
 
@@ -383,6 +415,18 @@ export function createMemoryNpcStore(initial: Record<string, MemoryPlayer> = {})
       p.levelEstimate = level.state.levelEstimate;
       if (level.state.levelChangedDay !== null) p.levelChangedDay = level.state.levelChangedDay;
       return { memory: text, level: level.state.level, levelEstimate: level.state.levelEstimate, change: level.change };
+    },
+    async wallet(uid, lang) {
+      const p = players.get(`${uid}/${lang}`);
+      return p ? { coins: p.coins, slots: p.slots.map((s) => ({ ...s })) } : null;
+    },
+    async moveSlot(uid, lang, from, to) {
+      const p = players.get(`${uid}/${lang}`);
+      if (!p) return null;
+      const result = moveSlot(p.slots, from, to, TOTAL_SLOTS);
+      if (!result.ok) return { ok: false, reason: result.reason, coins: p.coins, slots: p.slots.map((s) => ({ ...s })) };
+      p.slots = result.slots;
+      return { ok: true, coins: p.coins, slots: p.slots.map((s) => ({ ...s })) };
     },
   };
 }

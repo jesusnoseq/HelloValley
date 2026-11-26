@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-  adjustedUnitPrice,
-  adjustmentFor,
   type ApprovedAction,
   conversationPerformance,
   type ConversationLedger,
@@ -19,6 +17,7 @@ import {
   type NpcAppliedMessage,
   npcBuys,
   npcBuyUnitPrice,
+  npcSellUnitPrice,
   type NpcContextMessage,
   type NpcGiftedMessage,
   type NpcGiftMessage,
@@ -164,7 +163,7 @@ export class NpcDialogueService {
   }
 
   private stockFor(npcId: NpcId, ledger: ConversationLedger): NpcPriceEntry[] {
-    return (SHOPS[npcId]?.sells ?? []).map((itemId) => ({ itemId, price: adjustedUnitPrice(itemId, adjustmentFor(ledger, itemId)) }));
+    return (SHOPS[npcId]?.sells ?? []).map((itemId) => ({ itemId, price: npcSellUnitPrice(npcId, itemId, ledger) }));
   }
 
   private buysFor(npcId: NpcId, slots: readonly SlotEntry[]): NpcPriceEntry[] {

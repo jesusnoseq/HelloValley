@@ -32,6 +32,9 @@ const NotebookLayer = lazy(() =>
   })),
 );
 
+// Build plan M26: the hotbar and the bag (Tab), with item data and world labels (its own lazy chunk).
+const InventoryLayer = lazy(() => import("./ui/inventory/InventoryLayer").then((m) => ({ default: m.InventoryLayer })));
+
 const card: CSSProperties = {
   position: "fixed",
   top: 8,
@@ -142,6 +145,9 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
       </Suspense>
       <Suspense fallback={null}>
         <NotebookLayer />
+      </Suspense>
+      <Suspense fallback={null}>
+        <InventoryLayer />
       </Suspense>
       <div style={card}>
         <h1 style={{ margin: 0, fontSize: 18 }}>{t("app.name")}</h1>
