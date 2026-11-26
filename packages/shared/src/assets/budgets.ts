@@ -1,3 +1,4 @@
+import type { StyleId } from "../data/styles";
 import type { KitManifest, KitModule } from "./kit";
 
 /**
@@ -5,7 +6,7 @@ import type { KitManifest, KitModule } from "./kit";
  * count as walls, and so do interior wall panels, `iwall.*`), hero props and furniture stay at or
  * under 2k, and ground and floor tiles (`tile.*`, `terrain.*`, `floor.*`),
  * which repeat hundreds of times, get a tighter cap, as do instanced plants (trees, bushes,
- * flowers). Mirrored by tools/blender/hvkit/budgets.py.
+ * flowers, climbers). Mirrored by tools/blender/hvkit/budgets.py.
  */
 export const KIT_TRI_BUDGETS = {
   wall: { min: 150, max: 600 },
@@ -44,6 +45,25 @@ export const KIT_BUILDING_MODULE_IDS = [
   "bench",
   "tile.cobble",
 ] as const;
+
+/**
+ * Style-only modules a style kit adds next to the building modules (props and plants with no
+ * counterpart in the other styles, so building recipes never use them). Mediterranean (M32):
+ * a pergola, a bougainvillea climber, terracotta pots and the lemon tree; olive and cypress
+ * trees are in the common kit. Mirrored by `MED_EXTRA_IDS` in
+ * tools/blender/hvmodules/mediterranean/plants.py.
+ */
+export const KIT_STYLE_EXTRA_MODULE_IDS = {
+  european: [],
+  mediterranean: ["pergola", "bougainvillea", "pot.terracotta", "tree.lemon"],
+  arabic: [],
+  japanese: [],
+} as const satisfies Record<StyleId, readonly string[]>;
+
+/** Every module a complete style kit ships: the building modules plus its style-only extras. */
+export function styleKitModuleIds(style: StyleId): readonly string[] {
+  return [...KIT_BUILDING_MODULE_IDS, ...KIT_STYLE_EXTRA_MODULE_IDS[style]];
+}
 
 /**
  * Style-neutral modules of the common kit (build plan M06). Terrain edges and river banks
@@ -145,6 +165,7 @@ const FAMILY_CLASS: Record<string, KitBudgetClass> = {
   tree: "plant",
   bush: "plant",
   flowers: "plant",
+  bougainvillea: "plant",
 };
 
 export function kitBudgetClass(moduleId: string): KitBudgetClass {

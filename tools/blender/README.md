@@ -49,7 +49,7 @@ npm run assets:contact-sheet -- --style interior   # docs/art/interior-kit-conta
 python tools/blender/build.py -- --style europe --include-tests --dry-run
 ```
 
-`build.py` options: `--style` (`european`, or the alias `europe`; `common` for the
+`build.py` options: `--style` (`european`, or the alias `europe`; `mediterranean` (`med`); `common` for the
 style-neutral kit; `interior` for the interior and furniture kit), `--out` (kits root; the kit goes to `<out>/<style>/`), `--modules`, `--include-tests`, `--seed`, `--strict` (fail on
 budget or bounds problems), `--no-atlas`, `--dry-run`, `--contact-sheet PNG` (render the
 selected modules to a PNG with EEVEE instead of exporting; `hvkit/blender/contact.py`). The npm wrapper adds `--no-optimize`.
@@ -128,6 +128,49 @@ Budgets live in `packages/shared/src/assets/budgets.ts` (`kitTriBudget`,
 and every GLB; `tools/blender/tests/test_europe.py` checks the module definitions and that
 the committed manifest is up to date. The contact sheet is
 `docs/art/european-kit-contact-sheet.png`.
+
+## Mediterranean kit (M32)
+
+`hvmodules/mediterranean/` generates the Mediterranean kit into
+`packages/client/public/assets/kits/mediterranean/` (committed, about 1.2 MB optimized; contact
+sheet `docs/art/mediterranean-kit-contact-sheet.png`):
+
+```bash
+npm run assets:build -- --style mediterranean --strict
+npm run assets:contact-sheet -- --style mediterranean
+```
+
+- **Same modules as the European kit**: all 22 building module ids. The `mirror` decorator
+  (`hvmodules/mediterranean/common.py`) copies each European module's footprint, sockets,
+  variant count, budget, overhang and `fits:` tags, so every building recipe assembles with
+  identical placements and doors (`packages/shared/src/buildings/buildings.test.ts`). The module
+  registry keys modules by id *and* kit: `get_module(id, style)`; without a style it returns the
+  first one registered (European). `hvmodules` imports `mediterranean` after `europe`.
+- **Look** (GDD §7.3, art.md §2.2): whitewash, ochre and apricot stucco (one swatch per variant,
+  `WALL_SWATCH_BY_VARIANT`), a painted zocalo (blue, stone or terracotta), white band, tile
+  (tejaroz) or sandstone cornices; arched doors, arched or barred (reja) windows and arched
+  shopfronts inside the European openings (`solids.arc_points`, `arched_profile`,
+  `arch_spandrels`, `arch_ring`); blue, sage and teal shutters; terracotta pots instead of window
+  boxes; wrought-iron balconies (one with bougainvillea); striped or cane awnings; painted-tile
+  signs and benches. `wall.timber` is the kit's rustic wall: worn stucco over rubble, beam ends
+  (vigas) or ashlar. `roof.stepped_gable` holds the curved Baroque gable, the bell gable
+  (espadana) and a low stepped parapet.
+- **Low roofs** (25 degrees) with canal tiles: half-buried tubes from eave to ridge, barrel ridge
+  and hip tiles. They keep the European `chimney`/`dormer` sockets, which sit higher than this
+  roof, so `chimney` and `dormer` reach below their pivots (`sink_m` 1.3 m and 0.4 m) into the
+  attic; a test checks that covers the largest roof scale of any recipe with a chimney or dormer.
+- **Style-only extras** (`MED_EXTRA_IDS`, `KIT_STYLE_EXTRA_MODULE_IDS` in shared): `pergola`
+  (2 x 2, vine/bougainvillea/jasmine), `bougainvillea` (climber, budget class `plant`),
+  `pot.terracotta`, `tree.lemon`. Pergola, bougainvillea and lemon tree have a `trunk` mesh and a
+  swaying `canopy` (M06 conventions). Olive and cypress trees stay in the common kit. Recipes and
+  the town layout do not place the extras (they only use modules every style kit has).
+
+Checks: `tools/blender/tests/test_mediterranean.py` (twins, extras, budgets, swatches, gable
+clearance, chimney/dormer reach, arch solids, the committed manifest),
+`packages/client/src/assets/mediterraneanKit.test.ts` (manifest, budgets, GLBs, canopies, mirror of
+the European footprints and sockets), `packages/client/src/scene/buildingMeshes.test.ts` (every
+recipe built from the Mediterranean GLBs) and `packages/shared/src/world/town.test.ts` (street
+furniture inside the shared blockers).
 
 ## Common kit (M06)
 
@@ -276,6 +319,7 @@ hvchars/              M07 characters: body.py, animals.py, outfits.py, animation
   europe/             M05 kit: common.py, walls.py, roofs.py, attachments.py, props.py
   common/             M06 style-neutral kit: base.py, ground.py, water.py, vegetation.py, props.py
   interior/           M08 interior kit: base.py, parts.py, room.py, furniture.py, shops.py
+  mediterranean/      M32 kit: common.py, walls.py, roofs.py, attachments.py, props.py, plants.py
 tests/                unittest suite for the pure-Python parts
 ```
 

@@ -185,30 +185,53 @@ class Module:
 
 # --- registry ------------------------------------------------------------------------------
 
-_REGISTRY: Dict[str, Module] = {}
+_REGISTRY: Dict[str, List[Module]] = {}
+"""Module id -> one implementation per kit. Style kits share ids (M32-M34 reuse the M05 ids with
+the same footprints and sockets), so an id may have several modules with disjoint ``styles``."""
+
+
+def _overlaps(a: Module, b: Module) -> bool:
+    if a.styles is None or b.styles is None:
+        return True
+    return bool(set(a.styles) & set(b.styles))
 
 
 def register(cls: Type[Module]) -> Type[Module]:
-    """Class decorator: instantiate and register a module. Ids must be unique."""
+    """Class decorator: instantiate and register a module. An id may be registered once per
+    kit: two modules with the same id must declare disjoint ``styles``."""
     instance = cls()
     errors = instance.definition_errors()
     if errors:
         raise ValueError("; ".join(errors))
-    if instance.id in _REGISTRY and type(_REGISTRY[instance.id]) is not cls:
-        raise ValueError(f"duplicate module id {instance.id!r}")
-    _REGISTRY[instance.id] = instance
+    same = _REGISTRY.setdefault(instance.id, [])
+    for i, other in enumerate(same):
+        if type(other) is cls:
+            same[i] = instance
+            return cls
+        if _overlaps(other, instance):
+            raise ValueError(f"duplicate module id {instance.id!r}")
+    same.append(instance)
     return cls
 
 
 def all_modules() -> List[Module]:
-    return [_REGISTRY[k] for k in sorted(_REGISTRY)]
+    """Every registered module (an id shared by several style kits appears once per kit)."""
+    return [m for k in sorted(_REGISTRY) for m in _REGISTRY[k]]
 
 
-def get_module(module_id: str) -> Module:
+def get_module(module_id: str, style_id: Optional[str] = None) -> Module:
+    """The module with this id for ``style_id``; without a style, the first one registered
+    (the European kit for the building ids, M05)."""
     try:
-        return _REGISTRY[module_id]
+        candidates = _REGISTRY[module_id]
     except KeyError:
         raise KeyError(f"unknown module {module_id!r}") from None
+    if style_id is None:
+        return candidates[0]
+    for m in candidates:
+        if m.applies_to(style_id):
+            return m
+    raise KeyError(f"module {module_id!r} has no {style_id} implementation")
 
 
 def select_modules(
@@ -219,9 +242,7 @@ def select_modules(
     candidates = [m for m in all_modules() if m.applies_to(style_id)]
     if only:
         patterns = list(only)
-        unknown = [
-            p for p in patterns if not p.endswith(".*") and p not in {m.id for m in all_modules()}
-        ]
+        unknown = [p for p in patterns if not p.endswith(".*") and p not in _REGISTRY]
         if unknown:
             raise KeyError(f"unknown module(s): {', '.join(unknown)}")
 

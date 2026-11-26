@@ -39,7 +39,9 @@ const loader = createKitLoader({
 
 describe("style kits", () => {
   it("fall back to the european kit until the other styles exist", () => {
-    expect(AVAILABLE_STYLE_KITS).toEqual(["european"]);
+    expect(AVAILABLE_STYLE_KITS).toEqual(["european", "mediterranean"]);
+    expect(resolveKitStyle("mediterranean")).toBe("mediterranean");
+    expect(resolveKitStyle("arabic")).toBe("european");
     for (const style of STYLE_IDS) expect(resolveKitStyle(style)).toBe(AVAILABLE_STYLE_KITS.includes(style) ? style : "european");
     expect(kitUrl("european", "/")).toBe("/assets/kits/european/");
     expect(kitUrl("common", "/hv/")).toBe("/hv/assets/kits/common/");
@@ -104,12 +106,26 @@ describe.skipIf(!present)("building meshes (europe kit)", () => {
     for (const p of meshes.parts) p.geometry.dispose();
   });
 
-  it("swaps kits without moving anything", async () => {
-    const recipe = buildingRecipes().town_hall;
+  it.each(BUILDING_RECIPE_IDS.map((id) => [id]))("%s swaps to the mediterranean kit without moving anything", async (id) => {
+    const recipe = buildingRecipes()[id];
     const europe = await buildBuildingMeshes(recipe, await loader.loadStyle("european"));
-    const other = await buildBuildingMeshes(recipe, await loader.loadStyle("mediterranean"));
+    const kit = await loader.loadStyle("mediterranean");
+    expect(kit.id).toBe("mediterranean");
+    const other = await buildBuildingMeshes(recipe, kit);
     expect(other.assembled.placements).toEqual(europe.assembled.placements);
     expect(other.assembled.doors).toEqual(europe.assembled.doors);
+    // It is really the other kit's geometry, every placed variant merged, within the bounds.
+    const expected = other.assembled.placements.reduce((sum, p) => sum + kit.module(p.module).tris[p.variant]!, 0);
+    expect(other.triangles).toBe(expected);
+    expect(other.triangles).not.toBe(europe.triangles);
+    expect(other.parts.map((p) => p.kind)).toContain("atlas");
+    const box = new Box3();
+    for (const p of other.parts) box.union(p.geometry.boundingBox!);
+    const { min, max } = other.assembled.bounds;
+    box.min.toArray().forEach((v, i) => expect(v).toBeGreaterThanOrEqual(min[i]! - 1e-3));
+    box.max.toArray().forEach((v, i) => expect(v).toBeLessThanOrEqual(max[i]! + 1e-3));
+    expect(other.signs.length).toBe(europe.signs.length);
+    for (const p of [...europe.parts, ...other.parts]) p.geometry.dispose();
   });
 
   it("composes placement matrices like the shared transform", () => {

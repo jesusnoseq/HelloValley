@@ -289,6 +289,19 @@ describe("walkability grid", () => {
 });
 
 describe("town props", () => {
+  it("keeps every style kit's street furniture inside the shared blockers", () => {
+    const mediterranean = manifest("mediterranean");
+    for (const [id, def] of Object.entries(TOWN_PROPS) as [TownPropModuleId, (typeof TOWN_PROPS)[TownPropModuleId]][]) {
+      if (def.kit !== "style") continue;
+      const m = moduleOf(mediterranean, id);
+      expect([m.footprint.w, m.footprint.d], id).toEqual([def.w, def.d]);
+      if ((def as { solid?: boolean }).solid) {
+        const blocks = (def as { blocks?: Rect }).blocks!;
+        expect(contains(blocks, [m.bounds.min[0], m.bounds.min[2], m.bounds.max[0], m.bounds.max[2]]), `${id} blocker vs mediterranean bounds`).toBe(true);
+      }
+    }
+  });
+
   it("uses modules that exist in their kits, with blockers covering solid props", () => {
     for (const [id, def] of Object.entries(TOWN_PROPS) as [TownPropModuleId, (typeof TOWN_PROPS)[TownPropModuleId]][]) {
       const m = moduleOf(kitOf(def.kit), id);

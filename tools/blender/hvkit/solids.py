@@ -251,6 +251,56 @@ def gable_profile(x0: float, x1: float, z_eave: float, z_ridge: float) -> List[T
     return [(x0, z_eave), (x1, z_eave), ((x0 + x1) / 2, z_ridge)]
 
 
+Point2 = Tuple[float, float]
+
+
+def arc_points(x0: float, x1: float, z_spring: float, rise: float, segments: int = 8) -> List[Point2]:
+    """An (elliptical) arch over ``x0..x1`` as 2D (x, z) points from the left springing
+    ``(x0, z_spring)`` over the apex ``(mid, z_spring + rise)`` to the right springing. A rise of
+    half the span is a round arch; less is a segmental-looking flattened arch. ``segments`` must
+    be even, so the apex is a point (M32 arched doors and windows)."""
+    if x1 <= x0 or rise <= 0:
+        raise ValueError("an arch needs a positive span and rise")
+    if segments < 2 or segments % 2:
+        raise ValueError("an arch needs an even number of segments")
+    cx, hw = (x0 + x1) / 2, (x1 - x0) / 2
+    pts = []
+    for k in range(segments + 1):
+        t = math.pi * (1.0 - k / segments)
+        x = x0 if k == 0 else x1 if k == segments else cx + hw * math.cos(t)
+        z = z_spring if k in (0, segments) else z_spring + rise * math.sin(t)
+        pts.append((round(x, 6), round(z, 6)))
+    return pts
+
+
+def arched_profile(x0: float, x1: float, z0: float, z_spring: float, rise: float, segments: int = 8) -> List[Point2]:
+    """Convex (x, z) outline of an arch-topped opening: a rectangle from ``z0`` to the springing
+    line with an arch on top (door leaves, arched panes)."""
+    if z_spring <= z0:
+        raise ValueError("the springing line must be above the sill")
+    return [(x0, z0), (x1, z0)] + list(reversed(arc_points(x0, x1, z_spring, rise, segments)))
+
+
+def arch_spandrels(x0: float, x1: float, z_spring: float, rise: float, segments: int = 8) -> List[List[Point2]]:
+    """The two (x, z) corner pieces between a rectangular opening ``x0..x1`` (up to
+    ``z_spring + rise``) and its arch: extruded through the wall, they turn a rectangular hole of
+    :func:`grid_panel` into an arched one."""
+    arc = arc_points(x0, x1, z_spring, rise, segments)
+    mid = segments // 2
+    top = z_spring + rise
+    return [[(x0, top)] + arc[: mid + 1], [(x1, top)] + list(reversed(arc[mid:]))]
+
+
+def arch_ring(x0: float, x1: float, z_spring: float, rise: float, width: float, segments: int = 8) -> List[Point2]:
+    """(x, z) outline of an arch band ``width`` wide around the arch over ``x0..x1`` (a stone or
+    painted surround, voussoirs): the outer arc, then the inner arc back."""
+    if width <= 0:
+        raise ValueError("an arch ring needs a positive width")
+    outer = arc_points(x0 - width, x1 + width, z_spring, rise + width, segments)
+    inner = arc_points(x0, x1, z_spring, rise, segments)
+    return outer + list(reversed(inner))
+
+
 def stepped_gable_steps(
     u0: float, u1: float, z_base: float, z_ridge: float, steps: int
 ) -> List[Tuple[float, float, float, float]]:

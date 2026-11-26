@@ -5,7 +5,7 @@
   (GDD).
 - ``tile``: ground and floor tiles (``tile.*``, ``terrain.*``, ``floor.*``). They repeat hundreds
   of times, so they get a tighter cap than the GDD's hero-prop limit.
-- ``plant``: trees, bushes and flowers. They are instanced many times across the town.
+- ``plant``: trees, bushes, flowers and climbers. They are instanced many times across the town.
 - ``prop``: everything else (roofs, attachments, props, river pieces, furniture), up to 2k (GDD).
 """
 
@@ -35,6 +35,7 @@ _FAMILY_CLASS = {
     "tree": "plant",
     "bush": "plant",
     "flowers": "plant",
+    "bougainvillea": "plant",
 }
 
 

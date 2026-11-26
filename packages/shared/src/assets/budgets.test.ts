@@ -9,6 +9,8 @@ import {
   kitBudgetViolations,
   kitCompletenessProblems,
   kitTriBudget,
+  KIT_STYLE_EXTRA_MODULE_IDS,
+  styleKitModuleIds,
 } from "./budgets";
 import { COMMON_KIT_ID, INTERIOR_KIT_ID, KIT_IDS, KitIdSchema, ModuleIdSchema } from "./kit";
 
@@ -33,6 +35,22 @@ describe("kit triangle budgets", () => {
     expect(kitBudgetClass("bank.curve_outer")).toBe("prop");
     expect(kitBudgetClass("market_stall")).toBe("prop");
     expect(kitTriBudget("tree.deciduous").max).toBe(1000);
+  });
+
+  it("lists style-only extras that collide with no other kit", () => {
+    expect(kitBudgetClass("bougainvillea")).toBe("plant");
+    expect(kitBudgetClass("tree.lemon")).toBe("plant");
+    expect(kitBudgetClass("pot.terracotta")).toBe("prop");
+    expect(KIT_STYLE_EXTRA_MODULE_IDS.european).toEqual([]);
+    const med = styleKitModuleIds("mediterranean");
+    expect(med.slice(0, KIT_BUILDING_MODULE_IDS.length)).toEqual([...KIT_BUILDING_MODULE_IDS]);
+    expect(med).toContain("pergola");
+    for (const id of KIT_STYLE_EXTRA_MODULE_IDS.mediterranean) {
+      expect(ModuleIdSchema.safeParse(id).success).toBe(true);
+      expect(KIT_BUILDING_MODULE_IDS as readonly string[]).not.toContain(id);
+      expect(KIT_COMMON_MODULE_IDS as readonly string[]).not.toContain(id);
+      expect(KIT_INTERIOR_MODULE_IDS as readonly string[]).not.toContain(id);
+    }
   });
 
   it("reports variants outside the budget", () => {

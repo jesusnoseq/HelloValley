@@ -126,6 +126,53 @@ EUROPEAN = StyleParams(
     colour_jitter=0.06,
 )
 
+MEDITERRANEAN = StyleParams(
+    id="mediterranean",
+    english_name="Mediterranean",
+    palette={
+        # Whitewash, ochre, apricot and warm cream stucco (art.md §2.2).
+        "walls": ("#f7f4ec", "#e8c07a", "#efcaa6", "#f3e6cc"),
+        # Terracotta: warm, sunny and faded.
+        "roofs": ("#c96a40", "#da8552", "#b65a3a"),
+        # White trims, weathered wood, sandstone.
+        "trims": ("#faf8f2", "#8a6a4f", "#dac7a3"),
+        "foliage": ("#8fae6b", "#6f9658", "#a9c07f", "#5e8c4c"),
+        # Sun-bleached paving, warm flagstones, sand.
+        "ground": ("#e8dfcc", "#cdbfa5", "#ead8b2"),
+        # Shutter blue, sage, bougainvillea magenta, lemon yellow, tile teal.
+        "accents": ("#4f86b8", "#87a98c", "#d6468e", "#f2d24b", "#5aa3a6"),
+        "glass": ("#86a8bd", "#a2bccb"),
+        "light": ("#ffdf9e",),
+        "iron": ("#3c3f44", "#4f4b46"),
+        # Plants: bougainvillea bracts, citrus, bark, terracotta pots.
+        "blossom": ("#d6468e", "#e86aa8", "#c23b80", "#f2f0ea"),
+        "citrus": ("#f2d24b", "#f5b942"),
+        "bark": ("#7d5d47", "#8f6c52", "#6b503e"),
+        "pot": ("#c7744a", "#d98a5c", "#b9633f"),
+        # Painted ceramic tiles (azulejos): white ground, cobalt and teal.
+        "ceramic": ("#f4f1e8", "#3f6fa8", "#5aa3a6", "#e3b04f"),
+        # Geraniums, pinks, white jasmine, lavender; grapes on the pergola vines.
+        "flowers": ("#e2574c", "#f08aa0", "#f7f3ea", "#b07ad0"),
+        "grapes": ("#6d4a8c", "#7d5a9c"),
+    },
+    tiles=(
+        AtlasTile("stucco", "plaster", 0.12),
+        AtlasTile("timber", "planks", 0.12),
+        AtlasTile("roof_clay", "tiles", 0.12),
+        AtlasTile("terracotta", "tiles", 0.08),
+        AtlasTile("paving", "cobble", 0.10),
+        AtlasTile("leaves", "speckle", 0.16),
+        AtlasTile("bark", "streaks", 0.14),
+    ),
+    wall_thickness_m=0.2,
+    roof_pitch_deg=25.0,  # low terracotta roofs
+    eave_overhang_m=0.2,
+    bevel_width_m=0.035,
+    bevel_segments=2,
+    vertex_noise_m=0.007,
+    colour_jitter=0.05,
+)
+
 COMMON = StyleParams(
     id=COMMON_KIT_ID,
     english_name="Style-neutral modules",
@@ -225,9 +272,14 @@ INTERIOR = StyleParams(
     colour_jitter=0.05,
 )
 
-_STYLES: Dict[str, StyleParams] = {"european": EUROPEAN, COMMON_KIT_ID: COMMON, INTERIOR_KIT_ID: INTERIOR}
+_STYLES: Dict[str, StyleParams] = {
+    "european": EUROPEAN,
+    "mediterranean": MEDITERRANEAN,
+    COMMON_KIT_ID: COMMON,
+    INTERIOR_KIT_ID: INTERIOR,
+}
 
-_PENDING = {"mediterranean": "M32", "arabic": "M33", "japanese": "M34"}
+_PENDING = {"arabic": "M33", "japanese": "M34"}
 
 
 def resolve_style_id(name: str) -> str:
@@ -241,7 +293,7 @@ def resolve_style_id(name: str) -> str:
 def get_style(name: str) -> StyleParams:
     style_id = resolve_style_id(name)
     if style_id in _PENDING:
-        # TODO(M32/M33/M34): add the Mediterranean, Arabic and Japanese parameters.
+        # TODO(M33/M34): add the Arabic and Japanese parameters.
         raise NotImplementedError(f"style {style_id!r} arrives in {_PENDING[style_id]}")
     return _STYLES[style_id]
 
