@@ -1,7 +1,12 @@
 import type { Vec3 } from "../buildings/assemble";
+import type { StyleId } from "../data/styles";
+import { dressTownProp, isDressedProp } from "./dressing";
+import { cellHash } from "./hash";
 import { type PropKit, TOWN_PROPS, type TownPropModuleId } from "./props";
 import { type FeatureGround, type Ground, TERRAIN_TOP, TERRAIN_Y, terrainModuleId, tileTerrain } from "./terrain";
 import { buildingArea, TOWN_BUILDINGS, TOWN_PROPS_LAYOUT, townGround } from "./town";
+
+export { cellHash } from "./hash";
 
 /**
  * What the client draws for the town apart from the buildings: one entry per kit module instance
@@ -16,6 +21,11 @@ export interface TownModulePlacement {
   /** Module pivot in the town frame (y included) and quarter turns about +Y. */
   position: Vec3;
   rot: number;
+  /**
+   * The prop looks different in other styles (dressing.ts): the client draws it with the style
+   * layer, which is rebuilt on a style switch. Undressed modules are the same in every style.
+   */
+  dressed?: boolean;
 }
 
 /** A 1 x 1 m flat tile at height `y` (the top of its ground): x in [x, x + 1], z in [z, z + 1]. */
@@ -44,22 +54,19 @@ export const TERRAIN_DETAIL_SHARE: Readonly<Partial<Record<Ground, number>>> = {
  */
 const DETAIL_VARIANTS = [0, 2] as const;
 
-/** Deterministic hash of a cell to [0, 1). */
-export function cellHash(x: number, z: number, salt = 0): number {
-  let h = (Math.imul(Math.floor(x * 2) + 7919, 73856093) ^ Math.imul(Math.floor(z * 2) + 104729, 19349663) ^ Math.imul(salt + 1, 83492791)) >>> 0;
-  h = Math.imul(h ^ (h >>> 16), 2246822507) >>> 0;
-  h = Math.imul(h ^ (h >>> 13), 3266489909) >>> 0;
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
-
 function propVariant(module: TownPropModuleId, at: readonly number[], wanted: number | undefined): number {
   return wanted ?? Math.floor(cellHash(at[0]!, at[1]!, module.length) * 3);
 }
 
-let plan: TownRenderPlan | undefined;
+const plans = new Map<StyleId, TownRenderPlan>();
 
-export function townRenderPlan(): TownRenderPlan {
-  if (plan) return plan;
+/**
+ * The town as drawn in a style: the ground, the terrain and river pieces, and every layout prop
+ * dressed for the style (dressing.ts). Everything but the dressed props is the same in every style.
+ */
+export function townRenderPlan(style: StyleId = "european"): TownRenderPlan {
+  const cached = plans.get(style);
+  if (cached) return cached;
   const flats: FlatTile[] = [];
   const modules: TownModulePlacement[] = [];
   const { tiles, issues } = tileTerrain(townGround());
@@ -87,11 +94,17 @@ export function townRenderPlan(): TownRenderPlan {
     modules.push({ kit: "common", module: t.module, variant: 0, position: [t.pivot[0], TERRAIN_Y, t.pivot[1]], rot: t.rot });
   }
   for (const p of TOWN_PROPS_LAYOUT) {
-    const def = TOWN_PROPS[p.module];
-    // The bridge and dock share the river-bank heights, so they sink with the terrain.
-    const y = p.module === "bridge.stone" || p.module === "dock.fishing" ? TERRAIN_Y : 0;
-    modules.push({ kit: def.kit, module: p.module, variant: propVariant(p.module, p.at, p.variant), position: [p.at[0], y, p.at[1]], rot: p.rot });
+    const module = dressTownProp(p, style);
+    if (!module) continue;
+    const def = TOWN_PROPS[module];
+    // The bridges and the dock share the river-bank heights, so they sink with the terrain.
+    const y = "walk" in TOWN_PROPS[p.module] ? TERRAIN_Y : 0;
+    const variant = propVariant(module, p.at, module === p.module ? p.variant : undefined);
+    const placement: TownModulePlacement = { kit: def.kit, module, variant, position: [p.at[0], y, p.at[1]], rot: p.rot };
+    if (isDressedProp(p)) placement.dressed = true;
+    modules.push(placement);
   }
-  plan = { flats, modules };
+  const plan = { flats, modules };
+  plans.set(style, plan);
   return plan;
 }

@@ -31,11 +31,9 @@ class StylesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_style_id("martian")
 
-    def test_later_styles_are_marked_pending(self):
-        for style in ("japanese",):
-            with self.assertRaises(NotImplementedError):
-                get_style(style)
-        self.assertEqual(available_styles(), ("arabic", "common", "european", "interior", "mediterranean"))
+    def test_every_style_has_parameters(self):
+        self.assertEqual(available_styles(), ("arabic", "common", "european", "interior", "japanese", "mediterranean"))
+        self.assertEqual(get_style("jp").id, "japanese")
         self.assertEqual(get_style("med").id, "mediterranean")
         self.assertEqual(get_style("arab").id, "arabic")
 
@@ -242,9 +240,10 @@ class CliTest(unittest.TestCase):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             self.assertEqual(build.main(["build.py", "--", "--dry-run", "--modules", "test.cube"]), 0)
-            self.assertEqual(build.main(["build.py", "--", "--style", "japanese", "--dry-run"]), 2)
+            self.assertEqual(build.main(["build.py", "--", "--style", "japanese", "--dry-run"]), 0)
+            self.assertEqual(build.main(["build.py", "--", "--style", "martian", "--dry-run"]), 2)
         self.assertIn("test.cube.glb", out.getvalue())
-        self.assertIn("M34", out.getvalue())
+        self.assertIn("lantern.stone.glb", out.getvalue())
 
 
 class SharedSyncTest(unittest.TestCase):

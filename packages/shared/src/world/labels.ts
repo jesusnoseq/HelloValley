@@ -2,8 +2,10 @@ import type { Vec3 } from "../buildings/assemble";
 import { BUILDING_RECIPE_IDS, type BuildingRecipeId } from "../buildings/schema";
 import { ITEM_IDS, itemLabelKey } from "../data/items";
 import { getNpc, NPC_IDS, type NpcId } from "../data/npcs";
+import type { StyleId } from "../data/styles";
 import { recipeCardLabels } from "../food/recipeCard";
 import { questCardLabels } from "../quests/cardWords";
+import { dressTownProp } from "./dressing";
 import { INTERIOR_FURNITURE, interiorLayout, type FurnitureModuleId, type InteriorPiece, pieceArea } from "./interiors";
 import { NPC_PICK_HALF_M, NPC_PICK_HEIGHT_M, type NpcLocator, npcsInSpace } from "./npcPosts";
 import { rayBox, type SpaceId, spaceDoors } from "./player";
@@ -61,6 +63,21 @@ const PROP_WORDS: Readonly<Record<TownPropModuleId, string>> = {
   "tree.cypress": "cypress",
   "bridge.stone": "bridge",
   "dock.fishing": "dock",
+  "tree.sakura": "cherry tree",
+  "tree.olive": "olive tree",
+  "tree.palm": "palm tree",
+  "tree.lemon": "lemon tree",
+  pergola: "pergola",
+  bougainvillea: "bougainvillea",
+  "pot.terracotta": "flower pot",
+  "tree.date_palm": "date palm",
+  "fountain.courtyard": "fountain",
+  "lantern.brass": "lantern",
+  arcade: "arcade",
+  "lantern.stone": "stone lantern",
+  "tree.pine": "pine tree",
+  "tree.maple": "maple tree",
+  "bridge.wooden": "bridge",
 };
 
 const FURNITURE_WORDS: Readonly<Record<FurnitureModuleId, string>> = {
@@ -167,17 +184,35 @@ const PROP_HEIGHT: Partial<Record<TownPropModuleId, number>> = {
   "bridge.stone": 0.8,
   "dock.fishing": 0.4,
   fence: 1,
+  "tree.sakura": 3.6,
+  "tree.olive": 3,
+  "tree.palm": 4.4,
+  "tree.lemon": 3.2,
+  "tree.date_palm": 4.8,
+  "tree.pine": 4,
+  "tree.maple": 3.6,
+  pergola: 2.8,
+  bougainvillea: 2.5,
+  "pot.terracotta": 1.3,
+  "fountain.courtyard": 1.2,
+  "lantern.brass": 1.3,
+  "lantern.stone": 1.6,
+  arcade: 3,
+  "bridge.wooden": 1,
 };
 
-function townObjects(): LabelledObject[] {
+function townObjects(style: StyleId): LabelledObject[] {
   const out: LabelledObject[] = [];
   TOWN_PROPS_LAYOUT.forEach((p, i) => {
-    const def = TOWN_PROPS[p.module];
+    // The prop as the player sees it: a stone lantern is labelled as one (dressing.ts, M34).
+    const module = dressTownProp(p, style);
+    if (!module) return;
+    const def = TOWN_PROPS[module];
     // Trees: the crown is wider than the trunk blocker, so the whole footprint picks.
     const footprint: Rect = [0, -def.d, def.w, 0];
     const blocks = "blocks" in def ? (def.blocks as Rect) : undefined;
-    const rect: Rect = p.module.startsWith("tree.") || !blocks ? footprint : blocks;
-    out.push(box(`prop:${i}`, propLabelKey(p.module), rectToTown(p, rect), 0, PROP_HEIGHT[p.module] ?? 1));
+    const rect: Rect = module.startsWith("tree.") || !blocks ? footprint : blocks;
+    out.push(box(`prop:${i}`, propLabelKey(module), rectToTown(p, rect), 0, PROP_HEIGHT[module] ?? 1));
   });
   for (const s of difficultySigns()) {
     const h = 0.35;
@@ -204,11 +239,12 @@ function pieceBox(index: number, piece: InteriorPiece): LabelledObject {
  * live ApartmentRoom layout, `apartmentInteriorLayout(...).furniture`); otherwise the
  * interior's default layout is used.
  */
-export function labelledObjects(space: SpaceId, furniture?: readonly InteriorPiece[], locate?: NpcLocator): LabelledObject[] {
+export function labelledObjects(space: SpaceId, furniture?: readonly InteriorPiece[], locate?: NpcLocator, style: StyleId = "european"): LabelledObject[] {
   if (space === "town") {
-    townCache ??= townObjects();
+    let town = townCache.get(style);
+    if (!town) townCache.set(style, (town = townObjects(style)));
     // Build plan M31: villagers walk through town too; their boxes follow them.
-    return locate ? [...townCache, ...npcBoxes(space, locate)] : townCache;
+    return locate ? [...town, ...npcBoxes(space, locate)] : town;
   }
   const pieces = furniture ?? interiorLayout(space).furniture;
   const out = pieces.map((p, i) => pieceBox(i, p));
@@ -226,7 +262,7 @@ export function npcBoxes(space: SpaceId, locate?: NpcLocator): LabelledObject[] 
   const h = NPC_PICK_HALF_M;
   return npcsInSpace(space, locate).map((p) => box(`npc:${p.npcId}`, npcLabelKey(p.npcId), [p.pos[0] - h, p.pos[1] - h, p.pos[0] + h, p.pos[1] + h], 0, NPC_PICK_HEIGHT_M));
 }
-let townCache: LabelledObject[] | undefined;
+const townCache = new Map<StyleId, LabelledObject[]>();
 
 /** The labelled object a ray (origin, direction) hits first, or null. */
 export function pickLabel(objects: readonly LabelledObject[], origin: Vec3, dir: Vec3): LabelledObject | null {

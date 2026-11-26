@@ -224,6 +224,60 @@ ARABIC = StyleParams(
     colour_jitter=0.05,
 )
 
+JAPANESE = StyleParams(
+    id="japanese",
+    english_name="Japanese",
+    palette={
+        # White lime plaster (shikkui), warm earth plaster (tsuchikabe), pale grey-white and ochre
+        # (art.md §2.4).
+        "walls": ("#f4f0e6", "#e2cca5", "#e8e5dc", "#d8b98c"),
+        # Grey kawara tiles: slate grey, dark blue-grey, silver; weathered copper.
+        "roofs": ("#727a83", "#58626d", "#8f9398", "#6f9c8b"),
+        # Dark wood frames, cedar and light hinoki.
+        "trims": ("#4a3529", "#7a5a40", "#c9a77c"),
+        "foliage": ("#7fae6a", "#5f8f55", "#a9c785", "#4c7a4a"),
+        # Raked gravel, stepping stones, moss.
+        "ground": ("#dcd6c8", "#a9a397", "#8fae74"),
+        # Pastel indigo, vermilion, soft indigo, ochre, sakura pink.
+        "accents": ("#3f5a85", "#d0563c", "#7d93b8", "#d6a645", "#efb7c4"),
+        # Shoji paper (glows at night like window glass) and clear panes.
+        "glass": ("#f3ecd9", "#e9e1c9"),
+        "light": ("#ffd18a",),
+        "iron": ("#3b3936", "#55524d"),
+        # Granite lanterns, steps and stepping stones.
+        "stone": ("#b8b3a7", "#a19c90", "#cbc6ba"),
+        # Dried and green bamboo, rope ties.
+        "bamboo": ("#c4b979", "#a9a65a", "#d6c98c", "#7f9a4f"),
+        "rope": ("#3a2f2a", "#8c6b4a"),
+        # Noren curtains, cushions and the red felt of tea benches.
+        "fabric": ("#3f5a85", "#7d93b8", "#f2efe6", "#c45a43", "#b8452f"),
+        # Plants: maple reds, pine needles, bark, morning glories and chrysanthemums.
+        "maple": ("#c8452f", "#e07a3a", "#d9a441", "#b8392e"),
+        "pine": ("#4d7a4f", "#3f6b47", "#5e8c58"),
+        "bark": ("#6d5646", "#5a463a", "#7d6450"),
+        "flowers": ("#7d93d8", "#f2efe6", "#e9b44c", "#d86a8a"),
+        "lacquer": ("#c4452f", "#a8392a"),
+        "water": ("#7cc4cd", "#69b3c0"),
+    },
+    tiles=(
+        AtlasTile("shikkui", "plaster", 0.08),
+        AtlasTile("timber", "planks", 0.12),
+        AtlasTile("kawara", "tiles", 0.10),
+        AtlasTile("paving", "cobble", 0.10),
+        AtlasTile("gravel", "speckle", 0.12),
+        AtlasTile("bamboo", "streaks", 0.10),
+        AtlasTile("leaves", "speckle", 0.16),
+        AtlasTile("bark", "streaks", 0.14),
+    ),
+    wall_thickness_m=0.2,
+    roof_pitch_deg=32.0,  # kawara roofs with gently curved eaves
+    eave_overhang_m=0.4,
+    bevel_width_m=0.025,
+    bevel_segments=2,
+    vertex_noise_m=0.005,
+    colour_jitter=0.05,
+)
+
 COMMON = StyleParams(
     id=COMMON_KIT_ID,
     english_name="Style-neutral modules",
@@ -327,11 +381,10 @@ _STYLES: Dict[str, StyleParams] = {
     "european": EUROPEAN,
     "mediterranean": MEDITERRANEAN,
     "arabic": ARABIC,
+    "japanese": JAPANESE,
     COMMON_KIT_ID: COMMON,
     INTERIOR_KIT_ID: INTERIOR,
 }
-
-_PENDING = {"japanese": "M34"}
 
 
 def resolve_style_id(name: str) -> str:
@@ -344,9 +397,6 @@ def resolve_style_id(name: str) -> str:
 
 def get_style(name: str) -> StyleParams:
     style_id = resolve_style_id(name)
-    if style_id in _PENDING:
-        # TODO(M34): add the Japanese parameters.
-        raise NotImplementedError(f"style {style_id!r} arrives in {_PENDING[style_id]}")
     return _STYLES[style_id]
 
 

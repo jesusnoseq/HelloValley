@@ -37,11 +37,11 @@ const moduleOf = (id: string) => {
 
 const recipes = Object.values(buildingRecipes());
 
-// The Mediterranean (M32) and Arabic (M33) kits reuse every building module id, footprint and
+// The Mediterranean (M32), Arabic (M33) and Japanese (M34) kits reuse every building module id, footprint and
 // socket.
 const styleKit = (style: string): KitManifest =>
   parseKitManifest(JSON.parse(readFileSync(new URL(`../../../client/public/assets/kits/${style}/kit-manifest.json`, import.meta.url), "utf8")));
-const STYLE_KITS = { mediterranean: styleKit("mediterranean"), arabic: styleKit("arabic") };
+const STYLE_KITS = { mediterranean: styleKit("mediterranean"), arabic: styleKit("arabic"), japanese: styleKit("japanese") };
 const styleCases = Object.entries(STYLE_KITS).flatMap(([style, kit]) => recipes.map((r) => [r.id, style, r, kit] as const));
 
 /** Every module id a recipe names, directly or through what the assembler adds. */

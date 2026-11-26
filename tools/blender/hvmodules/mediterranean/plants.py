@@ -1,10 +1,11 @@
 """Mediterranean-only props and plants (art.md §2.2): a wooden pergola with a vine or
 bougainvillea, a bougainvillea climber, big terracotta pots and the lemon tree.
 
-These have no European counterpart, so building recipes never use them; the town places only
-modules every style kit has. TODO(no milestone yet): style-specific dressing of the town would
-need a per-style prop table in ``packages/shared/src/world`` (see pending.md, M32). Olive and cypress trees are already in
-the style-neutral common kit (M06) and are not repeated here.
+These have no European counterpart, so building recipes never use them; the town places them
+through the per-style dressing (M34, ``packages/shared/src/world/dressing.ts``): lemon and olive
+trees where Europe has broadleaf trees, terracotta pots at the lantern spots, a pergola in the
+square and a bougainvillea on the gossip's wall. Olive and cypress trees are already in the
+style-neutral common kit (M06) and are not repeated here.
 
 Canopy conventions follow the common kit (M06): the foliage is a separate ``canopy`` mesh with
 the ``canopy`` material whose origin is the sway pivot.

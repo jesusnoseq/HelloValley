@@ -6,6 +6,7 @@ import { type LabelledObject, labelledObjects, npcBoxes, pickLabel } from "@hell
 import { liveNpcLocator } from "../net/townSession";
 import { requestLabels } from "../labels/labelStore";
 import { useAvatar } from "../state/avatarStore";
+import { useDiorama } from "../state/dioramaStore";
 import { useWorld } from "../state/worldStore";
 import { LabelChip } from "../ui/labels/LabelChip";
 import { useApartmentLayout } from "./apartmentLayout";
@@ -26,7 +27,9 @@ export function WorldLabels() {
   const space = useWorld((s) => s.space);
   const lang = useAvatar((s) => s.profile?.targetLangs[0] ?? null);
   const apartment = useApartmentLayout();
-  const objects = useMemo(() => labelledObjects(space, space === "apartment" ? apartment.interior.furniture : undefined), [space, apartment]);
+  // Town props are named as the player's style dresses them (a stone lantern in Japan, M34).
+  const style = useDiorama((s) => s.style);
+  const objects = useMemo(() => labelledObjects(space, space === "apartment" ? apartment.interior.furniture : undefined, undefined, style), [space, apartment, style]);
   // The hovered object is kept with the objects it was picked from (a new space or layout clears it).
   const [hover, setHover] = useState<{ objects: readonly LabelledObject[]; obj: LabelledObject } | null>(null);
   const hovered = hover && hover.objects === objects ? hover.obj : null;

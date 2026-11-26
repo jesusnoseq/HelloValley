@@ -40,7 +40,7 @@ class CommonModulesTest(unittest.TestCase):
             self.assertEqual(m.definition_errors(), [], m.id)
             self.assertEqual(m.tri_budget, budgets.budget_for(m.id), m.id)
         # The common kit and the style kits do not overlap.
-        for style in ("european", "mediterranean", "arabic"):
+        for style in ("european", "mediterranean", "arabic", "japanese"):
             self.assertFalse({m.id for m in select_modules(style)} & {m.id for m in self.modules}, style)
 
     def test_kit_ids_match_shared(self):

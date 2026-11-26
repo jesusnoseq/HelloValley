@@ -20,8 +20,9 @@ import { worldUniforms } from "./worldFx";
 export const SWAY_FLEX = { tree: 1, bush: 1.6, flowers: 2.6, grass: 4 } as const;
 
 export function swayFlexFor(module: string): number {
-  if (module.startsWith("tree.")) return SWAY_FLEX.tree;
-  if (module === "bush") return SWAY_FLEX.bush;
+  // The pergola's vine sits on rafters: it moves like a crown, not like a flower bed.
+  if (module.startsWith("tree.") || module === "pergola") return SWAY_FLEX.tree;
+  if (module === "bush" || module === "bougainvillea") return SWAY_FLEX.bush;
   return SWAY_FLEX.flowers;
 }
 
@@ -148,12 +149,14 @@ export function tuftMatrix(t: GrassTuft, target = new Matrix4()): Matrix4 {
 
 /**
  * Collect the town's swaying vegetation: the canopies of every plant module of the render plan
- * and the shared grass clusters, one geometry per module variant / tuft look.
+ * and the shared grass clusters, one geometry per module variant / tuft look. By default the
+ * style-neutral plants (the same in every style); the style layer batches its dressed plants
+ * itself (townMeshes.ts).
  */
 export async function buildVegetation(
   common: LoadedKit,
   grass: Pick<FlatSample, "uv" | "color">,
-  plants: readonly TownModulePlacement[] = townRenderPlan().modules.filter((m) => m.kit === "common" && isPlantModule(m.module)),
+  plants: readonly TownModulePlacement[] = townRenderPlan().modules.filter((m) => m.kit === "common" && !m.dressed && isPlantModule(m.module)),
   tufts: readonly GrassTuft[] = townGrassTufts(),
 ): Promise<VegetationBatch> {
   const geometries: VegetationGeometry[] = [];

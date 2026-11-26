@@ -53,13 +53,17 @@ export const KIT_BUILDING_MODULE_IDS = [
  * trees are in the common kit. Mirrored by `MED_EXTRA_IDS` in
  * tools/blender/hvmodules/mediterranean/plants.py. Arabic (M33): an arcade section, a courtyard
  * fountain (the common fountain's footprint and sockets), a standing brass lantern and the date
- * palm; mirrored by `ARAB_EXTRA_IDS` in tools/blender/hvmodules/arabic/extras.py.
+ * palm; mirrored by `ARAB_EXTRA_IDS` in tools/blender/hvmodules/arabic/extras.py. Japanese (M34):
+ * a granite garden lantern, the arched wooden bridge (the common stone bridge's footprint,
+ * sockets and deck heights), the black pine and the maple; the cherry is a common-kit tree and the
+ * bamboo fences are the kit's `fence`. Mirrored by `JAP_EXTRA_IDS` in
+ * tools/blender/hvmodules/japanese/extras.py.
  */
 export const KIT_STYLE_EXTRA_MODULE_IDS = {
   european: [],
   mediterranean: ["pergola", "bougainvillea", "pot.terracotta", "tree.lemon"],
   arabic: ["arcade", "fountain.courtyard", "lantern.brass", "tree.date_palm"],
-  japanese: [],
+  japanese: ["lantern.stone", "bridge.wooden", "tree.pine", "tree.maple"],
 } as const satisfies Record<StyleId, readonly string[]>;
 
 /** Every module a complete style kit ships: the building modules plus its style-only extras. */

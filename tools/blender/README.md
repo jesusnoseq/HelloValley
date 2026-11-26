@@ -49,7 +49,7 @@ npm run assets:contact-sheet -- --style interior   # docs/art/interior-kit-conta
 python tools/blender/build.py -- --style europe --include-tests --dry-run
 ```
 
-`build.py` options: `--style` (`european`, or the alias `europe`; `mediterranean` (`med`); `arabic` (`arab`); `common` for the
+`build.py` options: `--style` (`european`, or the alias `europe`; `mediterranean` (`med`); `arabic` (`arab`); `japanese` (`jp`); `common` for the
 style-neutral kit; `interior` for the interior and furniture kit), `--out` (kits root; the kit goes to `<out>/<style>/`), `--modules`, `--include-tests`, `--seed`, `--strict` (fail on
 budget or bounds problems), `--no-atlas`, `--dry-run`, `--contact-sheet PNG` (render the
 selected modules to a PNG with EEVEE instead of exporting; `hvkit/blender/contact.py`). The npm wrapper adds `--no-optimize`.
@@ -162,8 +162,8 @@ npm run assets:contact-sheet -- --style mediterranean
 - **Style-only extras** (`MED_EXTRA_IDS`, `KIT_STYLE_EXTRA_MODULE_IDS` in shared): `pergola`
   (2 x 2, vine/bougainvillea/jasmine), `bougainvillea` (climber, budget class `plant`),
   `pot.terracotta`, `tree.lemon`. Pergola, bougainvillea and lemon tree have a `trunk` mesh and a
-  swaying `canopy` (M06 conventions). Olive and cypress trees stay in the common kit. Recipes and
-  the town layout do not place the extras (they only use modules every style kit has).
+  swaying `canopy` (M06 conventions). Olive and cypress trees stay in the common kit. Recipes never
+  use the extras; the town places them through the per-style dressing (M34, see below).
 
 Checks: `tools/blender/tests/test_mediterranean.py` (twins, extras, budgets, swatches, gable
 clearance, chimney/dormer reach, arch solids, the committed manifest),
@@ -208,11 +208,65 @@ npm run assets:contact-sheet -- --style arabic
   `arcade` (2 x 1, two horseshoe arches on columns), `fountain.courtyard` (octagonal, star or
   round zellige basin with a `water` part; the common `fountain`'s footprint, sockets and walking
   blocker), `lantern.brass` (standing lantern with a `light` socket), `tree.date_palm` (`trunk` +
-  swaying `canopy`). Recipes and the town layout do not place them yet.
+  swaying `canopy`). Recipes never use them; the town places them through the per-style dressing
+  (M34, see below).
 
 Checks: `tools/blender/tests/test_arabic.py`, `packages/client/src/assets/arabicKit.test.ts`,
 `packages/client/src/scene/buildingMeshes.test.ts` (every recipe built from the Arabic GLBs),
 `packages/shared/src/buildings/buildings.test.ts` and `packages/shared/src/world/town.test.ts`.
+
+## Japanese kit (M34)
+
+`hvmodules/japanese/` generates the Japanese kit into `packages/client/public/assets/kits/japanese/`
+(committed, about 1.2 MB optimized; contact sheet `docs/art/japanese-kit-contact-sheet.png`):
+
+```bash
+npm run assets:build -- --style japanese --strict
+npm run assets:contact-sheet -- --style japanese
+```
+
+- **Same modules as the European kit**: all 22 building module ids, mirrored like the other kits
+  (`mirror` in `hvmodules/japanese/common.py`: footprint, sockets, variants, budget, overhang,
+  `fits:` tags), so every recipe assembles with identical placements and doors.
+- **Look** (GDD §7.3, art.md §2.4): white lime, earth or pale plaster (`WALL_SWATCH_BY_VARIANT`)
+  between dark posts (half a post at each side of a cell, so neighbours share one), a tie beam
+  (nageshi) and a wall-plate beam; a base of dark boards, namako tiles or stone. Shoji (paper in
+  the `glass` slot, so it glows at night with the windows) behind kumiko or koshi lattices, sliding
+  lattice, shoji and plank doors, noren curtains, round and barred windows, machiya shopfronts.
+  `wall.timber` is the textured wall: an exposed frame (shinkabe), charred cedar (yakisugi) or
+  clapboards. Attachments: a wooden veranda (engawa manner), a tiled, copper or reed-blind pent
+  roof (hisashi), bonsai/morning glories/ikebana, lattice screens/sudare/storm boards, a wooden
+  kanban. Props: granite/wooden/natural steps, bamboo fences (yotsume, misu, kenninji), andon,
+  chochin and bronze lamps, a tea bench under red felt, gravel and stepping-stone paving.
+- **Curved kawara roofs**: the slab follows `common.roof_under` (concave: 32 degrees on average,
+  flatter at the 0.4 m eave, steeper at the ridge) under rows of round tiles, a heavy ridge with
+  onigawara and barge boards with a gegyo. `roof.hip` is an irimoya, a yosemune or a hogyo pyramid
+  (`roofs.curved_hip`, rings with upturned eave corners); `roof.stepped_gable` (the town hall uses
+  variant 1) is a great gable with shachihoko, a two-tier keep-like roof, or a gable with chidori
+  gables. The European `chimney`/`dormer` sockets lie above this roof, so the chimney (a roofed
+  smoke vent) and the dormer reach below their pivots (`sink_m` 1.2 m and 0.45 m); a test checks
+  the reach for every recipe.
+- **Style-only extras** (`JAP_EXTRA_IDS`, `KIT_STYLE_EXTRA_MODULE_IDS.japanese` in shared):
+  `lantern.stone` (kasuga, yukimi or oki lantern with a `glow` fire box and a `light` socket),
+  `bridge.wooden` (an arched taikobashi with the common `bridge.stone`'s footprint, sockets, sink and
+  `deck_z` heights), `tree.pine` (cloud-pruned black pine) and `tree.maple` (autumn momiji), both
+  `trunk` + swaying `canopy`. The cherry is the common kit's `tree.sakura`; bamboo fences are the
+  kit's `fence`.
+
+Checks: `tools/blender/tests/test_japanese.py`, `packages/client/src/assets/japaneseKit.test.ts`,
+`packages/client/src/scene/buildingMeshes.test.ts` (every recipe built from the Japanese GLBs),
+`packages/shared/src/buildings/buildings.test.ts` and `packages/shared/src/world/town.test.ts`.
+
+## Per-style town dressing (M34)
+
+The style-only extras of every kit are placed by data in `packages/shared/src/world/dressing.ts`,
+not by recipes: per style, neutral layout props swap to styled modules (`STYLE_TOWN_DRESSING`:
+broadleaf trees become cherries and maples in Japan, olives and lemons on the Mediterranean, date
+palms in the Arabic town; conifers become pines; the stone bridge becomes the wooden one; the
+square's fountain becomes the courtyard fountain), and layout entries can be limited to some
+styles (`TownProp.styles`: the pergola, the bougainvillea, the arcade). Walking stays the same for
+everyone: a placement blocks the union of its fills (`TOWN_PROPS` defines each module's blocker and
+`packages/shared/src/world/town.test.ts` checks them against these manifests).
 
 ## Common kit (M06)
 
@@ -363,6 +417,7 @@ hvchars/              M07 characters: body.py, animals.py, outfits.py, animation
   interior/           M08 interior kit: base.py, parts.py, room.py, furniture.py, shops.py
   mediterranean/      M32 kit: common.py, walls.py, roofs.py, attachments.py, props.py, plants.py
   arabic/             M33 kit: common.py, walls.py, roofs.py, attachments.py, props.py, extras.py
+  japanese/           M34 kit: common.py, walls.py, roofs.py, attachments.py, props.py, extras.py
 tests/                unittest suite for the pure-Python parts
 ```
 

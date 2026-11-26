@@ -2,12 +2,11 @@
 courtyard fountain with an octagonal (or star) zellige basin, a standing brass lantern and the
 date palm.
 
-These have no European counterpart, so building recipes never use them, and the town places
-only modules every style kit has (the square's fountain is the common kit's). TODO(no milestone
-yet): style-specific dressing of the town (this fountain in the square, palms and lanterns)
-would need a per-style prop table in ``packages/shared/src/world`` (see pending.md, M32/M33).
-``fountain.courtyard`` keeps the common fountain's 2 x 2 footprint, sockets and walking
-blocker, so such a table could swap it in.
+These have no European counterpart, so building recipes never use them; the town places them
+through the per-style dressing (M34, ``packages/shared/src/world/dressing.ts``): the courtyard
+fountain replaces the square's fountain (same 2 x 2 footprint, sockets and walking blocker),
+date palms and palms replace broadleaf trees, brass lanterns stand at the lantern spots and an
+arcade section on the square's south-east edge.
 
 Canopy conventions follow the common kit (M06): the fronds are a separate ``canopy`` mesh with
 the ``canopy`` material whose origin is the sway pivot. Fountain water is a separate ``water``

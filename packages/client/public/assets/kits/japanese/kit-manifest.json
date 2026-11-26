@@ -1,0 +1,2058 @@
+{
+  "version": 1,
+  "generator": "hellovalley-blender/1",
+  "style": "japanese",
+  "grid": {
+    "cell": 1,
+    "storey": 3
+  },
+  "atlas": {
+    "file": "atlas.webp",
+    "size": 512,
+    "tiles": {
+      "bamboo": [
+        0.257812,
+        0.507812,
+        0.492188,
+        0.742188
+      ],
+      "bark": [
+        0.757812,
+        0.507812,
+        0.992188,
+        0.742188
+      ],
+      "gravel": [
+        0.007812,
+        0.507812,
+        0.242188,
+        0.742188
+      ],
+      "kawara": [
+        0.507812,
+        0.257812,
+        0.742188,
+        0.492188
+      ],
+      "leaves": [
+        0.507812,
+        0.507812,
+        0.742188,
+        0.742188
+      ],
+      "paving": [
+        0.757812,
+        0.257812,
+        0.992188,
+        0.492188
+      ],
+      "plain": [
+        0.007812,
+        0.007812,
+        0.242188,
+        0.242188
+      ],
+      "plaster": [
+        0.257812,
+        0.007812,
+        0.492188,
+        0.242188
+      ],
+      "shikkui": [
+        0.007812,
+        0.257812,
+        0.242188,
+        0.492188
+      ],
+      "stone": [
+        0.757812,
+        0.007812,
+        0.992188,
+        0.242188
+      ],
+      "timber": [
+        0.257812,
+        0.257812,
+        0.492188,
+        0.492188
+      ],
+      "wood": [
+        0.507812,
+        0.007812,
+        0.742188,
+        0.242188
+      ]
+    }
+  },
+  "modules": [
+    {
+      "id": "awning",
+      "file": "awning.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          1.5798,
+          -1
+        ],
+        "max": [
+          1,
+          2.3706,
+          -0.306
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "valance",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.86,
+            -0.34
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        128,
+        68,
+        72
+      ],
+      "tags": [
+        "attachment",
+        "japanese",
+        "fits:wall.shopfront",
+        "fits:wall.door"
+      ]
+    },
+    {
+      "id": "balcony",
+      "file": "balcony.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.035,
+          -0.3636,
+          -1
+        ],
+        "max": [
+          0.965,
+          0.825,
+          -0.3751
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "floor",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.65
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        300,
+        328,
+        276
+      ],
+      "tags": [
+        "attachment",
+        "japanese",
+        "fits:wall.door",
+        "fits:wall.window"
+      ]
+    },
+    {
+      "id": "bench",
+      "file": "bench.glb",
+      "footprint": {
+        "w": 2,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.155,
+          0,
+          -0.8
+        ],
+        "max": [
+          1.8443,
+          0.54,
+          -0.29
+        ]
+      },
+      "sockets": [
+        {
+          "name": "seat_left",
+          "kind": "prop",
+          "pos": [
+            0.6,
+            0.45,
+            -0.5
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "seat_right",
+          "kind": "prop",
+          "pos": [
+            1.4,
+            0.45,
+            -0.5
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        136,
+        152,
+        204
+      ],
+      "tags": [
+        "prop",
+        "seat",
+        "japanese"
+      ]
+    },
+    {
+      "id": "bridge.wooden",
+      "file": "bridge.wooden.glb",
+      "footprint": {
+        "w": 2,
+        "d": 4,
+        "h": 1.5
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0718,
+          -0.4548,
+          -4
+        ],
+        "max": [
+          1.9281,
+          1.3827,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "front",
+          "kind": "edge",
+          "pos": [
+            1,
+            0.1,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "back",
+          "kind": "edge",
+          "pos": [
+            1,
+            0.1,
+            -4
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "crown",
+          "kind": "prop",
+          "pos": [
+            1,
+            0.65,
+            -2
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        1624,
+        1120,
+        840
+      ],
+      "tags": [
+        "water",
+        "bridge",
+        "walkable",
+        "japanese"
+      ]
+    },
+    {
+      "id": "chimney",
+      "file": "chimney.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 2
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.1575,
+          -1.2,
+          -0.884
+        ],
+        "max": [
+          0.8409,
+          1.3834,
+          -0.1164
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "smoke",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            1.75,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        184,
+        120,
+        182
+      ],
+      "tags": [
+        "roof",
+        "japanese"
+      ]
+    },
+    {
+      "id": "corner.inner",
+      "file": "corner.inner.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.0983,
+          0,
+          -0.2047
+        ],
+        "max": [
+          0.2049,
+          3,
+          0.0991
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.1,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "corner",
+          "kind": "attach",
+          "pos": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            -0.7071,
+            0,
+            0.7071
+          ]
+        }
+      ],
+      "tris": [
+        276,
+        196,
+        172
+      ],
+      "tags": [
+        "corner",
+        "wall",
+        "japanese"
+      ]
+    },
+    {
+      "id": "corner.outer",
+      "file": "corner.outer.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.0546,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          3,
+          0.0545
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "back",
+          "kind": "edge",
+          "pos": [
+            0.1,
+            1.5,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "facade_front",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "facade_left",
+          "kind": "attach",
+          "pos": [
+            0,
+            0,
+            -0.5
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        212,
+        236,
+        212
+      ],
+      "tags": [
+        "corner",
+        "wall",
+        "japanese"
+      ]
+    },
+    {
+      "id": "dormer",
+      "file": "dormer.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0762,
+          -0.45,
+          -0.8715
+        ],
+        "max": [
+          0.9241,
+          0.7294,
+          0.0921
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "window",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0.3,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        224,
+        236,
+        224
+      ],
+      "tags": [
+        "roof",
+        "window",
+        "japanese"
+      ]
+    },
+    {
+      "id": "fence",
+      "file": "fence.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.135
+        ],
+        "max": [
+          1,
+          0.9799,
+          -0.02
+        ]
+      },
+      "sockets": [
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            0.5,
+            -0.05
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            0.5,
+            -0.05
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        264,
+        276,
+        180
+      ],
+      "tags": [
+        "prop",
+        "fence",
+        "japanese"
+      ]
+    },
+    {
+      "id": "flowerbox",
+      "file": "flowerbox.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.1551,
+          0.5553,
+          -1
+        ],
+        "max": [
+          0.8445,
+          1.3045,
+          -0.7355
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sill",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        212,
+        388,
+        168
+      ],
+      "tags": [
+        "attachment",
+        "plant",
+        "japanese",
+        "fits:wall.window"
+      ]
+    },
+    {
+      "id": "lamp",
+      "file": "lamp.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 2.8
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.2384,
+          0,
+          -0.7954
+        ],
+        "max": [
+          0.9474,
+          2.73,
+          -0.2019
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "light",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            2.3,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        170,
+        284,
+        208
+      ],
+      "tags": [
+        "prop",
+        "light",
+        "japanese"
+      ]
+    },
+    {
+      "id": "lantern.stone",
+      "file": "lantern.stone.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.9
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.2017,
+          0,
+          -0.8389
+        ],
+        "max": [
+          0.7974,
+          1.542,
+          -0.1584
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "light",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            1,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        292,
+        318,
+        232
+      ],
+      "tags": [
+        "prop",
+        "light",
+        "lantern",
+        "japanese"
+      ]
+    },
+    {
+      "id": "roof.gable",
+      "file": "roof.gable.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 1.5
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.2648,
+          -0.2304,
+          -2.4343
+        ],
+        "max": [
+          2.2643,
+          1.0994,
+          0.4348
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "stack",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "ridge",
+          "kind": "prop",
+          "pos": [
+            1,
+            1.3784,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "chimney",
+          "kind": "prop",
+          "pos": [
+            1.45,
+            1.0209,
+            -1.3
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "dormer",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0.3654,
+            -0.15
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        1380,
+        1428,
+        1476
+      ],
+      "tags": [
+        "roof",
+        "japanese"
+      ]
+    },
+    {
+      "id": "roof.hip",
+      "file": "roof.hip.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 1.8
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.4436,
+          -0.1311,
+          -2.4465
+        ],
+        "max": [
+          2.4457,
+          1.1393,
+          0.4442
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "stack",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "ridge",
+          "kind": "prop",
+          "pos": [
+            1,
+            1.25,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "chimney",
+          "kind": "prop",
+          "pos": [
+            1.45,
+            0.7568,
+            -1.3
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        1712,
+        1110,
+        1138
+      ],
+      "tags": [
+        "roof",
+        "japanese"
+      ]
+    },
+    {
+      "id": "roof.stepped_gable",
+      "file": "roof.stepped_gable.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 2.4418
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.4026,
+          -0.2698,
+          -2.4346
+        ],
+        "max": [
+          2.4036,
+          1.4286,
+          0.4348
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "stack",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "ridge",
+          "kind": "prop",
+          "pos": [
+            1,
+            1.3784,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "chimney",
+          "kind": "prop",
+          "pos": [
+            1.45,
+            1.0209,
+            -1.3
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "dormer",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0.3654,
+            -0.15
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        1572,
+        1764,
+        1580
+      ],
+      "tags": [
+        "roof",
+        "japanese"
+      ]
+    },
+    {
+      "id": "shutters",
+      "file": "shutters.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.0152,
+          0.9757,
+          -1
+        ],
+        "max": [
+          0.9844,
+          2.1417,
+          -0.8802
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "window",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.55,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        216,
+        128,
+        192
+      ],
+      "tags": [
+        "attachment",
+        "window",
+        "japanese",
+        "fits:wall.window"
+      ]
+    },
+    {
+      "id": "sign.hanging",
+      "file": "sign.hanging.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.4351,
+          1.9472,
+          -1
+        ],
+        "max": [
+          0.5643,
+          2.685,
+          -0.317
+        ]
+      },
+      "sockets": [
+        {
+          "name": "mount",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "icon",
+          "kind": "attach",
+          "pos": [
+            0.47,
+            2.175,
+            -0.64
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "icon_back",
+          "kind": "attach",
+          "pos": [
+            0.53,
+            2.175,
+            -0.64
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        192,
+        192,
+        192
+      ],
+      "tags": [
+        "attachment",
+        "sign",
+        "japanese",
+        "fits:wall.plain",
+        "fits:wall.door",
+        "fits:wall.shopfront",
+        "fits:wall.timber"
+      ]
+    },
+    {
+      "id": "stair",
+      "file": "stair.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 1.4
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          1.1931,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "bottom",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.45,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            0,
+            -0.5
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            0,
+            -0.5
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        48,
+        152,
+        96
+      ],
+      "tags": [
+        "prop",
+        "stair",
+        "japanese"
+      ]
+    },
+    {
+      "id": "tile.cobble",
+      "file": "tile.cobble.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 0.1
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -1
+        ],
+        "max": [
+          1,
+          0.0796,
+          0
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            0.06,
+            -0.5
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        120,
+        132,
+        192
+      ],
+      "tags": [
+        "tile",
+        "ground",
+        "japanese"
+      ]
+    },
+    {
+      "id": "tree.maple",
+      "file": "tree.maple.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 3.6
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0.122,
+          -0.006,
+          -1.9203
+        ],
+        "max": [
+          1.9469,
+          2.5967,
+          0.0073
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        564,
+        510,
+        584
+      ],
+      "tags": [
+        "vegetation",
+        "tree",
+        "japanese",
+        "canopy"
+      ]
+    },
+    {
+      "id": "tree.pine",
+      "file": "tree.pine.glb",
+      "footprint": {
+        "w": 2,
+        "d": 2,
+        "h": 4
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          -0.0891,
+          -0.0156,
+          -2.2115
+        ],
+        "max": [
+          1.9527,
+          3.2209,
+          0.1373
+        ]
+      },
+      "sockets": [
+        {
+          "name": "base",
+          "kind": "prop",
+          "pos": [
+            1,
+            0,
+            -1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        }
+      ],
+      "tris": [
+        474,
+        580,
+        474
+      ],
+      "tags": [
+        "vegetation",
+        "tree",
+        "japanese",
+        "canopy"
+      ]
+    },
+    {
+      "id": "wall.door",
+      "file": "wall.door.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.205
+        ],
+        "max": [
+          1,
+          3,
+          0.0998
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "door",
+          "kind": "prop",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "lintel",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            2.32,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        548,
+        588,
+        484
+      ],
+      "tags": [
+        "wall",
+        "door",
+        "japanese"
+      ]
+    },
+    {
+      "id": "wall.plain",
+      "file": "wall.plain.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.205
+        ],
+        "max": [
+          1,
+          3,
+          0.0744
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        364,
+        412,
+        372
+      ],
+      "tags": [
+        "wall",
+        "japanese"
+      ]
+    },
+    {
+      "id": "wall.shopfront",
+      "file": "wall.shopfront.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.2048
+        ],
+        "max": [
+          1,
+          3,
+          0.0942
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "fascia",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            2.52,
+            0.06
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "awning",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            2.32,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        536,
+        472,
+        424
+      ],
+      "tags": [
+        "wall",
+        "shopfront",
+        "japanese"
+      ]
+    },
+    {
+      "id": "wall.timber",
+      "file": "wall.timber.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.2049
+        ],
+        "max": [
+          1,
+          3,
+          0.054
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        276,
+        168,
+        300
+      ],
+      "tags": [
+        "wall",
+        "timber",
+        "japanese"
+      ]
+    },
+    {
+      "id": "wall.window",
+      "file": "wall.window.glb",
+      "footprint": {
+        "w": 1,
+        "d": 1,
+        "h": 3
+      },
+      "variants": 3,
+      "bounds": {
+        "min": [
+          0,
+          0,
+          -0.2049
+        ],
+        "max": [
+          1,
+          3,
+          0.0747
+        ]
+      },
+      "sockets": [
+        {
+          "name": "top",
+          "kind": "stack",
+          "pos": [
+            0.5,
+            3,
+            -0.1
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "left",
+          "kind": "edge",
+          "pos": [
+            0,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "right",
+          "kind": "edge",
+          "pos": [
+            1,
+            1.5,
+            -0.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "facade",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "sill",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "window",
+          "kind": "attach",
+          "pos": [
+            0.5,
+            1.55,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "tris": [
+        488,
+        596,
+        520
+      ],
+      "tags": [
+        "wall",
+        "window",
+        "japanese"
+      ]
+    }
+  ]
+}

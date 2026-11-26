@@ -49,7 +49,11 @@ describe("kit triangle budgets", () => {
     expect(kitBudgetClass("arcade")).toBe("prop");
     expect(kitBudgetClass("fountain.courtyard")).toBe("prop");
     expect(styleKitModuleIds("arabic")).toContain("fountain.courtyard");
-    const extras = [...KIT_STYLE_EXTRA_MODULE_IDS.mediterranean, ...KIT_STYLE_EXTRA_MODULE_IDS.arabic];
+    expect(kitBudgetClass("tree.pine")).toBe("plant");
+    expect(kitBudgetClass("tree.maple")).toBe("plant");
+    expect(kitBudgetClass("lantern.stone")).toBe("prop");
+    expect(kitBudgetClass("bridge.wooden")).toBe("prop");
+    const extras = [...KIT_STYLE_EXTRA_MODULE_IDS.mediterranean, ...KIT_STYLE_EXTRA_MODULE_IDS.arabic, ...KIT_STYLE_EXTRA_MODULE_IDS.japanese];
     expect(new Set(extras).size).toBe(extras.length);
     for (const id of extras) {
       expect(ModuleIdSchema.safeParse(id).success).toBe(true);

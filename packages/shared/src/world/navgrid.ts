@@ -1,6 +1,7 @@
 import { facadeCellOrigin, rotateVec } from "../buildings/assemble";
 import { buildingRecipe } from "../buildings/recipes";
 import { type FacadeSide } from "../buildings/schema";
+import { townPropBlocks, townPropFills } from "./dressing";
 import { type Rect, TOWN_PROPS, type TownPropModuleId } from "./props";
 import { groundIndex } from "./terrain";
 import {
@@ -130,9 +131,10 @@ export function townBlockers(): Blocker[] {
       }
     }
   }
+  // A prop blocks what any of its per-style fills blocks (dressing.ts), so walking is the same
+  // in every style.
   for (const p of TOWN_PROPS_LAYOUT) {
-    const blocks = propBlock(p.module);
-    if (blocks) out.push({ kind: "prop", source: p.module, area: rectToTown(p, blocks) });
+    for (const blocks of townPropBlocks(p)) out.push({ kind: "prop", source: p.module, area: rectToTown(p, blocks) });
   }
   for (const s of difficultySigns()) {
     const h = SIGN_POST_HALF_M;
@@ -145,7 +147,10 @@ export function townBlockers(): Blocker[] {
 export function townDecks(): Area[] {
   const out: Area[] = [];
   for (const p of TOWN_PROPS_LAYOUT) {
-    const walk = (TOWN_PROPS[p.module] as { walk?: Rect }).walk;
+    // Every fill of a deck keeps the neutral deck (bridge.wooden = bridge.stone; a test checks it).
+    const walk = townPropFills(p)
+      .map((m) => (TOWN_PROPS[m] as { walk?: Rect }).walk)
+      .find((w) => w !== undefined);
     if (walk) out.push(rectToTown(p, walk));
   }
   return out;

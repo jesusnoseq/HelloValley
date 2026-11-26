@@ -38,11 +38,11 @@ const loader = createKitLoader({
 });
 
 describe("style kits", () => {
-  it("fall back to the european kit until the other styles exist", () => {
-    expect(AVAILABLE_STYLE_KITS).toEqual(["european", "mediterranean", "arabic"]);
+  it("render every style with its own kit (no european fallback left)", () => {
+    expect(AVAILABLE_STYLE_KITS).toEqual(["european", "mediterranean", "arabic", "japanese"]);
     expect(resolveKitStyle("mediterranean")).toBe("mediterranean");
     expect(resolveKitStyle("arabic")).toBe("arabic");
-    expect(resolveKitStyle("japanese")).toBe("european");
+    expect(resolveKitStyle("japanese")).toBe("japanese");
     for (const style of STYLE_IDS) expect(resolveKitStyle(style)).toBe(AVAILABLE_STYLE_KITS.includes(style) ? style : "european");
     expect(kitUrl("european", "/")).toBe("/assets/kits/european/");
     expect(kitUrl("common", "/hv/")).toBe("/hv/assets/kits/common/");
@@ -64,7 +64,7 @@ describe("style kits", () => {
 
 describe.skipIf(!present)("building meshes (europe kit)", () => {
   it("loads a kit once, binds the atlas and caches module variants", async () => {
-    const [a, b] = await Promise.all([loader.load("european"), loader.loadStyle("japanese")]);
+    const [a, b] = await Promise.all([loader.load("european"), loader.loadStyle("european")]);
     expect(a).toBe(b);
     expect(textures).toEqual(["/assets/kits/european/atlas.webp"]);
     expect(a.atlas?.flipY).toBe(false);
@@ -107,7 +107,7 @@ describe.skipIf(!present)("building meshes (europe kit)", () => {
     for (const p of meshes.parts) p.geometry.dispose();
   });
 
-  const swaps = (["mediterranean", "arabic"] as const).flatMap((style) => BUILDING_RECIPE_IDS.map((id) => [id, style] as const));
+  const swaps = (["mediterranean", "arabic", "japanese"] as const).flatMap((style) => BUILDING_RECIPE_IDS.map((id) => [id, style] as const));
   it.each(swaps)("%s swaps to the %s kit without moving anything", async (id, style) => {
     const recipe = buildingRecipes()[id];
     const europe = await buildBuildingMeshes(recipe, await loader.loadStyle("european"));

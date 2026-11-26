@@ -12,6 +12,8 @@ import { buildVegetation, createSwayMaterial, createVegetationMesh, disposeVeget
 
 interface Loaded {
   kit: LoadedKit;
+  /** Kits whose materials the layer's parts use, by id (the style layer also uses the common kit). */
+  kits: ReadonlyMap<string, LoadedKit>;
   layer: TownLayer;
   /** The swaying canopies and grass (common layer only). */
   vegetation?: VegetationBatch;
@@ -66,11 +68,11 @@ export function useTownLayers(style: StyleId, loader: KitLoader = kitLoader): { 
   const loadCommon = useCallback(async () => {
     const kit = await loader.load(COMMON_KIT_ID);
     const [layer, samples] = await Promise.all([buildCommonLayer(kit), sampleFlats(kit)]);
-    return { kit, layer, vegetation: await buildVegetation(kit, samples.ground.grass) };
+    return { kit, kits: new Map([[kit.id, kit]]), layer, vegetation: await buildVegetation(kit, samples.ground.grass) };
   }, [loader]);
   const loadStyle = useCallback(async () => {
-    const kit = await loader.loadStyle(style);
-    return { kit, layer: await buildStyleLayer(kit) };
+    const [kit, common] = await Promise.all([loader.loadStyle(style), loader.load(COMMON_KIT_ID)]);
+    return { kit, kits: new Map([[kit.id, kit], [common.id, common]]), layer: await buildStyleLayer(kit, common) };
   }, [loader, style]);
   const common = useLayer(COMMON_KIT_ID, loadCommon);
   const styled = useLayer(style, loadStyle);
@@ -78,15 +80,15 @@ export function useTownLayers(style: StyleId, loader: KitLoader = kitLoader): { 
 }
 
 function LayerMeshes({ loaded, water }: { loaded: Loaded; water?: Material }) {
-  const { kit, layer } = loaded;
+  const { kit, kits, layer } = loaded;
   return (
     <>
       {layer.parts.map((part) => (
         <mesh
-          key={`${layer.kitId}:${part.chunk}:${part.kind}:${part.ground ? "g" : "o"}`}
+          key={`${layer.kitId}:${part.kit}:${part.chunk}:${part.kind}:${part.ground ? "g" : "o"}`}
           geometry={part.geometry}
-          material={part.kind === "water" && water ? water : kit.materials[part.kind]}
-          castShadow={!part.ground}
+          material={part.kind === "water" && water ? water : (kits.get(part.kit) ?? kit).materials[part.kind]}
+          castShadow={!part.ground && part.kind !== "water"}
           receiveShadow
         />
       ))}
@@ -157,9 +159,10 @@ export function baseWallsGeometry(bounds: readonly number[] = TOWN_BOUNDS, depth
 export function townDrawItems(common: TownLayer, style: TownLayer, vegetation: VegetationBatch | null): DrawItem[] {
   const items: DrawItem[] = [];
   for (const layer of [common, style]) {
-    for (const p of layer.parts) items.push({ label: `${layer.kitId}:${p.chunk}:${p.kind}`, castShadow: !p.ground });
+    for (const p of layer.parts) items.push({ label: `${layer.kitId}:${p.kit}:${p.chunk}:${p.kind}`, castShadow: !p.ground && p.kind !== "water" });
   }
   if (vegetation && vegetation.instances.length > 0) items.push({ label: "vegetation", castShadow: true });
+  for (const v of style.vegetation) if (v.batch.instances.length > 0) items.push({ label: `vegetation ${v.kit}`, castShadow: true });
   for (const icon of new Set(style.signs.map((s) => s.icon))) items.push({ label: `sign icon ${icon}`, castShadow: false });
   items.push({ label: "difficulty sign posts", castShadow: true }, { label: "difficulty sign leaves", castShadow: false });
   items.push({ label: "diorama base", castShadow: false });
@@ -178,8 +181,9 @@ export interface TownProps {
 /**
  * The whole town (GDD §4.1, build plan M11): merged terrain and nature chunks from the common kit
  * with the river shader on their water (M12), the swaying vegetation batch, the ten buildings and
- * street furniture in the active style kit, shop sign icons, the leaf difficulty signs and the
- * diorama base. Switching the style swaps only the style layer.
+ * street furniture in the active style kit, the props the style dresses differently (M34), shop
+ * sign icons, the leaf difficulty signs and the diorama base. Switching the style swaps only the
+ * style layer; the old one stays on screen until the new one is built.
  */
 export function Town({ style, loader, visible = true }: TownProps) {
   const storeStyle = useDiorama((s) => s.style);
@@ -198,6 +202,10 @@ export function Town({ style, loader, visible = true }: TownProps) {
   const atlas = common?.kit.atlas ?? null;
   const sway = useMemo(() => createSwayMaterial(atlas), [atlas]);
   useEffect(() => () => sway.dispose(), [sway]);
+  // The style layer's dressed plants sway too, with their own kit's atlas.
+  const styleAtlas = styled?.kit.atlas ?? null;
+  const styleSway = useMemo(() => createSwayMaterial(styleAtlas), [styleAtlas]);
+  useEffect(() => () => styleSway.dispose(), [styleSway]);
 
   return (
     <group name="town" visible={visible}>
@@ -205,7 +213,10 @@ export function Town({ style, loader, visible = true }: TownProps) {
       {common?.vegetation ? <Vegetation batch={common.vegetation} material={sway} /> : null}
       {styled ? (
         <>
-          <LayerMeshes loaded={styled} />
+          <LayerMeshes loaded={styled} water={river} />
+          {styled.layer.vegetation.map((v) => (
+            <Vegetation key={`${styled.layer.kitId}:${v.kit}`} batch={v.batch} material={v.kit === styled.kit.id ? styleSway : sway} />
+          ))}
           <SignIcons signs={styled.layer.signs} />
         </>
       ) : null}

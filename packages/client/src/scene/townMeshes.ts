@@ -8,6 +8,7 @@ import {
   isPlantModule,
   RIVER_BED_Y,
   rotateVec,
+  type StyleId,
   TERRAIN_TOP,
   TERRAIN_Y,
   TOWN_BUILDINGS,
@@ -19,14 +20,16 @@ import {
 } from "@hellovalley/shared";
 import { type BuildingSign, placementMatrix } from "./buildingMeshes";
 import type { KitGeometryPart, KitMaterialKind, LoadedKit } from "./kitLoader";
+import { buildVegetation, disposeVegetation, type VegetationBatch } from "./vegetation";
 
 /**
  * Town geometry (build plan M11): every static module of the town is transformed into the town
  * frame and merged by material slot inside a few spatial chunks, so the whole diorama costs a few
  * dozen draw calls (GDD §7.2: under 150) and the camera's frustum culling drops the chunks it
  * cannot see. The town comes in two layers: the style-neutral common kit (terrain, river, trees,
- * props), built once, and the style kit (buildings and street furniture), rebuilt on a style
- * switch without moving anything.
+ * props), built once, and the style layer (buildings, street furniture and the props the style
+ * dresses differently, shared/world/dressing.ts), rebuilt on a style switch without moving
+ * anything.
  */
 
 /** Chunk size in metres: 2 x 4 chunks over the 64 x 100 m town. */
@@ -40,11 +43,19 @@ export function chunkOf(x: number, z: number): number {
 }
 
 export interface TownMeshPart {
+  /** The kit whose materials draw the part (the style layer also holds dressed common props). */
+  kit: string;
   chunk: number;
   kind: KitMaterialKind;
   /** Ground pieces receive shadows but cast none, which keeps them out of the shadow pass. */
   ground: boolean;
   geometry: BufferGeometry;
+}
+
+/** Swaying canopies of one kit (its own atlas, so one batch per kit). */
+export interface KitVegetation {
+  kit: string;
+  batch: VegetationBatch;
 }
 
 export interface TownLayer {
@@ -53,33 +64,43 @@ export interface TownLayer {
   /** Shop icons on hanging signs, in the town frame. */
   signs: BuildingSign[];
   triangles: number;
+  /** The style layer's dressed plants (trees, pergolas), batched per kit to sway. */
+  vegetation: KitVegetation[];
 }
 
-class Buckets {
-  private readonly map = new Map<string, { chunk: number; kind: KitMaterialKind; ground: boolean; list: BufferGeometry[] }>();
+/**
+ * Chunk of the dressed props that come from the common kit (a swapped tree's trunk in Europe, the
+ * square's fountain): one whole-town bucket, so they add one mesh per material, not one per chunk.
+ */
+export const DRESSING_CHUNK = -1;
 
-  add(chunk: number, kind: KitMaterialKind, ground: boolean, geometry: BufferGeometry): void {
-    const key = `${chunk}:${kind}:${ground ? "g" : "o"}`;
+class Buckets {
+  private readonly map = new Map<string, { kit: string; chunk: number; kind: KitMaterialKind; ground: boolean; list: BufferGeometry[] }>();
+
+  constructor(private readonly kit: string) {}
+
+  add(chunk: number, kind: KitMaterialKind, ground: boolean, geometry: BufferGeometry, kit: string = this.kit): void {
+    const key = `${kit}:${chunk}:${kind}:${ground ? "g" : "o"}`;
     let bucket = this.map.get(key);
-    if (!bucket) this.map.set(key, (bucket = { chunk, kind, ground, list: [] }));
+    if (!bucket) this.map.set(key, (bucket = { kit, chunk, kind, ground, list: [] }));
     bucket.list.push(geometry);
   }
 
-  addParts(parts: readonly KitGeometryPart[], matrix: Matrix4, chunk: number, ground: boolean): void {
-    for (const part of parts) this.add(chunk, part.kind, ground, part.geometry.clone().applyMatrix4(matrix));
+  addParts(parts: readonly KitGeometryPart[], matrix: Matrix4, chunk: number, ground: boolean, kit: string = this.kit): void {
+    for (const part of parts) this.add(chunk, part.kind, ground, part.geometry.clone().applyMatrix4(matrix), kit);
   }
 
   merge(label: string): { parts: TownMeshPart[]; triangles: number } {
     const parts: TownMeshPart[] = [];
     let triangles = 0;
-    for (const { chunk, kind, ground, list } of this.map.values()) {
+    for (const { kit, chunk, kind, ground, list } of this.map.values()) {
       const geometry = mergeGeometries(list, false);
       for (const g of list) g.dispose();
       if (!geometry) throw new Error(`${label}: could not merge chunk ${chunk} ${kind}`);
       geometry.computeBoundingBox();
       geometry.computeBoundingSphere();
       triangles += (geometry.index?.count ?? 0) / 3;
-      parts.push({ chunk, kind, ground, geometry });
+      parts.push({ kit, chunk, kind, ground, geometry });
     }
     return { parts, triangles };
   }
@@ -240,13 +261,14 @@ const matrixFor = (position: Vec3, rot: number, target = new Matrix4()) => place
 
 /**
  * The style-neutral layer: flat ground, terrain and river pieces, bridge, dock, tree trunks and
- * props. Plant canopies are not merged here: they sway in the vegetation batch (scene/vegetation).
+ * props that look the same in every style. Plant canopies are not merged here: they sway in the
+ * vegetation batch (scene/vegetation).
  */
 export async function buildCommonLayer(common: LoadedKit): Promise<TownLayer> {
   const plan = townRenderPlan();
-  const buckets = new Buckets();
+  const buckets = new Buckets(common.id);
   addFlats(buckets, plan.flats, await sampleFlats(common));
-  const mods = plan.modules.filter((m) => m.kit === "common");
+  const mods = plan.modules.filter((m) => m.kit === "common" && !m.dressed);
   const loaded = await Promise.all(mods.map(async (m) => ({ m, parts: await common.variantParts(m.module, m.variant) })));
   const matrix = new Matrix4();
   for (const { m, parts } of loaded) {
@@ -255,12 +277,20 @@ export async function buildCommonLayer(common: LoadedKit): Promise<TownLayer> {
     matrixFor(m.position, m.rot, matrix);
     buckets.addParts(kept, matrix, chunkOf(m.position[0], m.position[2]), isGroundModule(m.module));
   }
-  return { kitId: common.id, signs: [], ...buckets.merge("common layer") };
+  return { kitId: common.id, signs: [], vegetation: [], ...buckets.merge("common layer") };
 }
 
-/** The style layer: the ten assembled buildings and the style kit's street furniture. */
-export async function buildStyleLayer(kit: LoadedKit): Promise<TownLayer> {
-  const buckets = new Buckets();
+/** A grass sample for batches without grass clusters (it is never read). */
+const NO_GRASS = { uv: [] as [number, number][], color: [1, 1, 1] as [number, number, number] };
+
+/**
+ * The style layer: the ten assembled buildings, the style kit's street furniture and the props the
+ * style dresses (dressing.ts: swapped trees, the bridge, lanterns, style-only decorations), drawn
+ * from the style kit or the common kit. Their canopies sway in one vegetation batch per kit. The
+ * dressing follows the kit that actually renders (`kit.id`), so a fallback kit shows its own town.
+ */
+export async function buildStyleLayer(kit: LoadedKit, common: LoadedKit): Promise<TownLayer> {
+  const buckets = new Buckets(kit.id);
   const signs: BuildingSign[] = [];
   const building = new Matrix4();
   const local = new Matrix4();
@@ -287,16 +317,43 @@ export async function buildStyleLayer(kit: LoadedKit): Promise<TownLayer> {
       }
     }
   }
-  const mods = townRenderPlan().modules.filter((m) => m.kit === "style");
-  const loaded = await Promise.all(mods.map(async (m) => ({ m, parts: await kit.variantParts(m.module, m.variant) })));
+  const mods = townRenderPlan(kit.id as StyleId).modules.filter((m) => m.kit === "style" || m.dressed);
+  const source = (m: (typeof mods)[number]) => (m.kit === "common" ? common : kit);
+  const loaded = await Promise.all(mods.map(async (m) => ({ m, parts: await source(m).variantParts(m.module, m.variant) })));
   const matrix = new Matrix4();
+  const plants = new Map<LoadedKit, typeof mods>();
   for (const { m, parts } of loaded) {
+    const from = source(m);
+    const kept = parts.filter((p) => p.kind !== "canopy");
+    if (kept.length < parts.length) plants.set(from, [...(plants.get(from) ?? []), m]);
     matrixFor(m.position, m.rot, matrix);
-    buckets.addParts(parts, matrix, chunkOf(m.position[0], m.position[2]), false);
+    const chunk = from === kit ? chunkOf(m.position[0], m.position[2]) : DRESSING_CHUNK;
+    buckets.addParts(kept, matrix, chunk, false, from.id);
   }
-  return { kitId: kit.id, signs, ...buckets.merge("style layer") };
+  const vegetation: KitVegetation[] = [];
+  for (const [from, list] of plants) vegetation.push({ kit: from.id, batch: await buildVegetation(from, NO_GRASS, list, []) });
+  const merged = buckets.merge("style layer");
+  return { kitId: kit.id, signs, vegetation, parts: merged.parts, triangles: merged.triangles + vegetation.reduce((n, v) => n + v.batch.triangles, 0) };
+}
+
+/**
+ * Fetch and decode everything `buildStyleLayer` needs for a kit (every building module variant
+ * and dressed prop), so a style switch afterwards only merges geometry: nothing waits on the
+ * network (Settings preloads with this before applying a new style, M34).
+ */
+export async function warmStyleLayer(kit: LoadedKit, common: LoadedKit): Promise<void> {
+  const wanted: Promise<unknown>[] = [];
+  for (const b of TOWN_BUILDINGS) {
+    for (const p of assembleBuilding(buildingRecipe(b.id), kit.manifest).placements) wanted.push(kit.variantParts(p.module, p.variant));
+  }
+  for (const m of townRenderPlan(kit.id as StyleId).modules) {
+    if (m.kit === "style") wanted.push(kit.variantParts(m.module, m.variant));
+    else if (m.dressed) wanted.push(common.variantParts(m.module, m.variant));
+  }
+  await Promise.all(wanted);
 }
 
 export function disposeTownLayer(layer: TownLayer): void {
   for (const p of layer.parts) p.geometry.dispose();
+  for (const v of layer.vegetation) disposeVegetation(v.batch);
 }

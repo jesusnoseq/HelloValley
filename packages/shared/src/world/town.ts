@@ -1,6 +1,7 @@
 import { buildingRecipe } from "../buildings/recipes";
 import { type BuildingRecipeId, facadeRow, rotateXZ } from "../buildings/schema";
 import type { ForageZone } from "../data/forage";
+import type { StyleId } from "../data/styles";
 import type { PlaceId } from "../data/world";
 import { type Rect, TOWN_PROPS, type TownPropModuleId } from "./props";
 import { type Ground, type GroundMap, groundIndex } from "./terrain";
@@ -198,9 +199,12 @@ export function difficultySigns(): DifficultySign[] {
 // Props
 
 export interface TownProp extends TownPlacement {
+  /** The neutral module; styles may swap it (dressing.ts). */
   module: TownPropModuleId;
   /** Kit variant; omitted = picked from the position. */
   variant?: number;
+  /** A decoration shown only in these styles (dressing.ts); omitted = every style. */
+  styles?: readonly StyleId[];
 }
 
 /** A prop whose footprint centre is (cx, cz). */
@@ -209,6 +213,9 @@ function centred(module: TownPropModuleId, cx: number, cz: number, rot = 0, vari
   const [ox, oz] = rotateXZ(w / 2, -d / 2, rot);
   return { module, at: [cx - ox, cz - oz], rot, ...(variant === undefined ? {} : { variant }) };
 }
+
+/** A decoration shown only in some styles (M34 per-style dressing). */
+const only = (styles: readonly StyleId[], prop: TownProp): TownProp => ({ ...prop, styles });
 
 const trees = (module: TownPropModuleId, spots: readonly Vec2[]) => spots.map(([x, z]) => centred(module, x, z));
 
@@ -297,6 +304,22 @@ export const TOWN_PROPS_LAYOUT: readonly TownProp[] = [
     [12, 55],
     [57, 56],
   ].map(([x, z]) => centred("flowers", x! + 0.5, z! + 0.5, 0, 0)),
+  // Per-style dressing (dressing.ts, M34). Lantern spots: a bush in Europe, a stone lantern in
+  // Japan, a brass lantern in the Arabic town and a terracotta pot in the Mediterranean one, around
+  // the fountain and at the south end of the bridge.
+  ...[
+    [35, 44],
+    [39, 44],
+    [35, 48],
+    [39, 48],
+    [34.5, 32.5],
+    [38.5, 32.5],
+  ].map(([x, z]) => centred("lantern.stone", x!, z!)),
+  // Style-only decorations: a vine pergola in a corner of the square and a bougainvillea on the
+  // gossip's front wall (Mediterranean), an arcade on the square's south-east edge (Arabic).
+  only(["mediterranean"], centred("pergola", 32.5, 53.5)),
+  only(["mediterranean"], centred("bougainvillea", 47.5, 44.5, 3)),
+  only(["arabic"], centred("arcade", 46, 54, 0, 2)),
   ...[
     [20, 33],
     [27, 25],

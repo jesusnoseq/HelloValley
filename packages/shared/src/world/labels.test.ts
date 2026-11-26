@@ -63,6 +63,16 @@ describe("world labels (GDD §6.5, build plan M25)", () => {
     expect(pickLabel(labelledObjects("town"), [centre[0], 30, centre[1]], [0, -1, 0])?.labelKey).toBe("prop.fountain");
   });
 
+  it("names town props as the player's style shows them (M34 dressing)", () => {
+    const keys = (style: "european" | "japanese" | "arabic") => new Set(labelledObjects("town", undefined, undefined, style).map((o) => o.labelKey));
+    expect(keys("japanese").has("prop.lantern.stone")).toBe(true);
+    expect(keys("japanese").has("prop.bridge.wooden")).toBe(true);
+    expect(keys("european").has("prop.lantern.stone")).toBe(false);
+    expect(keys("arabic").has("prop.fountain.courtyard")).toBe(true);
+    expect(keys("arabic").has("prop.fountain")).toBe(false);
+    for (const k of keys("japanese")) expect(isLabelKey(k), k).toBe(true);
+  });
+
   it("uses the apartment's live layout when given", () => {
     const objects = labelledObjects("apartment", [{ module: "bed", variant: 0, at: [1, 1], rot: 0 }]);
     expect(objects.filter((o) => o.labelKey.startsWith("furniture."))).toHaveLength(1);

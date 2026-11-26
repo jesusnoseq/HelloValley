@@ -1,6 +1,6 @@
 import type { PlayerProfile } from "@hellovalley/shared";
 import type { User } from "firebase/auth";
-import { type CSSProperties, lazy, Suspense, useEffect } from "react";
+import { type CSSProperties, lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { checkOnDeviceAtLogin, setAiUser, startWarmUp } from "./ai/client";
 import { AuthGate } from "./auth/AuthGate";
 import { signOutUser } from "./auth/useAuth";
@@ -42,6 +42,8 @@ const ForageLayer = lazy(() => import("./ui/forage/ForageLayer").then((m) => ({ 
 const FoodLayer = lazy(() => import("./ui/food/FoodLayer").then((m) => ({ default: m.FoodLayer })));
 // Build plan M30: the notice board, the quest log and the hand-over cards (its own lazy chunk).
 const QuestLayer = lazy(() => import("./ui/quests/QuestLayer").then((m) => ({ default: m.QuestLayer })));
+// Build plan M34: the Settings panel (town style switch; it loads kits and the Firestore SDK).
+const SettingsPanel = lazy(() => import("./ui/settings/SettingsPanel"));
 
 const card: CSSProperties = {
   position: "fixed",
@@ -77,8 +79,10 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
   const connection = useTownConnection(user);
   // Build plan M17: the ApartmentRoom of the apartment the player is in (theirs, or a host's).
   useApartmentConnection(user, connection.uid);
-  // The town renders in the player's style (kits that do not exist yet fall back, scene/kitLoader).
-  // TODO(M37): the Settings screen changes it (and writes users/{uid}.style).
+  // The town renders in the player's style; the Settings panel switches it (preloading the kit) and
+  // writes users/{uid}.style (build plan M34).
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
   useEffect(() => {
     dioramaStore.getState().setStyle(profile.style);
   }, [profile.style]);
@@ -180,9 +184,17 @@ function Town({ user, profile }: { user: User; profile: PlayerProfile }) {
           {t("hud.signedInAs", { name: user.displayName ?? user.email ?? user.uid })}{" "}
           <button type="button" onClick={() => void signOutUser()}>
             {t("common.signOut")}
+          </button>{" "}
+          <button type="button" aria-expanded={settingsOpen} onClick={() => setSettingsOpen((open) => !open)}>
+            {t("settings.open")}
           </button>
         </p>
       </div>
+      {settingsOpen ? (
+        <Suspense fallback={null}>
+          <SettingsPanel uid={user.uid} onClose={closeSettings} />
+        </Suspense>
+      ) : null}
       <AiStatusChip />
       <DebugOverlay connection={connection} />
     </DioramaView>

@@ -1,3 +1,5 @@
+import type { StyleId } from "../data/styles";
+
 /**
  * Free-standing modules the town places (GDD §4.1): which kit they come from and how they affect
  * walking. Rects are in the module frame (metres, pivot at the front-left corner, the module
@@ -13,6 +15,11 @@ export type PropKit = "style" | "common";
 
 export interface TownPropDef {
   kit: PropKit;
+  /**
+   * Style-only modules (M32–M34 extras): the one style kit that has it. The town places them
+   * through the per-style dressing (dressing.ts), never for other styles.
+   */
+  style?: StyleId;
   /** Footprint in 1 m cells. */
   w: number;
   d: number;
@@ -45,6 +52,24 @@ export const TOWN_PROPS = {
   "tree.cypress": { kit: "common", w: 1, d: 1, blocks: [0.3, -0.7, 0.7, -0.3] },
   "bridge.stone": { kit: "common", w: 2, d: 4, walk: [0.4, -4, 1.6, 0] },
   "dock.fishing": { kit: "common", w: 2, d: 3, walk: [0.4, -3, 1.6, -0.2] },
+  // Per-style dressing (dressing.ts, M34): common-kit trees other styles swap in, and the style
+  // kits' extras. A swap's walking area is the union over styles of what each fill blocks, so
+  // these blockers count in every style (the server knows no styles).
+  "tree.sakura": { kit: "common", w: 2, d: 2, blocks: [0.7, -1.3, 1.3, -0.7] },
+  "tree.olive": { kit: "common", w: 2, d: 2, blocks: [0.7, -1.3, 1.3, -0.7] },
+  "tree.palm": { kit: "common", w: 2, d: 2, blocks: [0.7, -1.3, 1.3, -0.7] },
+  "tree.lemon": { kit: "style", style: "mediterranean", w: 2, d: 2, blocks: [0.7, -1.3, 1.3, -0.7] },
+  pergola: { kit: "style", style: "mediterranean", w: 2, d: 2, blocks: [0.08, -1.92, 1.92, -0.08] },
+  bougainvillea: { kit: "style", style: "mediterranean", w: 1, d: 1, blocks: [0, -1, 1, -0.6], solid: true },
+  "pot.terracotta": { kit: "style", style: "mediterranean", w: 1, d: 1, blocks: [0.15, -0.85, 0.85, -0.15], solid: true },
+  "tree.date_palm": { kit: "style", style: "arabic", w: 2, d: 2, blocks: [0.7, -1.3, 1.3, -0.7] },
+  "fountain.courtyard": { kit: "style", style: "arabic", w: 2, d: 2, blocks: [0.05, -1.96, 1.96, -0.04], solid: true },
+  "lantern.brass": { kit: "style", style: "arabic", w: 1, d: 1, blocks: [0.2, -0.8, 0.8, -0.2], solid: true },
+  arcade: { kit: "style", style: "arabic", w: 2, d: 1, blocks: [0, -0.45, 2, 0] },
+  "lantern.stone": { kit: "style", style: "japanese", w: 1, d: 1, blocks: [0.15, -0.85, 0.85, -0.15], solid: true },
+  "tree.pine": { kit: "style", style: "japanese", w: 2, d: 2, blocks: [0.7, -1.3, 1.3, -0.7] },
+  "tree.maple": { kit: "style", style: "japanese", w: 2, d: 2, blocks: [0.7, -1.3, 1.3, -0.7] },
+  "bridge.wooden": { kit: "style", style: "japanese", w: 2, d: 4, walk: [0.4, -4, 1.6, 0] },
 } as const satisfies Record<string, TownPropDef>;
 
 export type TownPropModuleId = keyof typeof TOWN_PROPS;

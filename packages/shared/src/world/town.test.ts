@@ -9,7 +9,9 @@ import { FORAGE_ZONES } from "../data/forage";
 import { PLACE_IDS } from "../data/world";
 import { findPath, segmentWalkable } from "./astar";
 import { buildTownNavGrid, cellOf, isWalkable, NAV_CELL_M, townBlockers, townDecks, townNavGrid } from "./navgrid";
-import { type Rect, TOWN_PROPS, type TownPropModuleId } from "./props";
+import { STYLE_IDS, type StyleId } from "../data/styles";
+import { dressTownProp, isDressedProp, STYLE_TOWN_DRESSING, townPropBlocks, townPropFills } from "./dressing";
+import { type Rect, TOWN_PROPS, type TownPropDef, type TownPropModuleId } from "./props";
 import { townRenderPlan } from "./render";
 import {
   CORNER_BL,
@@ -46,7 +48,10 @@ const manifest = (kit: string): KitManifest =>
 // The committed europe kit (M05) stands in for every style kit: they share ids, footprints and sockets.
 const europe = manifest("european");
 const common = manifest("common");
-const kitOf = (kit: "style" | "common") => (kit === "common" ? common : europe);
+const styleKits: Record<StyleId, KitManifest> = { european: europe, mediterranean: manifest("mediterranean"), arabic: manifest("arabic"), japanese: manifest("japanese") };
+/** The kit a prop comes from (style-only extras from their own style kit). */
+const kitOf = (kit: "style" | "common", style: StyleId = "european") => (kit === "common" ? common : styleKits[style]);
+const defOf = (id: TownPropModuleId): TownPropDef => TOWN_PROPS[id];
 const moduleOf = (kit: KitManifest, id: string) => {
   const m = kit.modules.find((x) => x.id === id);
   if (!m) throw new Error(`${kit.style} has no ${id}`);
@@ -289,22 +294,51 @@ describe("walkability grid", () => {
 });
 
 describe("town props", () => {
-  it.each(["mediterranean", "arabic"])("keeps the %s kit's street furniture inside the shared blockers", (style) => {
-    const kit = manifest(style);
-    for (const [id, def] of Object.entries(TOWN_PROPS) as [TownPropModuleId, (typeof TOWN_PROPS)[TownPropModuleId]][]) {
-      if (def.kit !== "style") continue;
+  it.each(["mediterranean", "arabic", "japanese"] as const)("keeps the %s kit's street furniture inside the shared blockers", (style) => {
+    const kit = styleKits[style];
+    for (const [id, def] of Object.entries(TOWN_PROPS) as [TownPropModuleId, TownPropDef][]) {
+      if (def.kit !== "style" || def.style) continue;
       const m = moduleOf(kit, id);
       expect([m.footprint.w, m.footprint.d], id).toEqual([def.w, def.d]);
-      if ((def as { solid?: boolean }).solid) {
-        const blocks = (def as { blocks?: Rect }).blocks!;
-        expect(contains(blocks, [m.bounds.min[0], m.bounds.min[2], m.bounds.max[0], m.bounds.max[2]]), `${id} blocker vs ${style} bounds`).toBe(true);
+      if (def.solid) {
+        expect(contains(def.blocks!, [m.bounds.min[0], m.bounds.min[2], m.bounds.max[0], m.bounds.max[2]]), `${id} blocker vs ${style} bounds`).toBe(true);
       }
     }
   });
 
-  it("fits the arabic courtyard fountain inside the square fountain's blocker", () => {
-    // Not placed yet (no per-style town dressing, pending.md M33), but swappable for `fountain`.
-    const courtyard = moduleOf(manifest("arabic"), "fountain.courtyard");
+  it("uses modules that exist in their kits, with blockers covering solid props", () => {
+    for (const [id, def] of Object.entries(TOWN_PROPS) as [TownPropModuleId, TownPropDef][]) {
+      const m = moduleOf(kitOf(def.kit, def.style), id);
+      expect([m.footprint.w, m.footprint.d], id).toEqual([def.w, def.d]);
+      if (def.blocks) expect(contains([0, -def.d, def.w, 0], def.blocks), id).toBe(true);
+      if (def.solid) {
+        expect(contains(def.blocks!, [m.bounds.min[0], m.bounds.min[2], m.bounds.max[0], m.bounds.max[2]]), `${id} blocker vs bounds`).toBe(true);
+      }
+      if (def.walk) expect(m.tags).toContain("walkable");
+    }
+  });
+});
+
+describe("per-style town dressing (M34)", () => {
+  const swaps = STYLE_IDS.flatMap((style) =>
+    (Object.entries(STYLE_TOWN_DRESSING[style].swaps) as [TownPropModuleId, readonly TownPropModuleId[]][]).flatMap(([from, tos]) => tos.map((to) => [style, from, to] as const)),
+  );
+
+  it.each(swaps)("%s: %s → %s keeps the footprint, the deck and the kind of prop", (style, from, to) => {
+    const a = defOf(from);
+    const b = defOf(to);
+    expect([b.w, b.d]).toEqual([a.w, a.d]);
+    // Style-only extras show only in their own style, and exist in that style's kit.
+    if (b.style) expect(b.style).toBe(style);
+    moduleOf(kitOf(b.kit, style), to);
+    expect(b.walk).toEqual(a.walk);
+    expect(to.startsWith("tree.")).toBe(from.startsWith("tree."));
+    // Trees block only at the trunk: a swapped tree blocks where the neutral one did.
+    if (from.startsWith("tree.")) expect(b.blocks).toEqual(a.blocks);
+  });
+
+  it("keeps the arabic courtyard fountain inside the square fountain's blocker", () => {
+    const courtyard = moduleOf(styleKits.arabic, "fountain.courtyard");
     const fountain = moduleOf(common, "fountain");
     expect(courtyard.footprint).toEqual({ ...fountain.footprint, h: courtyard.footprint.h });
     expect(courtyard.sockets.map((s) => s.name)).toEqual(fountain.sockets.map((s) => s.name));
@@ -312,30 +346,78 @@ describe("town props", () => {
     expect(contains(blocks, [courtyard.bounds.min[0], courtyard.bounds.min[2], courtyard.bounds.max[0], courtyard.bounds.max[2]])).toBe(true);
   });
 
-  it("uses modules that exist in their kits, with blockers covering solid props", () => {
-    for (const [id, def] of Object.entries(TOWN_PROPS) as [TownPropModuleId, (typeof TOWN_PROPS)[TownPropModuleId]][]) {
-      const m = moduleOf(kitOf(def.kit), id);
-      expect([m.footprint.w, m.footprint.d], id).toEqual([def.w, def.d]);
-      const blocks = (def as { blocks?: Rect }).blocks;
-      if (blocks) expect(contains([0, -def.d, def.w, 0], blocks), id).toBe(true);
-      if ((def as { solid?: boolean }).solid) {
-        expect(contains(blocks!, [m.bounds.min[0], m.bounds.min[2], m.bounds.max[0], m.bounds.max[2]]), `${id} blocker vs bounds`).toBe(true);
+  it("lays the wooden bridge exactly where the stone bridge was", () => {
+    const wooden = moduleOf(styleKits.japanese, "bridge.wooden");
+    const stone = moduleOf(common, "bridge.stone");
+    expect([wooden.footprint.w, wooden.footprint.d]).toEqual([stone.footprint.w, stone.footprint.d]);
+    expect(wooden.sockets).toEqual(stone.sockets);
+    const bridge = TOWN_PROPS_LAYOUT.find((p) => p.module === "bridge.stone")!;
+    expect(dressTownProp(bridge, "japanese")).toBe("bridge.wooden");
+    expect(dressTownProp(bridge, "european")).toBe("bridge.stone");
+  });
+
+  it("places every style's extras somewhere in the town", () => {
+    for (const style of STYLE_IDS) {
+      const shown = new Set(TOWN_PROPS_LAYOUT.map((p) => dressTownProp(p, style)));
+      for (const [id, def] of Object.entries(TOWN_PROPS) as [TownPropModuleId, TownPropDef][]) {
+        if (def.style === style) expect(shown.has(id), `${style} ${id}`).toBe(true);
       }
-      const walk = (def as { walk?: Rect }).walk;
-      if (walk) expect(m.tags).toContain("walkable");
     }
+    // The Japanese town: stone lanterns, pines, maples and cherries, the wooden bridge.
+    const japanese = new Set(TOWN_PROPS_LAYOUT.map((p) => dressTownProp(p, "japanese")));
+    for (const id of ["lantern.stone", "tree.pine", "tree.maple", "tree.sakura", "bridge.wooden"] as const) expect(japanese.has(id), id).toBe(true);
+  });
+
+  it("only shows modules a style has, and never dresses seats or the dock", () => {
+    for (const p of TOWN_PROPS_LAYOUT) {
+      for (const style of STYLE_IDS) {
+        const m = dressTownProp(p, style);
+        if (!m) continue;
+        const def = defOf(m);
+        if (def.style) expect(def.style, `${p.module} → ${m}`).toBe(style);
+        moduleOf(kitOf(def.kit, style), m);
+      }
+      if (p.module === "bench" || p.module === "dock.fishing") expect(isDressedProp(p)).toBe(false);
+      if (p.styles) expect(p.styles.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("blocks the union of every style's fill, so walking is the same in every style", () => {
+    const blockers = townBlockers().filter((b) => b.kind === "prop");
+    for (const p of TOWN_PROPS_LAYOUT) {
+      for (const fill of townPropFills(p)) {
+        const blocks = defOf(fill).blocks;
+        if (!blocks) continue;
+        const area = rectToTown(p, blocks);
+        expect(blockers.some((b) => b.area.every((v, i) => Math.abs(v - area[i]!) < 1e-9)), `${p.module} → ${fill}`).toBe(true);
+      }
+      expect(townPropBlocks(p).length).toBeLessThanOrEqual(townPropFills(p).length);
+    }
+  });
+
+  it("picks the same fill for a placement every time, and uses every option of a swap", () => {
+    for (const p of TOWN_PROPS_LAYOUT) for (const style of STYLE_IDS) expect(dressTownProp(p, style)).toBe(dressTownProp({ ...p }, style));
+    const trees = TOWN_PROPS_LAYOUT.filter((p) => p.module === "tree.deciduous").map((p) => dressTownProp(p, "japanese"));
+    expect(new Set(trees).size).toBe(2);
   });
 });
 
 describe("render plan", () => {
   const plan = townRenderPlan();
 
-  it("only uses modules and variants the kits have", () => {
-    for (const m of plan.modules) {
-      const mod = moduleOf(kitOf(m.kit), m.module);
+  it.each(STYLE_IDS)("only uses modules and variants the kits have (%s)", (style) => {
+    for (const m of townRenderPlan(style).modules) {
+      const mod = moduleOf(kitOf(m.kit, style), m.module);
       expect(m.variant).toBeLessThan(mod.variants);
       expect(m.variant).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it("differs between styles only in the dressed props", () => {
+    const undressed = (style: StyleId) => townRenderPlan(style).modules.filter((m) => !m.dressed);
+    for (const style of STYLE_IDS) expect(undressed(style)).toEqual(undressed("european"));
+    expect(townRenderPlan("japanese").modules.filter((m) => m.dressed).map((m) => m.module)).toContain("lantern.stone");
+    expect(townRenderPlan("european").modules.some((m) => m.module === "lantern.stone")).toBe(false);
   });
 
   it("covers every visible tile once (tiles under buildings are skipped)", () => {
@@ -345,12 +427,14 @@ describe("render plan", () => {
     expect(visible).toBeGreaterThan((TOWN_W - 1) * (TOWN_D - 1) - 300);
   });
 
-  it("keeps the whole town, buildings included, under the GDD budget of 300k triangles", () => {
+  it.each(STYLE_IDS)("keeps the whole %s town, buildings included, under the GDD budget of 300k triangles", (style) => {
+    const kit = styleKits[style];
+    const p = townRenderPlan(style);
     let triangles = 0;
-    for (const m of plan.modules) triangles += moduleOf(kitOf(m.kit), m.module).tris[m.variant]!;
-    triangles += plan.flats.reduce((n, f) => n + (f.ground === "water" ? 4 : 2), 0);
+    for (const m of p.modules) triangles += moduleOf(kitOf(m.kit, style), m.module).tris[m.variant]!;
+    triangles += p.flats.reduce((n, f) => n + (f.ground === "water" ? 4 : 2), 0);
     for (const b of TOWN_BUILDINGS) {
-      for (const p of assembleBuilding(buildingRecipe(b.id), europe).placements) triangles += moduleOf(europe, p.module).tris[p.variant]!;
+      for (const pl of assembleBuilding(buildingRecipe(b.id), kit).placements) triangles += moduleOf(kit, pl.module).tris[pl.variant]!;
     }
     expect(triangles).toBeLessThan(300_000);
   });
