@@ -1,5 +1,5 @@
 import { type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useId, useRef, useState } from "react";
-import { type InputMethod, isRecipeId, type NpcId, PLAYER_TEXT_MAX_LENGTH, requestedSuggestions, type ScriptCode, type SuggestedReply } from "@hellovalley/shared";
+import { type InputMethod, isRecipeId, type NpcId, parseQuestId, PLAYER_TEXT_MAX_LENGTH, requestedSuggestions, type ScriptCode, type SuggestedReply } from "@hellovalley/shared";
 import type { TtsSpeaker } from "../../ai/tts";
 import { useLabelMap } from "../../labels/labelStore";
 import { languageDisplayName } from "../../i18n/i18n";
@@ -438,7 +438,11 @@ function CardView({ card, name, coins, controller, onDone }: { card: Card; name:
     if (open) accept.current?.focus();
   }, [open]);
   if (card.kind === "gift") return <p className="hv-card">🎁 {t("convo.card.gift", { name, item: itemName(card.itemId, labels) })}</p>;
-  if (card.kind === "quest") return <p className="hv-card">📜 {t("convo.card.quest", { name, quest: itemName(card.questId, labels) })}</p>;
+  if (card.kind === "quest") {
+    // Build plan M30: the request's own card (with its notice) is in the quest log; here just its name.
+    const template = parseQuestId(card.questId)?.templateId ?? card.questId;
+    return <p className="hv-card">📜 {t("convo.card.quest", { name, quest: itemName(template, labels) })}</p>;
+  }
   if (card.kind === "recipe") {
     // Build plan M29: the recipe card itself, written in the target language.
     const lang = controller.store.getState().context?.lang;

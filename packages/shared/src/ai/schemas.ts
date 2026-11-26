@@ -202,6 +202,25 @@ export const ELDER_BARK_JSON_SCHEMA: AiJsonSchema = obj(
   ["lines"],
 );
 
+// Build plan M30: a Town Hall notice, a title and 1–4 body lines (npc-runtime.md §9.3).
+export const QUEST_NOTICE_MAX_LINES = 4;
+const NoticeLineSchema = z.object({ text: barkText(400), reading: barkText(800).optional().nullable(), translation: barkText(800).optional().nullable() });
+const noticeLine = (l: z.output<typeof NoticeLineSchema>) =>
+  l.reading && l.reading !== l.text ? { text: l.text, reading: l.reading, translation: l.translation ?? "" } : { text: l.text, translation: l.translation ?? "" };
+export const QuestNoticeResponseSchema = z
+  .object({
+    title: NoticeLineSchema,
+    body: z.array(NoticeLineSchema).max(12),
+  })
+  .transform((v) => ({ title: noticeLine(v.title), body: v.body.filter((l) => l.text).slice(0, QUEST_NOTICE_MAX_LINES).map(noticeLine) }))
+  .refine((v) => v.title.text.length > 0 && v.body.length > 0, { message: "empty notice" });
+export type QuestNoticeResponse = z.output<typeof QuestNoticeResponseSchema>;
+const NOTICE_LINE_JSON = obj({ text: str(), reading: str(), translation: str() }, ["text", "translation"]);
+export const QUEST_NOTICE_JSON_SCHEMA: AiJsonSchema = obj(
+  { title: NOTICE_LINE_JSON, body: { type: "array", maxItems: QUEST_NOTICE_MAX_LINES, items: NOTICE_LINE_JSON } },
+  ["title", "body"],
+);
+
 /** Each task's JSON schema and zod schema. */
 export const TASK_SCHEMAS = {
   gloss: { json: GLOSS_JSON_SCHEMA, zod: GlossResponseSchema },
@@ -216,6 +235,7 @@ export const TASK_SCHEMAS = {
   detectLanguage: { json: LANGUAGE_DETECTION_JSON_SCHEMA, zod: LanguageDetectionSchema },
   worldLabels: { json: WORLD_LABELS_JSON_SCHEMA, zod: WorldLabelsResponseSchema },
   elderBark: { json: ELDER_BARK_JSON_SCHEMA, zod: ElderBarkResponseSchema },
+  questNotice: { json: QUEST_NOTICE_JSON_SCHEMA, zod: QuestNoticeResponseSchema },
 } as const satisfies Record<HybridTask, { json: AiJsonSchema; zod: z.ZodType }>;
 
 export type TaskOutput<T extends HybridTask> = z.output<(typeof TASK_SCHEMAS)[T]["zod"]>;

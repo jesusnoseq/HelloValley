@@ -3,7 +3,6 @@ import { getItem, type ItemId, isItemId, NPC_GIFTS, npcBuys, npcSells } from "..
 import type { NpcId } from "../data/npcs";
 import { getRecipe } from "../data/recipes";
 import { MAX_HEARTS } from "../firestore/schemas";
-import { clampHearts, QUEST_COMPLETION_HEARTS } from "./friendship";
 
 /**
  * NPC turn actions (GDD §8.1, docs/prompts/npc-runtime.md §1.3) and the game server's check of
@@ -15,7 +14,7 @@ import { clampHearts, QUEST_COMPLETION_HEARTS } from "./friendship";
  * | `priceAdjustment` | Shopkeeper only, clamped to −30..+10 % of the base price (he opens at +10 %), discounts scaled by friendship, once per item per conversation |
  * | `friendshipDelta` | clamped to −1..+1; at most +1 per conversation and +2 per NPC per in-game day |
  * | `give` | only from the NPC's gift table, at most one gift per NPC per in-game day |
- * | `giveQuest` / `completeQuest` | only quests the server offers / whose conditions hold (TODO(M30)); a completed one adds QUEST_COMPLETION_HEARTS |
+ * | `giveQuest` / `completeQuest` | only quests the server offers / whose conditions hold (build plan M30, quests/progress.ts); the reward, hearts included, is the quest settlement's |
  * | `teachRecipe` | only the NPC's own recipes, at or above their heart threshold |
  * | `endConversation` | always |
  *
@@ -190,9 +189,9 @@ export interface ActionContext {
   inventory: Readonly<Partial<Record<string, number>>>;
   /** Recipes the player already knows (the recipe book, build plan M29). */
   knownRecipes: readonly string[];
-  /** Quests this NPC offers this player today. TODO(M30): daily requests. */
+  /** Quests this NPC may hand out to this player now (build plan M30 `questsOfferedBy`). */
   questsOffered: readonly string[];
-  /** Quests whose server-side conditions hold right now. TODO(M30). */
+  /** Hand-in quests whose server-side conditions hold with this NPC right now (`questsCompletableWith`). */
   questsCompletable: readonly string[];
   conversation: ConversationLedger;
   daily: DailyLedger;
@@ -453,16 +452,15 @@ export function validateNpcActions(actions: readonly NpcAction[], ctx: ActionCon
         break;
       }
       case "completeQuest": {
-        // What the model says does not count: only the server's own conditions (TODO(M30)).
+        // What the model says does not count: only the server's own conditions (quests/progress.ts).
         if (!ctx.questsCompletable.includes(action.questId)) {
           reject(action.type, "conditions_not_met");
           break;
         }
+        // GDD §8.2: completed requests raise friendship, but those hearts (QUEST_COMPLETION_HEARTS,
+        // with the requester) are part of the quest's reward, paid in the same transaction that
+        // takes the hand-in items (build plan M30, quests/progress.ts `settleQuest`), not here.
         effects.questsCompleted.push(action.questId);
-        // GDD §8.2: completed requests raise friendship (not capped by the friendshipDelta limits).
-        const next = clampHearts(hearts + QUEST_COMPLETION_HEARTS);
-        effects.hearts += next - hearts;
-        hearts = next;
         accepted.push({ type: "completeQuest", questId: action.questId });
         break;
       }

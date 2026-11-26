@@ -10,9 +10,19 @@ describe("interactables", () => {
     const list = spaceInteractables("apartment");
     expect(list.map((i) => i.kind)).toEqual(["mirror", "kitchen"]);
     expect(list[0]!.spot).toEqual(interiorLayout("apartment").spots.mirror);
-    expect(spaceInteractables("town").map((i) => i.kind)).toEqual(["intercom"]);
+    expect(spaceInteractables("town").map((i) => i.kind)).toEqual(["intercom", "notice_board"]);
     // Every other room has exactly its villager (build plan M23).
     for (const id of INTERIOR_IDS) if (id !== "apartment") expect(spaceInteractables(id).map((i) => i.kind)).toEqual(["npc"]);
+  });
+
+  it("puts the Town Hall notice board on open ground in town (build plan M30)", () => {
+    const board = spaceInteractables("town").find((i) => i.kind === "notice_board")!;
+    expect(circleFits(townNavGrid(), board.spot)).toBe(true);
+    expect(nearestInteractable("town", board.spot)?.id).toBe("town:notice_board");
+    expect(board.labelKey).toBe("prop.notice_board");
+    // Walkable from the apartment block's door in town.
+    const player = new PlayerController(buildingExitPoint("apartment_block"));
+    expect(player.clickTo(board.spot)).toBe(true);
   });
 
   it("finds the mirror only within reach", () => {

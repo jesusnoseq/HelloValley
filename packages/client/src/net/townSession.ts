@@ -22,6 +22,7 @@ import { RemoteTrack, type RemoteSample } from "./interpolation";
 import { chat } from "./chatSession";
 import { attachFishing } from "./fishingSession";
 import { attachForage } from "./forageSession";
+import { attachQuests } from "./questSession";
 import { attachFood } from "./foodSession";
 import { attachInventory } from "./inventorySession";
 import { attachVisitMessages } from "./visitSession";
@@ -123,7 +124,7 @@ export function attachTownRoom(room: Room, onWelcome?: (welcome: WelcomeMessage)
   townLive.welcomed = false;
   townSession.setState({ room, shard: null, remotes: {} });
 
-  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room), attachFood(room)];
+  const offs: (() => void)[] = [attachVisitMessages(room), chat.attach(room), attachInventory(room), attachFishing(room), attachForage(room), attachFood(room), attachQuests(room)];
   offs.push(
     room.onMessage(ServerMessage.Welcome, (welcome: WelcomeMessage) => {
       townLive.spawn = welcome.spawn;

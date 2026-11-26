@@ -128,7 +128,7 @@ export function applyGift(bond: NpcBond, npcId: NpcId, itemId: string, today: nu
   return { ok: true, bond: { ...bond, hearts, giftedDay: today }, reaction, delta: hearts - clampHearts(bond.hearts) };
 }
 
-/** Hearts for completed requests (the server's own conditions held, TODO(M30)). */
+/** Hearts for completed requests (paid with the quest reward, build plan M30 quests/templates.ts). */
 export function questCompletionHearts(completed: number): number {
   return Math.max(0, Math.trunc(completed)) * QUEST_COMPLETION_HEARTS;
 }

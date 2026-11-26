@@ -30,6 +30,7 @@ import {
   type NpcRefusal,
   type NpcTradeMessage,
   type PendingTrade,
+  type QuestResultMessage,
   type RateLimit,
   recipesTaughtBy,
   schedulePointAt,
@@ -46,6 +47,7 @@ import {
   worldDayAt,
 } from "@hellovalley/shared";
 import type { DialogueFood } from "../food/food";
+import type { DialogueQuests } from "../quests/quests";
 import type { ContactOutcome, NpcPlayerRecord, NpcStore } from "./npcStore";
 
 /**
@@ -67,6 +69,10 @@ import type { ContactOutcome, NpcPlayerRecord, NpcStore } from "./npcStore";
  * - (build plan M29) stores the recipes an NPC teaches (`teachRecipe`) in the recipe book and adds
  *   what the player ate today (the Doctor after three cakes) and the coffee's extra hint to the
  *   context, through the food service.
+ * - (build plan M30) puts today's requests involving the NPC into the context, and settles an
+ *   accepted `giveQuest` (the request goes into the quest log) or `completeQuest` (the quest
+ *   service re-checks the NPC, the bag and the deadline and pays the reward in its own
+ *   transaction; a refusal there rejects the action).
  *
  * Calling the model without a turn id costs the player's AI Logic quota but has no game effect
  * (architecture §9). Limits and ledgers live in memory: there is one server process (§3.1), so a
@@ -136,6 +142,12 @@ const noFood: DialogueFood = {
   flags: () => [],
   extraHints: () => 0,
 };
+/** Without a quest service (older tests): no requests, so giveQuest and completeQuest are always rejected. */
+const noQuests: DialogueQuests = {
+  context: () => Promise.resolve({ briefs: [], offered: [], completable: [] }),
+  accept: (_uid, _lang, questId) => Promise.resolve({ questId, action: "accept", ok: false, reason: "unavailable" }),
+  complete: (_uid, _lang, questId) => Promise.resolve({ questId, action: "complete", ok: false, reason: "unavailable" }),
+};
 const entries = (slots: readonly SlotEntry[]): InventoryEntry[] =>
   Object.entries(itemCounts(slots)).map(([itemId, qty]) => ({ itemId: itemId as ItemId, qty: qty ?? 0 }));
 
@@ -148,7 +160,19 @@ export class NpcDialogueService {
     private readonly store: NpcStore,
     /** Recipes, eating flags and the coffee hint (build plan M29). */
     private readonly food: DialogueFood = noFood,
+    /** Daily requests and favours (build plan M30). */
+    private readonly quests: DialogueQuests = noQuests,
   ) {}
+
+  /** Today's requests for the context and the turn's checks; a failing quest store leaves them out rather than the conversation. */
+  private async questContext(uid: string, lang: string, npcId: NpcId, slots: readonly SlotEntry[]) {
+    try {
+      return await this.quests.context(uid, lang, npcId, itemCounts(slots));
+    } catch (err) {
+      console.error(`[npc] reading the quests of ${uid}/${lang} failed:`, err);
+      return { briefs: [], offered: [], completable: [] };
+    }
+  }
 
   private player(uid: string, now: number): PlayerState {
     let p = this.players.get(uid);
@@ -211,6 +235,7 @@ export class NpcDialogueService {
       return { ok: false, reason: "unavailable" };
     }
     if (!record || !contact) return { ok: false, reason: "unavailable" };
+    const quests = await this.questContext(req.uid, req.lang, req.npcId, record.slots);
     // A conversation still open (another NPC) ends here and waits for its memory.
     this.close(p, now);
     const conversation: Conversation = {
@@ -249,7 +274,8 @@ export class NpcDialogueService {
       buys: this.buysFor(req.npcId, record.slots),
       inventory: entries(record.slots),
       recipes: recipesTaughtBy(req.npcId).map((r) => ({ recipeId: r.id, heartsRequired: r.heartsRequired, known: known.includes(r.id) })),
-      quests: [], // TODO(M30): active quests involving this NPC.
+      // Build plan M30: today's requests involving this NPC (offered favours, active, done).
+      quests: quests.briefs,
       // Build plan M28: lost items the player carries; M29: what the player ate today.
       flags: [...lostItemFlags(req.npcId, entries(record.slots)), ...this.food.flags(req.uid, req.npcId)],
       // Build plan M29: the coffee buff's extra suggested-reply hint.
@@ -263,7 +289,11 @@ export class NpcDialogueService {
   }
 
   /** `npc:reply`: validates the model's proposed actions for the turn the server issued. */
-  async reply(uid: string, msg: { conversationId: string; turnId: string; actions: NpcAction[] }, now = Date.now()): Promise<{ ok: true; applied: NpcAppliedMessage } | Refused> {
+  async reply(
+    uid: string,
+    msg: { conversationId: string; turnId: string; actions: NpcAction[] },
+    now = Date.now(),
+  ): Promise<{ ok: true; applied: NpcAppliedMessage; quests: QuestResultMessage[] } | Refused> {
     const p = this.player(uid, now);
     const c = p.conversation;
     if (!c || c.id !== msg.conversationId) return { ok: false, reason: "no_conversation" };
@@ -287,14 +317,15 @@ export class NpcDialogueService {
       return restore("unavailable");
     }
     if (!record) return restore("unavailable");
+    const quests = await this.questContext(uid, c.lang, c.npcId, record.slots);
     const dailyKey = this.dailyKey(uid, c, now);
     const verdict = validateNpcActions(msg.actions, {
       npcId: c.npcId,
       hearts: record.hearts,
       inventory: itemCounts(record.slots),
       knownRecipes: known,
-      questsOffered: [], // TODO(M30)
-      questsCompletable: [], // TODO(M30)
+      questsOffered: quests.offered,
+      questsCompletable: quests.completable,
       conversation: c.ledger,
       daily: this.daily.get(dailyKey) ?? emptyDailyLedger(),
     });
@@ -332,7 +363,30 @@ export class NpcDialogueService {
         return restore("unavailable");
       }
     }
-    // TODO(M30): store quest progress (accepted here, not persisted yet).
+    // Build plan M30: a given request goes into the log; a completed one is settled by the quest
+    // service (reward and hand-in items in its own transaction). A refusal there rejects the action.
+    const questResults: QuestResultMessage[] = [];
+    for (const questId of effects.questsGiven) questResults.push(await this.quests.accept(uid, c.lang, questId, c.npcId));
+    for (const questId of effects.questsCompleted) questResults.push(await this.quests.complete(uid, c.lang, questId, c.npcId, "npc"));
+    for (const r of questResults) {
+      if (r.ok) continue;
+      const type = r.action === "accept" ? "giveQuest" : "completeQuest";
+      accepted = accepted.filter((a) => !(a.type === type && a.questId === r.questId));
+      rejected.push({ type, reason: r.action === "accept" ? "unknown_quest" : "conditions_not_met" });
+    }
+    const settled = questResults.filter((r) => r.ok && r.action === "complete");
+    if (settled.length > 0) {
+      // The reward moved coins, hearts and items: answer with the records as they are now.
+      try {
+        const fresh = await this.store.load(uid, c.lang, c.npcId);
+        if (fresh) {
+          hearts = fresh.hearts;
+          slots = fresh.slots;
+        }
+      } catch (err) {
+        console.error(`[npc] reloading ${uid}/${c.lang} after a quest failed:`, err);
+      }
+    }
     c.ledger = verdict.conversation;
     this.daily.set(dailyKey, daily);
     c.turnsUsed++;
@@ -357,7 +411,7 @@ export class NpcDialogueService {
       stock: this.stockFor(c.npcId, c.ledger),
       inventory: entries(slots),
     };
-    return { ok: true, applied };
+    return { ok: true, applied, quests: questResults };
   }
 
   /** `npc:confirm`: the player accepts or declines a pending trade; an accepted one is settled in one transaction. */

@@ -9,6 +9,7 @@ import { createFirebaseModelPort, createFirebaseTemplatePorts, createFirebaseTts
 import { createHybridAI, type HybridAI } from "./hybrid";
 import { type ChatModeration, hybridModeration } from "./moderation";
 import { createOpeners, type Openers } from "./openers";
+import { createQuestNotices, type QuestNotices } from "./questNotices";
 import { createNpcTurnRunner, type NpcTurnRunner } from "./templates";
 import { hybridTranslator, type Translator } from "./translate";
 import { createTts, TTS_IDB_MAX_CLIPS, type TtsSpeaker } from "./tts";
@@ -36,6 +37,7 @@ let openerInstance: Openers | null = null;
 let ttsInstance: TtsSpeaker | null = null;
 let labelInstance: LabelSource | null = null;
 let barkInstance: ElderBarks | null = null;
+let noticeInstance: QuestNotices | null = null;
 
 export function setUser(next: string | null) {
   if (next === uid) return;
@@ -46,6 +48,7 @@ export function setUser(next: string | null) {
   ttsInstance = null;
   labelInstance = null;
   barkInstance = null;
+  noticeInstance = null;
 }
 
 export function hybrid(): HybridAI {
@@ -117,6 +120,25 @@ export function elderBarks(): ElderBarks {
     generate: (input) => hybrid().elderBark(input),
   });
   return barkInstance;
+}
+
+/**
+ * Request notices (build plan M30): seeded `cache/lines/{hash}` (once signed in), then the
+ * player's own generation through the hybrid `questNotice` task.
+ */
+export function questNotices(): QuestNotices {
+  noticeInstance ??= createQuestNotices({
+    ...(uid
+      ? {
+          seeded: async (material: string) => {
+            const snap = await getDoc(doc(db, FirestorePaths.cacheEntry("lines", await sha256Hex(material))));
+            return snap.exists() ? snap.data() : null;
+          },
+        }
+      : {}),
+    generate: (input) => hybrid().questNotice(input),
+  });
+  return noticeInstance;
 }
 
 // Adapters for the M18 chat hooks; they look the instance up per call, so a uid change applies.

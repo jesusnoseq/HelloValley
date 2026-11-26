@@ -30,6 +30,7 @@ export const HYBRID_TASKS = [
   "detectLanguage",
   "worldLabels",
   "elderBark",
+  "questNotice",
 ] as const;
 export type HybridTask = (typeof HYBRID_TASKS)[number];
 
@@ -88,6 +89,10 @@ export const ROUTING_TABLE: Readonly<Record<HybridTask, TaskRoute>> = {
   // Build plan M27: the Elder's comment on a catch (shared content, npc-runtime.md §9.5). Seeded
   // lines first (cache/lines, admin tool); on a miss generated for this player, kept in IndexedDB.
   elderBark: { mode: M.PREFER_IN_CLOUD, fallback: "skip", cache: "persist", temperature: 0.8 },
+  // Build plan M30: a request's notice (npc-runtime.md §9.3). Seeded notices first (cache/lines,
+  // admin tool); on a miss generated for this player, kept in IndexedDB. Without one the board
+  // shows the request's quest card (world labels only).
+  questNotice: { mode: M.PREFER_IN_CLOUD, fallback: "unavailable-chip", cache: "persist", temperature: 0.6 },
 };
 
 /** Architecture §5.2: text up to this many words is "short" (on-device first). */

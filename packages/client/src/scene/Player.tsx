@@ -42,6 +42,7 @@ import { foodStore, localSpeedFactor } from "../state/foodStore";
 import { inventoryStore } from "../state/inventoryStore";
 import { notebookStore } from "../state/notebookStore";
 import { placementStore } from "../state/placementStore";
+import { questStore } from "../state/questStore";
 import { worldStore } from "../state/worldStore";
 import { sceneGrids } from "./apartmentLayout";
 import { CHAT_BUBBLE_GAP_M } from "../ui/chat/chatView";
@@ -70,6 +71,7 @@ function inputPaused(): boolean {
     notebookStore.getState().open ||
     inventoryStore.getState().open ||
     foodStore.getState().kitchenOpen ||
+    questStore.getState().boardOpen ||
     fishingActive()
   );
 }
@@ -193,6 +195,8 @@ export function Player({ start }: { start: SpacePoint }) {
         keys.clear();
         if (nearby === "mirror") avatarStore.getState().openMirror();
         else if (nearby === "kitchen") foodStore.setState({ kitchenOpen: true });
+        // Build plan M30: F at the Town Hall notice board opens today's requests.
+        else if (nearby === "notice_board") questStore.setState({ boardOpen: true });
         else openIntercom();
         return;
       }

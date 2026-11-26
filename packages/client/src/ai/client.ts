@@ -1,5 +1,5 @@
 import { aiStatusStore, refreshOnDeviceStatus } from "./availability";
-import type { FishId, GrammarFeedback, GrammarPromptInput } from "@hellovalley/shared";
+import type { FishId, GrammarFeedback, GrammarPromptInput, Level, QuestNotice } from "@hellovalley/shared";
 import type { NpcAi } from "../net/npcConversation";
 import type { TaskResult } from "./hybrid";
 import type { ChatModeration } from "./moderation";
@@ -116,5 +116,12 @@ export function loadWorldLabels(lang: string): Promise<LabelLoad> {
 export function loadElderBark(input: { fishId: FishId; targetLang: string; nativeLang: string }): Promise<BarkLine | null> {
   return loadAiRuntime()
     .then((r) => r.elderBarks().get(input))
+    .catch(() => null);
+}
+
+/** A request's notice in the target language (build plan M30); null when there is none (offline, no AI backend). */
+export function loadQuestNotice(input: { templateId: string; targetLang: string; nativeLang: string; level: Level }): Promise<QuestNotice | null> {
+  return loadAiRuntime()
+    .then((r) => r.questNotices().get(input))
     .catch(() => null);
 }

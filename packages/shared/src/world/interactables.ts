@@ -5,8 +5,9 @@ import type { SpaceId } from "./player";
 import { buildingDoors, townBuilding, type Vec2 } from "./town";
 import type { NpcId } from "../data/npcs";
 import { NPC_TALK_RADIUS_M, npcsInSpace } from "./npcPosts";
-import { furnitureLabelKey, INTERCOM_LABEL_KEY, npcLabelKey } from "./labels";
+import { furnitureLabelKey, INTERCOM_LABEL_KEY, npcLabelKey, propLabelKey } from "./labels";
 import { KITCHEN_REACH_M } from "../food/cooking";
+import { NOTICE_BOARD_REACH_M, noticeBoardSpot } from "../quests/noticeBoard";
 
 /**
  * Things the player can use with F (GDD §10) when standing next to them (build plan M15 starts
@@ -16,9 +17,10 @@ import { KITCHEN_REACH_M } from "../food/cooking";
  * Build plan M25: every interactable has a `labelKey` (world labels, labels.ts).
  * Build plan M29: the apartment kitchen nook (F opens the kitchen and its recipe cards). Seats are
  * not interactables: they have their own reach (food/seats.ts).
+ * Build plan M30: the Town Hall notice board (F opens today's requests).
  */
 
-export type InteractableKind = "mirror" | "intercom" | "npc" | "kitchen";
+export type InteractableKind = "mirror" | "intercom" | "npc" | "kitchen" | "notice_board";
 
 export interface Interactable {
   id: string;
@@ -76,7 +78,11 @@ export function spaceInteractables(space: SpaceId): readonly Interactable[] {
   const hit = cache.get(space);
   if (hit) return hit;
   const list: Interactable[] = [];
-  if (space === "town") list.push(intercomInteractable());
+  if (space === "town") {
+    list.push(intercomInteractable());
+    // The board stands north of its standing point, so it is faced looking north.
+    list.push({ id: "town:notice_board", kind: "notice_board", space, spot: noticeBoardSpot(), facing: headingFor([0, -1]), radius: NOTICE_BOARD_REACH_M, labelKey: propLabelKey("notice_board") });
+  }
   if (space === "apartment") {
     const spot = interiorLayout("apartment").spots.mirror;
     // The mirror hangs on the west wall (x = 0), so it is faced looking west.

@@ -38,6 +38,7 @@
     "seed:tts": "tsx tools/seed/seed-tts.ts",
     "seed:labels": "tsx tools/seed/seed-labels.ts",
     "seed:barks": "tsx tools/seed/seed-barks.ts",
+    "seed:quests": "tsx tools/seed/seed-quests.ts",
     "test:blender": "python -B -m unittest discover -s tools/blender/tests -t tools/blender"
   },
   "devDependencies": {

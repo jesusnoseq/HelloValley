@@ -32,6 +32,11 @@ import {
   type TranslatePromptInput,
   translateTaskFor,
   LABELS_VERSION,
+  type Level,
+  questNoticePlayerMaterial,
+  questNoticePrompt,
+  type QuestNoticePromptInput,
+  type QuestNoticeResponse,
   worldLabelsPrompt,
   type WorldLabelsPromptInput,
   type WorldLabelsResponse,
@@ -120,6 +125,8 @@ export interface HybridAI {
   worldLabels(input: WorldLabelsPromptInput): Promise<TaskResult<WorldLabelsResponse>>;
   /** The Elder's comments on a catch (build plan M27): a seeded-cache miss, cloud first, per player. */
   elderBark(input: ElderBarkPromptInput & { fishId: FishId }): Promise<TaskResult<ElderBarkResponse>>;
+  /** A request's Town Hall notice (build plan M30): a seeded-cache miss, cloud first, per player. */
+  questNotice(input: Omit<QuestNoticePromptInput, "level"> & { templateId: string; level: Level }): Promise<TaskResult<QuestNoticeResponse>>;
 }
 
 export function createHybridAI(deps: HybridDeps): HybridAI {
@@ -205,6 +212,9 @@ export function createHybridAI(deps: HybridDeps): HybridAI {
     },
     elderBark(input) {
       return shared("elderBark", elderBarkPrompt(input), elderBarkPlayerMaterial(input.fishId, input.targetLang, input.nativeLang));
+    },
+    questNotice(input) {
+      return shared("questNotice", questNoticePrompt(input), questNoticePlayerMaterial(input.templateId, input.targetLang, input.nativeLang, input.level));
     },
   };
 }

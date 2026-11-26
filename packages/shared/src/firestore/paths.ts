@@ -25,6 +25,8 @@ export const FISH_LOG_DOC = "fish";
 export const FORAGE_ALBUM_DOC = "forage";
 /** `users/{uid}/collections/recipes`: the recipes NPCs taught the player (server-only, build plan M29). */
 export const RECIPE_BOOK_DOC = "recipes";
+/** `users/{uid}/collections/quests`: the quest log per target language (server-only, build plan M30). */
+export const QUEST_LOG_DOC = "quests";
 
 /** `users/{uid}/safety/blocks`: the player's block list (server-only, build plan M18). */
 export const BLOCK_LIST_DOC = "blocks";
@@ -73,4 +75,5 @@ export const FirestorePaths = {
   fishLog: (uid: string) => join(C.Users, uid, C.Collections, FISH_LOG_DOC),
   forageAlbum: (uid: string) => join(C.Users, uid, C.Collections, FORAGE_ALBUM_DOC),
   recipeBook: (uid: string) => join(C.Users, uid, C.Collections, RECIPE_BOOK_DOC),
+  questLog: (uid: string) => join(C.Users, uid, C.Collections, QUEST_LOG_DOC),
 } as const;

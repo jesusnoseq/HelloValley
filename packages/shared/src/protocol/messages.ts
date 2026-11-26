@@ -24,6 +24,9 @@ import type { RecipeId, RecipeIngredient } from "../data/recipes";
 import type { EatRefusal } from "../food/eating";
 import type { SitRefusal } from "../food/seats";
 import type { CookRefusal, IngredientUse, RecipeBook } from "../food/cooking";
+import type { QuestAcceptRefusal, NpcQuestBrief, QuestSettleRefusal } from "../quests/progress";
+import type { QuestReward } from "../quests/templates";
+import type { QuestView } from "../quests/view";
 
 /** Colyseus room names registered by the server (architecture §7.1). */
 export const RoomName = {
@@ -101,6 +104,10 @@ export const ClientMessage = {
   SeatStand: "seat:stand",
   /** At the apartment kitchen: cook a learned recipe (build plan M29). The server answers with `cook:result`. */
   CookMake: "cook:make",
+  /** At the Town Hall notice board: take one of today's requests (build plan M30). The server answers with `quest:result`. */
+  QuestAccept: "quest:accept",
+  /** During a conversation: hand a delivery or a fetch over to this NPC (the "Hand over" card). */
+  QuestTurnIn: "quest:handover",
 } as const;
 export type ClientMessage = (typeof ClientMessage)[keyof typeof ClientMessage];
 
@@ -171,6 +178,10 @@ export const ServerMessage = {
   CookResult: "cook:result",
   /** The player's recipe book (after the join, after an NPC teaches a recipe, after cooking). */
   RecipeBook: "recipes:book",
+  /** Today's board and the player's quest log (after the join, every change, and at a new in-game day; build plan M30). */
+  QuestState: "quests:state",
+  /** A request was taken or completed (or why not): board, `giveQuest`, hand-over, `completeQuest` or automatic. */
+  QuestResult: "quest:result",
 } as const;
 export type ServerMessage = (typeof ServerMessage)[keyof typeof ServerMessage];
 
@@ -523,8 +534,8 @@ export interface NpcContextMessage {
   inventory: InventoryEntry[];
   /** The NPC's recipes, with the hearts each needs. */
   recipes: { recipeId: string; heartsRequired: number; known: boolean }[];
-  /** Active quests involving this NPC. TODO(M30). */
-  quests: string[];
+  /** Today's requests involving this NPC (build plan M30): offered (giveQuest), active, done; and which can be completed now. */
+  quests: NpcQuestBrief[];
   /**
    * Extra context: the lost items the player carries (build plan M28, forage/lost.ts
    * `lostItemFlags`) and what the player ate today (build plan M29, food/eating.ts `eatingFlags`).
@@ -864,3 +875,34 @@ export const CLIENT_MESSAGE_TYPES: readonly ClientMessage[] = Object.values(Clie
 export function isClientMessage(type: unknown): type is ClientMessage {
   return typeof type === "string" && (CLIENT_MESSAGE_TYPES as readonly string[]).includes(type);
 }
+
+/** Payload of `ClientMessage.QuestAccept` (build plan M30). */
+export interface QuestAcceptMessage {
+  questId: string;
+}
+
+/** Payload of `ClientMessage.QuestTurnIn`. */
+export interface QuestTurnInMessage {
+  conversationId: string;
+  questId: string;
+}
+
+/** Payload of `ServerMessage.QuestState`: the board (today's three requests) and the log (what the player took on). */
+export interface QuestStateMessage {
+  day: number;
+  /** The player's level in this language (the notices are written at its band), null when unknown. */
+  level: Level | null;
+  board: QuestView[];
+  log: QuestView[];
+}
+
+/** How a quest change came about. */
+export type QuestVia = "board" | "npc" | "hand_over" | "auto";
+
+export type QuestRefusal = QuestAcceptRefusal | QuestSettleRefusal | "too_far" | "no_conversation" | "rate" | "unavailable";
+
+/** Payload of `ServerMessage.QuestResult`. */
+export type QuestResultMessage =
+  | { questId: string; action: "accept"; ok: true; via: QuestVia }
+  | { questId: string; action: "complete"; ok: true; via: QuestVia; reward: QuestReward; coins: number; hearts: number }
+  | { questId: string; action: "accept" | "complete"; ok: false; reason: QuestRefusal };

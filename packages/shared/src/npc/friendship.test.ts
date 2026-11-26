@@ -81,11 +81,11 @@ describe("hearts: documented rules", () => {
     expect(applyGift(newBond(), "baker", "fishing_rod", DAY)).toEqual({ ok: false, reason: "not_giftable" });
   });
 
-  it("adds hearts for completed requests through validateNpcActions", () => {
+  it("accepts completed requests only when the server's conditions hold; the hearts come with the quest reward", () => {
     expect(questCompletionHearts(2)).toBe(2 * QUEST_COMPLETION_HEARTS);
     const ctx = {
       npcId: "farmer" as const,
-      hearts: 9.5,
+      hearts: 3,
       inventory: {},
       knownRecipes: [],
       questsOffered: [],
@@ -93,11 +93,15 @@ describe("hearts: documented rules", () => {
       conversation: emptyConversationLedger(),
       daily: emptyDailyLedger(),
     };
-    const done = validateNpcActions([{ type: "completeQuest", questId: "eggs_to_bakery" }], { ...ctx, hearts: 3 });
-    expect(done.effects).toMatchObject({ hearts: QUEST_COMPLETION_HEARTS, questsCompleted: ["eggs_to_bakery"] });
-    expect(validateNpcActions([{ type: "completeQuest", questId: "eggs_to_bakery" }], ctx).effects.hearts).toBe(0.5);
-    // The model's word does not count: a quest whose conditions do not hold adds nothing.
-    expect(validateNpcActions([{ type: "completeQuest", questId: "free_hearts" }], ctx).effects.hearts).toBe(0);
+    const done = validateNpcActions([{ type: "completeQuest", questId: "eggs_to_bakery" }], ctx);
+    expect(done.accepted).toEqual([{ type: "completeQuest", questId: "eggs_to_bakery" }]);
+    // Build plan M30: the hearts are paid by the quest settlement (quests/progress.ts), in the same
+    // transaction as the coins and the hand-in items, so the action itself adds none.
+    expect(done.effects).toMatchObject({ hearts: 0, questsCompleted: ["eggs_to_bakery"] });
+    // The model's word does not count: a quest whose conditions do not hold is rejected.
+    const forged = validateNpcActions([{ type: "completeQuest", questId: "free_hearts" }], ctx);
+    expect(forged.effects).toMatchObject({ hearts: 0, questsCompleted: [] });
+    expect(forged.rejected).toEqual([{ type: "completeQuest", reason: "conditions_not_met" }]);
   });
 });
 

@@ -76,7 +76,7 @@ export const EntityIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
 export const InteractRequestSchema = z.discriminatedUnion("targetKind", [
   z.object({ targetKind: z.literal("npc"), targetId: NpcIdSchema }),
   // Unused by the server: forage is picked with `forage:pick` (build plan M28), shops are
-  // conversations (M26). TODO(M30): the notice board (Town Hall requests).
+  // conversations (M26), the notice board is `quest:accept` (M30).
   z.object({ targetKind: z.literal("object"), targetId: EntityIdSchema }),
 ]);
 export type InteractRequest = z.infer<typeof InteractRequestSchema>;
@@ -171,6 +171,13 @@ export const SeatStandSchema = z.strictObject({}).optional();
 /** `cook:make`: a recipe id; the server checks the kitchen, the recipe book and the ingredients. */
 export const CookMakeSchema = z.strictObject({ recipeId: z.enum(RECIPE_IDS as [RecipeId, ...RecipeId[]]) });
 
+/** Quest ids are `q{day}-{templateId}` (quests/board.ts); the server checks the rest. */
+export const QuestIdSchema = z.string().regex(/^q\d{1,9}-[a-z0-9_]{1,48}$/);
+/** `quest:accept` (build plan M30): at the notice board, a request id. */
+export const QuestAcceptSchema = z.strictObject({ questId: QuestIdSchema });
+/** `quest:handover`: in a conversation, a request id; the server checks the NPC, the bag and the deadline. */
+export const QuestTurnInSchema = z.strictObject({ conversationId: NpcTokenSchema, questId: QuestIdSchema });
+
 /** Payload schema for every client → server message. */
 export const ClientMessageSchemas = {
   [ClientMessage.PlayerMove]: PlayerMoveSchema,
@@ -201,6 +208,8 @@ export const ClientMessageSchemas = {
   [ClientMessage.SeatSit]: SeatSitSchema,
   [ClientMessage.SeatStand]: SeatStandSchema,
   [ClientMessage.CookMake]: CookMakeSchema,
+  [ClientMessage.QuestAccept]: QuestAcceptSchema,
+  [ClientMessage.QuestTurnIn]: QuestTurnInSchema,
 } as const satisfies Record<ClientMessage, z.ZodType>;
 
 export type ClientMessagePayloads = {

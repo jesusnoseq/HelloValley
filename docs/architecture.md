@@ -263,6 +263,7 @@ Based on GDD §9.4.
 | `users/{uid}/collections/fish` (fish encyclopedia, build plan M27) | — (sent over the room) | — | yes |
 | `users/{uid}/collections/forage` (forage album, build plan M28) | — (sent over the room) | — | yes |
 | `users/{uid}/collections/recipes` (recipe book, build plan M29) | — (sent over the room) | — | yes |
+| `users/{uid}/collections/quests` (quest log per target language, build plan M30) | — (sent over the room) | — | yes |
 | `village/{shardId}/events/{id}` (TTL 14 days) | — | — | yes |
 | `cache/lines`, `cache/tts`, `cache/labels` | signed-in | admin claim only | — |
 | `reports/{id}` | — | — | yes |

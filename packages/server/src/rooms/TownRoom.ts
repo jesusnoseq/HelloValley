@@ -3,6 +3,10 @@ import { type Client, type Delayed, Room, ServerError } from "@colyseus/core";
 import {
   activeTargetLang,
   appearanceOf,
+  atNoticeBoard,
+  NOTICE_BOARD_SLACK_M,
+  type QuestEvent,
+  type QuestResultMessage,
   type BlockedPlayer,
   CHAT_RATE,
   type ChatBroadcast,
@@ -84,6 +88,8 @@ import { ForageService } from "../forage/forage";
 import type { ForageStore } from "../forage/forageStore";
 import { FoodService } from "../food/food";
 import type { FoodStore } from "../food/foodStore";
+import { QuestService } from "../quests/quests";
+import type { QuestStore } from "../quests/questStore";
 import { NpcDialogueService } from "../npc/dialogue";
 import type { NpcStore } from "../npc/npcStore";
 import type { ProfileStore } from "../profiles/profileStore";
@@ -167,6 +173,14 @@ const noFoodStore: FoodStore = {
   eat: () => Promise.reject(new Error("no food store")),
 };
 const noFood = new FoodService(noFoodStore);
+/** Knows no players: real rooms get the quest service through `townRoomWith`. */
+const noQuestStore: QuestStore = {
+  log: () => Promise.resolve(null),
+  level: () => Promise.resolve(null),
+  update: () => Promise.reject(new Error("no quest store")),
+  settle: () => Promise.resolve(null),
+};
+const noQuests = new QuestService(noQuestStore);
 const noNpcs = new NpcDialogueService(noNpcStore);
 const noInventory = new InventoryService(noNpcStore);
 
@@ -224,6 +238,8 @@ interface Session {
   eatTimer: Delayed | null;
   /** When the next buff runs out (food clock, ms): the world tick then sends `buffs:state` again. */
   buffExpiry: number | null;
+  /** Quest accepts, hand-overs, progress and state reads run one after another (build plan M30). */
+  questChain: Promise<void>;
 }
 
 /** A delivered chat line, as the room remembers it for reports. */
@@ -273,6 +289,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   protected forage: ForageService = noForage;
   /** Eating, buffs, cooking and the recipe book (build plan M29). */
   protected food: FoodService = noFood;
+  /** Daily requests, favours, progress and rewards (build plan M30). */
+  protected quests: QuestService = noQuests;
   /** Where joining players appear (tests start next to an NPC). */
   protected spawn: SpacePoint = TOWN_SPAWN;
   private readonly sessions = new Map<string, Session>();
@@ -280,6 +298,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
   private readonly visits = new Map<string, PendingVisit>();
   /** Sessions a newer tab replaced: they may not reconnect. */
   private readonly replaced = new Set<string>();
+  /** The in-game day the players were last sent their quests for (a new day brings a new board). */
+  private questDay: number | null = null;
 
   get shard(): number {
     return this.state.shard;
@@ -316,7 +336,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.ChatReport, (client, report) => this.onChatReport(client, report));
     this.handle(ClientMessage.Interact, (_client, _request) => {
       // NPC conversations start with `npc:start` (build plan M21). World labels need no server (M25),
-      // forage is `forage:pick` (M28), shops are conversations (M26). TODO(M30): the notice board.
+      // forage is `forage:pick` (M28), shops are conversations (M26), the notice board is `quest:accept` (M30).
     });
     this.handle(ClientMessage.NpcStart, (client, { npcId }) => void this.onNpcStart(client, npcId));
     this.handle(ClientMessage.NpcReply, (client, reply) => void this.onNpcReply(client, reply));
@@ -339,6 +359,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.handle(ClientMessage.NpcReturn, (client, msg) => this.queueForage(client.sessionId, () => this.onNpcReturn(client.sessionId, msg)));
     this.handle(ClientMessage.FoodEat, (client, { slot }) => this.queueFood(client.sessionId, () => this.onFoodEat(client.sessionId, slot)));
     this.handle(ClientMessage.CookMake, (client, { recipeId }) => this.queueFood(client.sessionId, () => this.onCook(client.sessionId, recipeId)));
+    this.handle(ClientMessage.QuestAccept, (client, { questId }) => this.queueQuests(client.sessionId, () => this.onQuestAccept(client.sessionId, questId)));
+    this.handle(ClientMessage.QuestTurnIn, (client, msg) => this.queueQuests(client.sessionId, () => this.onQuestHandOver(client.sessionId, msg)));
     this.handle(ClientMessage.SeatSit, (client, { seatId }) => this.onSit(client.sessionId, seatId));
     this.handle(ClientMessage.SeatStand, (client) => this.standUp(client.sessionId, true));
     this.handle(ClientMessage.IntercomList, (client) => this.onIntercomList(client));
@@ -408,6 +430,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
       seatFrom: null,
       eatTimer: null,
       buffExpiry: null,
+      questChain: Promise.resolve(),
     });
     this.state.players.set(
       client.sessionId,
@@ -438,6 +461,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     this.sendForageAlbum(client.sessionId);
     this.sendBuffs(client.sessionId);
     this.sendRecipeBook(client.sessionId);
+    this.sendQuests(client.sessionId);
     // Whoever muted this uid sees the new session id in their mute list.
     for (const [sessionId, other] of this.sessions) {
       if (sessionId !== client.sessionId && other.muted.has(uid)) this.sendSafety(sessionId);
@@ -468,6 +492,7 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
         this.fishing.forget(session.uid);
         this.forage.forget(session.uid);
         this.food.forget(session.uid);
+        this.quests.forget(session.uid);
       }
       session.biteTimer?.clear();
       session.eatTimer?.clear();
@@ -917,6 +942,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (result.applied.accepted.some((a) => a.type === "give")) this.refreshInventory(client.sessionId);
     // Build plan M29: a taught recipe is in the book now.
     if (result.applied.accepted.some((a) => a.type === "teachRecipe")) this.sendRecipeBook(client.sessionId);
+    // Build plan M30: a request given (giveQuest) or completed (completeQuest) in this turn.
+    if (result.quests.length > 0) this.questResults(client.sessionId, result.quests);
   }
 
   private async onNpcConfirm(client: TownClient, confirm: ClientMessagePayloads[typeof ClientMessage.NpcConfirm]): Promise<void> {
@@ -1016,6 +1043,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (result.outcome === "caught") {
       if (result.kept) this.refreshInventory(sessionId);
       this.sendFishLog(sessionId);
+      // Build plan M30: the server's catch counts for catch requests.
+      this.questEvent(sessionId, { type: "caught", fishId: result.fishId });
     }
   }
 
@@ -1063,6 +1092,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (result.ok) {
       this.refreshInventory(sessionId);
       await this.sendAlbumNow(sessionId, session);
+      // Build plan M30: the server's pick-up counts for find requests.
+      this.questEvent(sessionId, { type: "found", itemId: result.itemId });
     }
   }
 
@@ -1138,6 +1169,8 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (result.ok) {
       this.refreshInventory(sessionId);
       await this.sendBookNow(sessionId, session);
+      // Build plan M30: the server's dish counts for cook requests.
+      this.questEvent(sessionId, { type: "cooked", recipeId: result.recipeId });
     }
   }
 
@@ -1198,6 +1231,76 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     if (session) this.queueFood(sessionId, () => this.sendBookNow(sessionId, session));
   }
 
+  // -------------------------------------------------------------------------------------------
+  // Daily requests and quests (build plan M30, GDD §5.5): the board is taken at the notice board
+  // (the server's walker), hand-overs in a conversation, progress from the server's own events.
+
+  private queueQuests(sessionId: string, task: () => Promise<void>): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    session.questChain = session.questChain.then(task).catch((err: unknown) => console.error(`[town] quests for ${session.uid} failed:`, err));
+  }
+
+  private async sendQuestsNow(sessionId: string, session: Session): Promise<void> {
+    const state = await this.quests.state(session.uid, session.targetLang);
+    if (state && this.sessions.get(sessionId) === session) this.clientOf(sessionId)?.send(ServerMessage.QuestState, state);
+  }
+
+  /** Sends the player today's board and their quest log. */
+  private sendQuests(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) this.queueQuests(sessionId, () => this.sendQuestsNow(sessionId, session));
+  }
+
+  /** Tells the player what happened to their requests; a completion moved coins and items, and the log changed. */
+  private questResults(sessionId: string, results: readonly QuestResultMessage[]): void {
+    for (const r of results) this.clientOf(sessionId)?.send(ServerMessage.QuestResult, r);
+    if (results.some((r) => r.ok && r.action === "complete")) this.refreshInventory(sessionId);
+    if (results.some((r) => r.ok)) this.sendQuests(sessionId);
+  }
+
+  /** A server event moves the player's open requests (and completes the ones that are done). */
+  private questEvent(sessionId: string, event: QuestEvent): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    this.queueQuests(sessionId, async () => {
+      const { moved, completed } = await this.quests.onEvent(session.uid, session.targetLang, event);
+      if (this.sessions.get(sessionId) !== session) return;
+      for (const r of completed) this.clientOf(sessionId)?.send(ServerMessage.QuestResult, r);
+      if (completed.some((r) => r.ok)) this.refreshInventory(sessionId);
+      if (moved) await this.sendQuestsNow(sessionId, session);
+    });
+  }
+
+  /** `quest:accept`: only at the Town Hall notice board (the server's own walker). */
+  private async onQuestAccept(sessionId: string, questId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const t = session.tracker;
+    const result: QuestResultMessage = atNoticeBoard(t.space, t.pos, NOTICE_BOARD_SLACK_M)
+      ? await this.quests.accept(session.uid, session.targetLang, questId, null)
+      : { questId, action: "accept", ok: false, reason: "too_far" };
+    if (this.sessions.get(sessionId) !== session) return;
+    this.clientOf(sessionId)?.send(ServerMessage.QuestResult, result);
+    if (result.ok) await this.sendQuestsNow(sessionId, session);
+  }
+
+  /** `quest:handover`: in a conversation, a delivery or fetch goes to the NPC (the quest service checks who, what and when). */
+  private async onQuestHandOver(sessionId: string, msg: ClientMessagePayloads[typeof ClientMessage.QuestTurnIn]): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    const c = this.npc.conversationFor(session.uid, msg.conversationId);
+    const result: QuestResultMessage = c.ok
+      ? await this.quests.complete(session.uid, c.lang, msg.questId, c.npcId, "hand_over")
+      : { questId: msg.questId, action: "complete", ok: false, reason: c.reason === "rate" ? "rate" : "no_conversation" };
+    if (this.sessions.get(sessionId) !== session) return;
+    this.clientOf(sessionId)?.send(ServerMessage.QuestResult, result);
+    if (result.ok) {
+      this.refreshInventory(sessionId);
+      await this.sendQuestsNow(sessionId, session);
+    }
+  }
+
   /** Refreshes the clock and weather in the state (wall time: survives restarts, architecture §3.1). */
   private tickWorld(): void {
     const now = Date.now();
@@ -1213,6 +1316,10 @@ export class TownRoom extends Room<{ state: TownState; client: TownClient }> imp
     // Build plan M29: a buff that ran out leaves the player's HUD.
     const foodNow = this.food.now();
     for (const [sessionId, session] of this.sessions) if (session.buffExpiry !== null && foodNow >= session.buffExpiry) this.sendBuffs(sessionId);
+    // Build plan M30: a new in-game day (on the quest service's clock) brings a new board.
+    const questDay = this.quests.clock().day;
+    if (this.questDay !== null && questDay !== this.questDay) for (const sessionId of this.sessions.keys()) this.sendQuests(sessionId);
+    this.questDay = questDay;
   }
 
   /** Registers a handler that only ever sees payloads that passed the shared schema. */
@@ -1251,6 +1358,8 @@ export interface TownRoomDeps {
   forage?: ForageService;
   /** Eating, buffs, cooking and the recipe book (build plan M29); shared by every shard so buffs follow the player. */
   food?: FoodService;
+  /** Daily requests and quests (build plan M30); shared by every shard. */
+  quests?: QuestService;
 }
 
 export interface TownRoomOptions {
@@ -1269,6 +1378,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
   const fishing = deps.fishing ?? noFishing;
   const forage = deps.forage ?? noForage;
   const food = deps.food ?? noFood;
+  const quests = deps.quests ?? noQuests;
   return class extends TownRoom {
     override maxClients = options.maxClients ?? TOWN_MAX_CLIENTS;
     protected override verifier = deps.verifier;
@@ -1282,6 +1392,7 @@ export function townRoomWith(deps: TownRoomDeps, options: TownRoomOptions = {}):
     protected override fishing = fishing;
     protected override forage = forage;
     protected override food = food;
+    protected override quests = quests;
     protected override spawn = options.spawn ?? TOWN_SPAWN;
   };
 }

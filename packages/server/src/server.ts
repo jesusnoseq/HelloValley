@@ -15,6 +15,8 @@ import { ForageService, type ForageServiceOptions } from "./forage/forage";
 import { createMemoryForageStore, type ForageStore, firestoreForageStoreFor } from "./forage/forageStore";
 import { FoodService, type FoodServiceOptions } from "./food/food";
 import { createMemoryFoodStore, type FoodStore, firestoreFoodStoreFor } from "./food/foodStore";
+import { QuestService, type QuestServiceOptions } from "./quests/quests";
+import { createMemoryQuestStore, firestoreQuestStoreFor, type QuestStore } from "./quests/questStore";
 import { NpcDialogueService } from "./npc/dialogue";
 import { createMemoryNpcStore, firestoreNpcStoreFor, type MemoryNpcStore, type NpcStore } from "./npc/npcStore";
 import { createMemoryStreakStore, firestoreStreakStoreFor, type StreakStore } from "./notebook/streakStore";
@@ -64,6 +66,8 @@ export interface GameServerOptions {
   forage?: ForageServiceOptions & { store?: ForageStore };
   /** Eating, buffs and cooking (build plan M29): the store defaults like fishing's; tests also fix the clock. */
   food?: FoodServiceOptions & { store?: FoodStore };
+  /** Daily requests and quests (build plan M30): the store defaults like fishing's; tests also fix the clock. */
+  quests?: QuestServiceOptions & { store?: QuestStore };
 }
 
 export interface GameServer extends Server {
@@ -88,7 +92,10 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   // Build plan M29: buffs, the eating log and the recipe book, read by dialogue, fishing and the rooms.
   const foodStore = options.food?.store ?? (firebase ? firestoreFoodStoreFor(adminApp(firebase)) : createMemoryFoodStore(memoryNpcStore()));
   const food = new FoodService(foodStore, options.food);
-  const npc = new NpcDialogueService(npcStore, food);
+  // Build plan M30: the quest log; completions share coins, hearts and the bag with the NPC store.
+  const questStore = options.quests?.store ?? (firebase ? firestoreQuestStoreFor(adminApp(firebase)) : createMemoryQuestStore(memoryNpcStore()));
+  const quests = new QuestService(questStore, options.quests);
+  const npc = new NpcDialogueService(npcStore, food, quests);
   const inventory = new InventoryService(npcStore);
   const fishingStore =
     options.fishing?.store ??
@@ -111,7 +118,7 @@ export function createGameServer(options: GameServerOptions = {}): GameServer {
   // A full shard is locked by Colyseus, so joinOrCreate creates the next one. Joining a friend's
   // shard goes through GET /api/shards?friend=<uid> and joinById.
   server
-    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing, forage, food }, options.town))
+    .define(RoomName.Town, townRoomWith({ verifier, profiles, registry: towns, apartments, safety, moderateChat: options.moderateChat, npc, inventory, fishing, forage, food, quests }, options.town))
     .sortBy({ "metadata.shard": 1 });
   // Build plan M17: one private ApartmentRoom per owner. Visitors get in with a pass the owner
   // granted at the lobby intercom (TownRoom).

@@ -165,7 +165,7 @@ export function NotebookLayer({ notebook, store = notebookStore, tts = lazyTts, 
               </ul>
             </>
           )}
-          {/* TODO(M30): the Librarian's "homework" review sessions (GDD §6.3 in-world review). */}
+          {/* TODO(no milestone yet, see pending.md M30): the Librarian's "homework" review sessions (GDD §6.3 in-world review). */}
         </section>
       ) : null}
     </>

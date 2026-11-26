@@ -1,0 +1,219 @@
+/* Daily requests (build plan M30): the log button, the board hint and result notice, the hand-over cards and the panels. */
+
+.hv-quests,
+.hv-quests-button,
+.hv-quest-hint,
+.hv-quest-handover {
+  background: rgba(255, 250, 240, 0.95);
+  color: #3d3a44;
+  font: 14px/1.4 system-ui, sans-serif;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.hv-quests-button {
+  position: fixed;
+  right: 12px;
+  bottom: 144px;
+  z-index: 25;
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.hv-quests-button span {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+.hv-quests-button__count {
+  display: inline-block;
+  min-width: 1.4em;
+  border-radius: 999px;
+  background: #b5543c;
+  color: #fff;
+  text-align: center;
+}
+
+.hv-quest-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 140px;
+  transform: translateX(-50%);
+  z-index: 23;
+  padding: 6px 14px;
+  border-radius: 12px;
+  text-align: center;
+  max-width: calc(100vw - 32px);
+}
+
+.hv-quest-hint p {
+  margin: 2px 0;
+}
+
+.hv-quest-hint__notice--ok {
+  font-weight: 600;
+}
+
+.hv-quest-hint button,
+.hv-quest-handover button,
+.hv-quest__actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 12px;
+  background: #5b8c5a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.hv-quest-hint button:disabled,
+.hv-quest-handover button:disabled,
+.hv-quest__actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hv-quest-handover {
+  position: fixed;
+  right: 12px;
+  top: 120px;
+  z-index: 33;
+  padding: 6px 10px;
+  border-radius: 12px;
+}
+
+.hv-quest-handover p {
+  margin: 4px 0;
+}
+
+.hv-quests {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 41;
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(600px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 14px 18px;
+  border-radius: 16px;
+}
+
+.hv-quests--board {
+  background: #f3e6cc;
+  border: 6px solid #8a6240;
+}
+
+.hv-quests__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hv-quests__header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+}
+
+.hv-quests__header button {
+  border: 0;
+  background: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.hv-quest {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fffaf0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.hv-quest--completed,
+.hv-quest--expired {
+  opacity: 0.7;
+}
+
+.hv-quest__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.hv-quest__icon {
+  font-size: 22px;
+}
+
+.hv-quest__notice {
+  flex: 1;
+  margin: 0;
+}
+
+.hv-quest__notice h3 {
+  margin: 0 0 2px;
+  font-size: 16px;
+}
+
+.hv-quest__notice p {
+  margin: 0;
+}
+
+.hv-quest__notice--missing {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.hv-quest__reading {
+  display: block;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.hv-quest__status {
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 12px;
+  background: #e5dccb;
+  white-space: nowrap;
+}
+
+.hv-quest__status--completed {
+  background: #cfe6c9;
+}
+
+.hv-quest__status--expired {
+  background: #f0d2c8;
+}
+
+.hv-quest__card {
+  margin: 6px 0 2px;
+}
+
+.hv-quest__qty {
+  font-weight: 600;
+}
+
+.hv-quest__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 2px 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.hv-quest__progress {
+  font-weight: 600;
+}
+
+.hv-quest__reward {
+  margin: 2px 0;
+  font-size: 13px;
+}
+
+.hv-quest__actions {
+  margin: 6px 0 0;
+  text-align: right;
+}

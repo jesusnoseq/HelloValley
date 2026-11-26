@@ -16,6 +16,7 @@ import { SCRIPT_MODES } from "../language/scriptMode";
 import { MAX_STACK } from "../npc/inventory";
 import { CHAT_REPORT_REASONS } from "../protocol/messages";
 import { FsrsCardSchema } from "../srs/fsrs";
+import type { QuestKind } from "../quests/templates";
 
 /**
  * Zod schemas for the Firestore documents in GDD §9.4 (with the ownership in architecture §8.1).
@@ -304,6 +305,33 @@ export const RecipeBookDocSchema = z.strictObject({
   ),
 });
 export type RecipeBookDoc = z.infer<typeof RecipeBookDocSchema>;
+
+/** The request kinds (quests/templates.ts `QUEST_KINDS`; repeated here so this module does not import the rules). */
+const QUEST_KIND_VALUES = ["deliver", "fetch", "catch", "cook", "find"] as const satisfies readonly QuestKind[];
+
+/** One target language's quest log (quests/progress.ts `QuestLog`, times as Timestamps). */
+export const QuestLogLangSchema = z.strictObject({
+  day: z.number().int(),
+  entries: z.record(
+    z.string().regex(/^q\d{1,9}-[a-z0-9_]{1,48}$/),
+    z.strictObject({
+      status: z.enum(["active", "completed", "expired"]),
+      progress: z.number().int().min(0).max(MAX_STACK),
+      accepted: TimestampSchema,
+      via: z.enum(["board", "npc"]),
+      completed: TimestampSchema.optional(),
+    }),
+  ),
+  completed: z.partialRecord(z.enum(QUEST_KIND_VALUES), z.number().int().min(0)),
+});
+export type QuestLogLangDoc = z.infer<typeof QuestLogLangSchema>;
+
+/**
+ * `users/{uid}/collections/quests` (build plan M30, server-only like the other collections): the
+ * quest log per target language. The requests themselves are recomputed from (uid, language, day).
+ */
+export const QuestLogDocSchema = z.strictObject({ langs: z.record(LanguageCodeSchema, QuestLogLangSchema) });
+export type QuestLogDoc = z.infer<typeof QuestLogDocSchema>;
 
 /** Lines of the reported player attached to a report, newest last (the server's own copies). */
 export const REPORT_MAX_MESSAGES = 5;

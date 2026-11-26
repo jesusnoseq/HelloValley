@@ -105,6 +105,13 @@ reactions in {{target}} at CEFR A2 (at most 12 words each): praise, gentle teasi
 about the catch. Name the fish in {{target}}. Give "reading" only if the script is not Latin
 ({{romanization_scheme}}), otherwise "". Give a natural "translation" into {{native}}.
 Return JSON: {"lines":[{"text":"…","reading":"…","translation":"…"}]}`,
+  // Build plan M30 (npc-runtime.md §9.3): a Town Hall notice for one request. Game data only, no player text.
+  questNotice: `Write a Town Hall notice for this request in {{target}} at CEFR {{level}}, in the Mayor's dramatic
+official style (simple at low levels). Max {{max_words}} words. It must contain all details the
+player needs to complete it: {{quest_json}} (who, what, quantity, where, deadline).
+Do not mention any reward. Give "reading" only if the script is not Latin ({{romanization_scheme}}),
+otherwise "". Give a natural "translation" of each line into {{native}}.
+Return JSON: {"title":{"text":"…","reading":"…","translation":"…"},"body":[{"text":"…","reading":"…","translation":"…"}]}`,
 } as const;
 
 export interface GlossPromptInput {
@@ -250,4 +257,25 @@ export const elderBarkPrompt = (i: ElderBarkPromptInput) =>
     target: languageName(i.targetLang),
     native: languageName(i.nativeLang),
     romanization_scheme: romanizationScheme(i.targetLang),
+  });
+
+/** Build plan M30: one request's notice (quests/notice.ts). */
+export interface QuestNoticePromptInput {
+  targetLang: string;
+  nativeLang: string;
+  /** The notice's level (the player's level band, `questNoticeLevel`). */
+  level: string;
+  maxWords: number;
+  /** The request's facts in English (quests/templates.ts `questFacts`; game data). */
+  facts: Readonly<Record<string, string | number | undefined>>;
+}
+
+export const questNoticePrompt = (i: QuestNoticePromptInput) =>
+  fillTemplate(PROMPT_TEMPLATES.questNotice, {
+    target: languageName(i.targetLang),
+    native: languageName(i.nativeLang),
+    level: i.level,
+    max_words: String(i.maxWords),
+    romanization_scheme: romanizationScheme(i.targetLang),
+    quest_json: JSON.stringify(Object.fromEntries(Object.entries(i.facts).filter(([, v]) => v !== undefined))),
   });
