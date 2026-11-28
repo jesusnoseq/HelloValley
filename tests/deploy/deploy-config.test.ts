@@ -141,8 +141,8 @@ describe("fly.toml and the server image", () => {
     expect(flyToml).toMatch(/^\s*internal_port = 8080$/m);
     expect(flyToml).toMatch(/^\s*PORT = "8080"$/m);
     expect(flyToml).toMatch(/^\s*HOST = "0\.0\.0\.0"$/m);
-    expect(flyToml).toMatch(/^\s*auto_stop_machines = "off"$/m);
-    expect(flyToml).toMatch(/^\s*min_machines_running = 1$/m);
+    expect(flyToml).toMatch(/^\s*auto_stop_machines = "stop"$/m);
+    expect(flyToml).toMatch(/^\s*min_machines_running = 0$/m);
     expect(flyToml).toMatch(/^\s*path = "\/healthz"$/m);
     expect(flyToml).toMatch(/^\s*dockerfile = "packages\/server\/Dockerfile"$/m);
     // Secrets are named, never given values.
