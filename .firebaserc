@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-hellovalley"
+    "default": "demo-hellovalley",
+    "prod": "hellovalley-app"
   }
 }

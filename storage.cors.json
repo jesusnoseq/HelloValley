@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["https://hellovalley.web.app", "https://hellovalley.firebaseapp.com"],
+    "origin": ["https://hellovalley-app.web.app", "https://hellovalley-app.firebaseapp.com"],
     "method": ["GET", "HEAD"],
     "responseHeader": ["Content-Type", "Content-Length", "Content-Range", "Range", "Cache-Control"],
     "maxAgeSeconds": 3600

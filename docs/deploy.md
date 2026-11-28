@@ -1,8 +1,8 @@
 # HelloValley: production deploy runbook
 
-Build plan M38. This is a manual runbook. **Nothing in it has been run yet**: there is no
-production Firebase project, no Fly.io app and no credentials (see `pending.md`, M38). A person runs it once
-from top to bottom, then uses the "Redeploy" section for later updates.
+Build plan M38. The production Firebase project `hellovalley-app` exists and is linked locally as `prod`.
+The production deploy has not been run (see `pending.md`, M38). Follow this runbook once, then use the
+"Redeploy" section for later updates.
 
 The topology comes from [architecture.md §3](architecture.md#3-deployment), which overrides the build plan's
 Cloud Run:
@@ -27,13 +27,15 @@ Pick these first. The repo assumes the defaults; if you change one, change every
 
 | Name | Default | Appears in |
 |---|---|---|
-| Firebase project id (`$PROJECT`) | `hellovalley` (it may be taken; ids are global) | `storage.cors.json` origins, `.firebaserc` alias (step 1) |
+| Firebase project id (`$PROJECT`) | `hellovalley-app` | `storage.cors.json` origins, `.firebaserc` alias (step 1) |
 | Fly app (`$FLY_APP`) | `hellovalley` → `https://hellovalley.fly.dev` | `fly.toml` `app`, the `firebase.json` CSP `connect-src` (https and wss), `VITE_SERVER_URL` |
 | Firestore and Storage location | `europe-west1` (Belgium) | chosen in the console, cannot change later |
 | Fly region | `ams` (Amsterdam, close to `europe-west1`) | `fly.toml` `primary_region` |
 
 The game server makes a Firestore round trip for every economy change, so keep the Fly region next to the
 Firestore location (architecture §3.1, §12).
+
+Set `PROJECT=hellovalley-app` in your Bash session before running commands that use `$PROJECT`.
 
 ## 0. Prerequisites
 
@@ -45,17 +47,19 @@ Firestore location (architecture §3.1, §12).
   Enterprise needs billing, and the free Gemini quotas are too small for a multiplayer demo (architecture §9).
 - From the repo root: `npm ci`, then `npm run typecheck && npm test && npm run build` pass.
 
-## 1. Create the Firebase project
+## 1. Set up the Firebase project
 
-1. In the [Firebase console](https://console.firebase.google.com/), click **Add project**, enter `$PROJECT` and
-   turn Google Analytics off (the game does not use it).
+1. Open [hellovalley-app in the Firebase console](https://console.firebase.google.com/project/hellovalley-app/overview).
+   If setting up a different project, click **Add project**, choose its project ID and leave Google Analytics off
+   (the game does not use it).
 2. Click **Upgrade** and pick **Blaze**. In Google Cloud **Billing → Budgets & alerts**, add a budget for the
    project (for example 20 EUR with alerts at 50/90/100 %).
-3. Add the alias locally. This keeps `default` on `demo-hellovalley` for the emulators:
+3. `.firebaserc` already maps `prod` to `hellovalley-app` and keeps `default` on `demo-hellovalley` for the
+   emulators. If you switch production projects, update the `prod` alias:
    ```bash
    firebase use --add        # pick $PROJECT, alias: prod
    ```
-   `.firebaserc` now has `"prod": "$PROJECT"`. Commit that line; it is not a secret.
+   The resulting alias in `.firebaserc` is not a secret.
 4. Under **Project settings → General → Your apps**, add a **Web app** (no Hosting setup there). Keep its
    config (`apiKey`, `authDomain`, `projectId`, `storageBucket`, `appId`) for step 9.
 
